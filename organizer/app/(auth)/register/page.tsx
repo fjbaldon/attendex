@@ -17,9 +17,18 @@ import {
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
 import Link from "next/link";
+import {useRouter} from "next/navigation";
+import {useEffect} from "react";
 
 export default function RegisterPage() {
-    const {register, isRegistering} = useAuth();
+    const {register, isRegistering, isAuthenticated} = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            router.replace("/dashboard");
+        }
+    }, [isAuthenticated, router]);
 
     const form = useForm({
         resolver: zodResolver(registerSchema),
