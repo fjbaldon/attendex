@@ -2,7 +2,6 @@ package com.github.fjbaldon.attendex.backend.service;
 
 import com.github.fjbaldon.attendex.backend.dto.ScannerRequest;
 import com.github.fjbaldon.attendex.backend.dto.ScannerResponse;
-import com.github.fjbaldon.attendex.backend.mapper.ScannerMapper;
 import com.github.fjbaldon.attendex.backend.model.Organizer;
 import com.github.fjbaldon.attendex.backend.model.Scanner;
 import com.github.fjbaldon.attendex.backend.repository.OrganizerRepository;
@@ -24,7 +23,6 @@ public class ScannerService {
     private final ScannerRepository scannerRepository;
     private final OrganizerRepository organizerRepository;
     private final PasswordEncoder passwordEncoder;
-    private final ScannerMapper scannerMapper;
 
     @Transactional
     public ScannerResponse createScanner(ScannerRequest request, String organizerUsername) {
@@ -35,14 +33,14 @@ public class ScannerService {
                 .organizer(organizer)
                 .build();
         Scanner savedScanner = scannerRepository.save(scanner);
-        return scannerMapper.toScannerResponse(savedScanner);
+        return toScannerResponse(savedScanner);
     }
 
     @Transactional(readOnly = true)
     public List<ScannerResponse> getAllScannersByOrganizer(String organizerUsername) {
         Organizer organizer = findOrganizerByUsername(organizerUsername);
         return organizer.getScanners().stream()
-                .map(scannerMapper::toScannerResponse)
+                .map(this::toScannerResponse)
                 .collect(Collectors.toList());
     }
 
@@ -61,5 +59,12 @@ public class ScannerService {
     private Organizer findOrganizerByUsername(String username) {
         return organizerRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("Organizer not found"));
+    }
+
+    private ScannerResponse toScannerResponse(Scanner scanner) {
+        return ScannerResponse.builder()
+                .id(scanner.getId())
+                .username(scanner.getUsername())
+                .build();
     }
 }

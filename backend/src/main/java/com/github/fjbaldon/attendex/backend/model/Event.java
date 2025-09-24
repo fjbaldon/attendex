@@ -40,8 +40,10 @@ public class Event {
     private Organizer organizer;
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<EventAttendee> eventAttendees = new HashSet<>();
 
     @Column(nullable = false, updatable = false)
+    @Builder.Default
     private Instant createdAt = Instant.now();
 }

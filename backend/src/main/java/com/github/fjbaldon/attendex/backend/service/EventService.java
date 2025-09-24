@@ -3,8 +3,6 @@ package com.github.fjbaldon.attendex.backend.service;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeResponse;
 import com.github.fjbaldon.attendex.backend.dto.EventRequest;
 import com.github.fjbaldon.attendex.backend.dto.EventResponse;
-import com.github.fjbaldon.attendex.backend.mapper.AttendeeMapper;
-import com.github.fjbaldon.attendex.backend.mapper.EventMapper;
 import com.github.fjbaldon.attendex.backend.model.Attendee;
 import com.github.fjbaldon.attendex.backend.model.Event;
 import com.github.fjbaldon.attendex.backend.model.EventAttendee;
@@ -30,8 +28,6 @@ public class EventService {
     private final OrganizerRepository organizerRepository;
     private final AttendeeRepository attendeeRepository;
     private final EventAttendeeRepository eventAttendeeRepository;
-    private final EventMapper eventMapper;
-    private final AttendeeMapper attendeeMapper;
 
     @Transactional
     public EventResponse createEvent(EventRequest request, String organizerUsername) {
@@ -43,14 +39,14 @@ public class EventService {
                 .organizer(organizer)
                 .build();
         Event savedEvent = eventRepository.save(event);
-        return eventMapper.toEventResponse(savedEvent);
+        return toEventResponse(savedEvent);
     }
 
     @Transactional(readOnly = true)
     public List<EventResponse> getAllEventsByOrganizer(String organizerUsername) {
         Organizer organizer = findOrganizerByUsername(organizerUsername);
         return organizer.getEvents().stream()
-                .map(eventMapper::toEventResponse)
+                .map(this::toEventResponse)
                 .collect(Collectors.toList());
     }
 
@@ -58,7 +54,7 @@ public class EventService {
     public EventResponse getEventById(Long eventId, String organizerUsername) {
         Event event = findEventById(eventId);
         validateEventOwnership(event, organizerUsername);
-        return eventMapper.toEventResponse(event);
+        return toEventResponse(event);
     }
 
     @Transactional
@@ -71,7 +67,7 @@ public class EventService {
         event.setEndDate(request.getEndDate());
 
         Event updatedEvent = eventRepository.save(event);
-        return eventMapper.toEventResponse(updatedEvent);
+        return toEventResponse(updatedEvent);
     }
 
     @Transactional
@@ -126,7 +122,28 @@ public class EventService {
         validateEventOwnership(event, organizerUsername);
 
         return event.getEventAttendees().stream()
-                .map(registration -> attendeeMapper.toAttendeeResponse(registration.getAttendee()))
+                .map(registration -> toAttendeeResponse(registration.getAttendee()))
                 .collect(Collectors.toList());
+    }
+
+    private EventResponse toEventResponse(Event event) {
+        return EventResponse.builder()
+                .id(event.getId())
+                .eventName(event.getEventName())
+                .startDate(event.getStartDate())
+                .endDate(event.getEndDate())
+                .build();
+    }
+
+    private AttendeeResponse toAttendeeResponse(Attendee attendee) {
+        return AttendeeResponse.builder()
+                .id(attendee.getId())
+                .schoolIdNumber(attendee.getSchoolIdNumber())
+                .firstName(attendee.getFirstName())
+                .middleInitial(attendee.getMiddleInitial())
+                .lastName(attendee.getLastName())
+                .course(attendee.getCourse())
+                .yearLevel(attendee.getYearLevel())
+                .build();
     }
 }

@@ -29,11 +29,14 @@ public class Organizer {
     private String password;
 
     @Column(nullable = false, updatable = false)
+    @Builder.Default
     private Instant createdAt = Instant.now();
 
     @OneToMany(mappedBy = "organizer", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<Event> events = new HashSet<>();
 
     @OneToMany(mappedBy = "organizer", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<Scanner> scanners = new HashSet<>();
 }

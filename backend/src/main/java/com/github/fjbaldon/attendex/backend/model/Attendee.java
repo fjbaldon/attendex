@@ -43,8 +43,10 @@ public class Attendee {
     private String password;
 
     @Column(nullable = false, updatable = false)
+    @Builder.Default
     private Instant createdAt = Instant.now();
 
     @OneToMany(mappedBy = "attendee", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<EventAttendee> eventRegistrations = new HashSet<>();
 }

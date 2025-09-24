@@ -3,7 +3,6 @@ package com.github.fjbaldon.attendex.backend.service;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeImportResponse;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeRequest;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeResponse;
-import com.github.fjbaldon.attendex.backend.mapper.AttendeeMapper;
 import com.github.fjbaldon.attendex.backend.model.Attendee;
 import com.github.fjbaldon.attendex.backend.repository.AttendeeRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -29,19 +28,25 @@ import java.util.List;
 public class AttendeeService {
 
     private final AttendeeRepository attendeeRepository;
-    private final AttendeeMapper attendeeMapper;
 
     @Transactional
     public AttendeeResponse createAttendee(AttendeeRequest request) {
-        Attendee attendee = attendeeMapper.toAttendee(request);
+        Attendee attendee = new Attendee();
+        attendee.setSchoolIdNumber(request.getSchoolIdNumber());
+        attendee.setFirstName(request.getFirstName());
+        attendee.setMiddleInitial(request.getMiddleInitial());
+        attendee.setLastName(request.getLastName());
+        attendee.setCourse(request.getCourse());
+        attendee.setYearLevel(request.getYearLevel());
+
         Attendee savedAttendee = attendeeRepository.save(attendee);
-        return attendeeMapper.toAttendeeResponse(savedAttendee);
+        return toAttendeeResponse(savedAttendee);
     }
 
     @Transactional(readOnly = true)
     public Page<AttendeeResponse> getAllAttendees(Pageable pageable) {
         return attendeeRepository.findAll(pageable)
-                .map(attendeeMapper::toAttendeeResponse);
+                .map(this::toAttendeeResponse);
     }
 
     @Transactional
@@ -57,7 +62,7 @@ public class AttendeeService {
         attendee.setYearLevel(request.getYearLevel());
 
         Attendee updatedAttendee = attendeeRepository.save(attendee);
-        return attendeeMapper.toAttendeeResponse(updatedAttendee);
+        return toAttendeeResponse(updatedAttendee);
     }
 
     @Transactional
@@ -99,7 +104,15 @@ public class AttendeeService {
                         request.setYearLevel(Integer.parseInt(csvRecord.get("yearLevel")));
                     }
 
-                    attendeesToSave.add(attendeeMapper.toAttendee(request));
+                    Attendee attendee = new Attendee();
+                    attendee.setSchoolIdNumber(request.getSchoolIdNumber());
+                    attendee.setFirstName(request.getFirstName());
+                    attendee.setMiddleInitial(request.getMiddleInitial());
+                    attendee.setLastName(request.getLastName());
+                    attendee.setCourse(request.getCourse());
+                    attendee.setYearLevel(request.getYearLevel());
+
+                    attendeesToSave.add(attendee);
                     successfulImports++;
                 } catch (Exception e) {
                     failedImports++;
@@ -118,6 +131,18 @@ public class AttendeeService {
                 .successfulImports(successfulImports)
                 .failedImports(failedImports)
                 .errors(errors)
+                .build();
+    }
+
+    private AttendeeResponse toAttendeeResponse(Attendee attendee) {
+        return AttendeeResponse.builder()
+                .id(attendee.getId())
+                .schoolIdNumber(attendee.getSchoolIdNumber())
+                .firstName(attendee.getFirstName())
+                .middleInitial(attendee.getMiddleInitial())
+                .lastName(attendee.getLastName())
+                .course(attendee.getCourse())
+                .yearLevel(attendee.getYearLevel())
                 .build();
     }
 }

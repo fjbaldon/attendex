@@ -3,7 +3,6 @@ package com.github.fjbaldon.attendex.backend.service;
 import com.github.fjbaldon.attendex.backend.dto.ActiveEventResponse;
 import com.github.fjbaldon.attendex.backend.dto.AttendanceSyncRequest;
 import com.github.fjbaldon.attendex.backend.dto.EventAttendeeSyncResponse;
-import com.github.fjbaldon.attendex.backend.mapper.AppMapper;
 import com.github.fjbaldon.attendex.backend.model.AttendanceRecord;
 import com.github.fjbaldon.attendex.backend.model.Event;
 import com.github.fjbaldon.attendex.backend.model.Scanner;
@@ -29,7 +28,6 @@ public class AppService {
     private final ScannerRepository scannerRepository;
     private final AttendeeRepository attendeeRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
-    private final AppMapper appMapper;
 
     @Transactional(readOnly = true)
     public List<ActiveEventResponse> getActiveEvents(String scannerUsername) {
@@ -37,7 +35,7 @@ public class AppService {
         LocalDate today = LocalDate.now();
 
         return eventRepository.findAllByOrganizerAndDate(scanner.getOrganizer(), today).stream()
-                .map(appMapper::toActiveEventResponse)
+                .map(event -> new ActiveEventResponse(event.getId(), event.getEventName()))
                 .collect(Collectors.toList());
     }
 
@@ -51,7 +49,11 @@ public class AppService {
         }
 
         return event.getEventAttendees().stream()
-                .map(appMapper::toEventAttendeeSyncResponse)
+                .map(eventAttendee -> new EventAttendeeSyncResponse(
+                        eventAttendee.getAttendee().getId(),
+                        eventAttendee.getAttendee().getSchoolIdNumber(),
+                        eventAttendee.getQrCodeHash()
+                ))
                 .collect(Collectors.toList());
     }
 

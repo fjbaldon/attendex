@@ -2,8 +2,12 @@ package com.github.fjbaldon.attendex.backend.controller;
 
 import com.github.fjbaldon.attendex.backend.dto.AuthRequest;
 import com.github.fjbaldon.attendex.backend.dto.AuthResponse;
+import com.github.fjbaldon.attendex.backend.dto.RegisterRequest;
 import com.github.fjbaldon.attendex.backend.security.JwtService;
+import com.github.fjbaldon.attendex.backend.service.AuthService; // Import AuthService
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,6 +26,7 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final JwtService jwtService;
+    private final AuthService authService;
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
@@ -33,5 +38,11 @@ public class AuthController {
         final String jwt = jwtService.generateToken(userDetails);
 
         return ResponseEntity.ok(new AuthResponse(jwt, "Bearer"));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
+        authService.registerOrganizer(request);
+        return new ResponseEntity<>(HttpStatus.CREATED);
     }
 }
