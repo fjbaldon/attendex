@@ -7,5 +7,5 @@ import lombok.Data;
 @Builder
 public class ScannerResponse {
     private Long id;
-    private String username;
+    private String email;
 }

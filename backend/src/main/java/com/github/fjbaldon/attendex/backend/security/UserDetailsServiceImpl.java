@@ -23,21 +23,19 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // First, try to find an organizer
-        return organizerRepository.findByUsername(username)
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        return organizerRepository.findByEmail(email)
                 .map(organizer -> new User(
-                        organizer.getUsername(),
+                        organizer.getEmail(),
                         organizer.getPassword(),
                         List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER"))
                 ))
-                // If not found, try to find a scanner
-                .orElseGet(() -> scannerRepository.findByUsername(username)
+                .orElseGet(() -> scannerRepository.findByEmail(email)
                         .map(scanner -> new User(
-                                scanner.getUsername(),
+                                scanner.getEmail(),
                                 scanner.getPassword(),
                                 List.of(new SimpleGrantedAuthority("ROLE_SCANNER"))
                         ))
-                        .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username)));
+                        .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email)));
     }
 }

@@ -1,7 +1,7 @@
 package com.github.fjbaldon.attendex.backend.service;
 
 import com.github.fjbaldon.attendex.backend.dto.RegisterRequest;
-import com.github.fjbaldon.attendex.backend.exception.UsernameAlreadyExistsException; // Import the new exception
+import com.github.fjbaldon.attendex.backend.exception.EmailAlreadyExistsException;
 import com.github.fjbaldon.attendex.backend.model.Organizer;
 import com.github.fjbaldon.attendex.backend.repository.OrganizerRepository;
 import com.github.fjbaldon.attendex.backend.repository.ScannerRepository;
@@ -20,13 +20,13 @@ public class AuthService {
 
     @Transactional
     public void registerOrganizer(RegisterRequest request) {
-        if (organizerRepository.findByUsername(request.getUsername()).isPresent() ||
-                scannerRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new UsernameAlreadyExistsException("Username '" + request.getUsername() + "' is already taken");
+        if (organizerRepository.findByEmail(request.getEmail()).isPresent() ||
+                scannerRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new EmailAlreadyExistsException("Email '" + request.getEmail() + "' is already taken");
         }
 
         Organizer organizer = Organizer.builder()
-                .username(request.getUsername())
+                .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .build();
 

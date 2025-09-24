@@ -30,8 +30,8 @@ public class AppService {
     private final AttendanceRecordRepository attendanceRecordRepository;
 
     @Transactional(readOnly = true)
-    public List<ActiveEventResponse> getActiveEvents(String scannerUsername) {
-        Scanner scanner = findScannerByUsername(scannerUsername);
+    public List<ActiveEventResponse> getActiveEvents(String scannerEmail) {
+        Scanner scanner = findScannerByEmail(scannerEmail);
         LocalDate today = LocalDate.now();
 
         return eventRepository.findAllByOrganizerAndDate(scanner.getOrganizer(), today).stream()
@@ -40,8 +40,8 @@ public class AppService {
     }
 
     @Transactional(readOnly = true)
-    public List<EventAttendeeSyncResponse> getAttendeesForEvent(Long eventId, String scannerUsername) {
-        Scanner scanner = findScannerByUsername(scannerUsername);
+    public List<EventAttendeeSyncResponse> getAttendeesForEvent(Long eventId, String scannerEmail) {
+        Scanner scanner = findScannerByEmail(scannerEmail);
         Event event = findEventById(eventId);
 
         if (!event.getOrganizer().getId().equals(scanner.getOrganizer().getId())) {
@@ -58,8 +58,8 @@ public class AppService {
     }
 
     @Transactional
-    public void syncAttendance(AttendanceSyncRequest request, String scannerUsername) {
-        Scanner scanner = findScannerByUsername(scannerUsername);
+    public void syncAttendance(AttendanceSyncRequest request, String scannerEmail) {
+        Scanner scanner = findScannerByEmail(scannerEmail);
 
         List<AttendanceRecord> recordsToSave = request.getRecords().stream().map(recordDto -> {
             Event event = findEventById(recordDto.getEventId());
@@ -79,8 +79,8 @@ public class AppService {
         attendanceRecordRepository.saveAll(recordsToSave);
     }
 
-    private Scanner findScannerByUsername(String username) {
-        return scannerRepository.findByUsername(username)
+    private Scanner findScannerByEmail(String email) {
+        return scannerRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Scanner not found"));
     }
 

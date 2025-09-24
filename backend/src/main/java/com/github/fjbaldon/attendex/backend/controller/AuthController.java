@@ -4,7 +4,7 @@ import com.github.fjbaldon.attendex.backend.dto.AuthRequest;
 import com.github.fjbaldon.attendex.backend.dto.AuthResponse;
 import com.github.fjbaldon.attendex.backend.dto.RegisterRequest;
 import com.github.fjbaldon.attendex.backend.security.JwtService;
-import com.github.fjbaldon.attendex.backend.service.AuthService; // Import AuthService
+import com.github.fjbaldon.attendex.backend.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -31,10 +31,10 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
+        final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
         final String jwt = jwtService.generateToken(userDetails);
 
         return ResponseEntity.ok(new AuthResponse(jwt, "Bearer"));

@@ -39,9 +39,6 @@ public class Attendee {
 
     private Integer yearLevel;
 
-    @Column
-    private String password;
-
     @Column(nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

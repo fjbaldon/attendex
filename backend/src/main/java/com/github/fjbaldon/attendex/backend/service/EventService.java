@@ -30,8 +30,8 @@ public class EventService {
     private final EventAttendeeRepository eventAttendeeRepository;
 
     @Transactional
-    public EventResponse createEvent(EventRequest request, String organizerUsername) {
-        Organizer organizer = findOrganizerByUsername(organizerUsername);
+    public EventResponse createEvent(EventRequest request, String organizerEmail) {
+        Organizer organizer = findOrganizerByEmail(organizerEmail);
         Event event = Event.builder()
                 .eventName(request.getEventName())
                 .startDate(request.getStartDate())
@@ -43,24 +43,24 @@ public class EventService {
     }
 
     @Transactional(readOnly = true)
-    public List<EventResponse> getAllEventsByOrganizer(String organizerUsername) {
-        Organizer organizer = findOrganizerByUsername(organizerUsername);
+    public List<EventResponse> getAllEventsByOrganizer(String organizerEmail) {
+        Organizer organizer = findOrganizerByEmail(organizerEmail);
         return organizer.getEvents().stream()
                 .map(this::toEventResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public EventResponse getEventById(Long eventId, String organizerUsername) {
+    public EventResponse getEventById(Long eventId, String organizerEmail) {
         Event event = findEventById(eventId);
-        validateEventOwnership(event, organizerUsername);
+        validateEventOwnership(event, organizerEmail);
         return toEventResponse(event);
     }
 
     @Transactional
-    public EventResponse updateEvent(Long eventId, EventRequest request, String organizerUsername) {
+    public EventResponse updateEvent(Long eventId, EventRequest request, String organizerEmail) {
         Event event = findEventById(eventId);
-        validateEventOwnership(event, organizerUsername);
+        validateEventOwnership(event, organizerEmail);
 
         event.setEventName(request.getEventName());
         event.setStartDate(request.getStartDate());
@@ -71,14 +71,14 @@ public class EventService {
     }
 
     @Transactional
-    public void deleteEvent(Long eventId, String organizerUsername) {
+    public void deleteEvent(Long eventId, String organizerEmail) {
         Event event = findEventById(eventId);
-        validateEventOwnership(event, organizerUsername);
+        validateEventOwnership(event, organizerEmail);
         eventRepository.delete(event);
     }
 
-    private Organizer findOrganizerByUsername(String username) {
-        return organizerRepository.findByUsername(username)
+    private Organizer findOrganizerByEmail(String email) {
+        return organizerRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Organizer not found"));
     }
 
@@ -87,16 +87,16 @@ public class EventService {
                 .orElseThrow(() -> new EntityNotFoundException("Event with ID " + eventId + " not found"));
     }
 
-    private void validateEventOwnership(Event event, String username) {
-        if (!event.getOrganizer().getUsername().equals(username)) {
+    private void validateEventOwnership(Event event, String email) {
+        if (!event.getOrganizer().getEmail().equals(email)) {
             throw new AccessDeniedException("You do not have permission to access this event");
         }
     }
 
     @Transactional
-    public void addAttendeeToEvent(Long eventId, Long attendeeId, String organizerUsername) {
+    public void addAttendeeToEvent(Long eventId, Long attendeeId, String organizerEmail) {
         Event event = findEventById(eventId);
-        validateEventOwnership(event, organizerUsername);
+        validateEventOwnership(event, organizerEmail);
 
         Attendee attendee = attendeeRepository.findById(attendeeId)
                 .orElseThrow(() -> new EntityNotFoundException("Attendee with ID " + attendeeId + " not found"));
@@ -110,16 +110,16 @@ public class EventService {
     }
 
     @Transactional
-    public void removeAttendeeFromEvent(Long eventId, Long attendeeId, String organizerUsername) {
+    public void removeAttendeeFromEvent(Long eventId, Long attendeeId, String organizerEmail) {
         Event event = findEventById(eventId);
-        validateEventOwnership(event, organizerUsername);
+        validateEventOwnership(event, organizerEmail);
         eventAttendeeRepository.deleteByEventIdAndAttendeeId(eventId, attendeeId);
     }
 
     @Transactional(readOnly = true)
-    public List<AttendeeResponse> getAttendeesForEvent(Long eventId, String organizerUsername) {
+    public List<AttendeeResponse> getAttendeesForEvent(Long eventId, String organizerEmail) {
         Event event = findEventById(eventId);
-        validateEventOwnership(event, organizerUsername);
+        validateEventOwnership(event, organizerEmail);
 
         return event.getEventAttendees().stream()
                 .map(registration -> toAttendeeResponse(registration.getAttendee()))

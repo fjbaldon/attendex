@@ -33,7 +33,7 @@ export default function RegisterPage() {
     const form = useForm({
         resolver: zodResolver(registerSchema),
         defaultValues: {
-            username: "",
+            email: "",
             password: "",
         },
     });
@@ -45,18 +45,22 @@ export default function RegisterPage() {
     return (
         <AuthCard
             title="Create an Account"
-            description="Enter a username and password to get started."
+            description="Enter an email and password to get started."
         >
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <FormField
                         control={form.control}
-                        name="username"
+                        name="email"
                         render={({field}) => (
                             <FormItem>
-                                <FormLabel>Username</FormLabel>
+                                <FormLabel>Email</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="your_username" {...field} />
+                                    <Input
+                                        type="email"
+                                        placeholder="name@example.com"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage/>
                             </FormItem>

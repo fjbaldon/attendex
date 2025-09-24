@@ -8,5 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface ScannerRepository extends JpaRepository<Scanner, Long> {
-    Optional<Scanner> findByUsername(String username);
+    Optional<Scanner> findByEmail(String email);
 }

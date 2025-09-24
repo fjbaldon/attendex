@@ -10,5 +10,5 @@ import java.util.Optional;
 @Repository
 public interface OrganizerRepository extends JpaRepository<Organizer, Long> {
     @EntityGraph(attributePaths = {"events", "scanners"})
-    Optional<Organizer> findByUsername(String username);
+    Optional<Organizer> findByEmail(String email);
 }

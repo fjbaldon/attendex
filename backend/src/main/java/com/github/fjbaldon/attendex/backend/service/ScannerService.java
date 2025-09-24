@@ -25,10 +25,10 @@ public class ScannerService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public ScannerResponse createScanner(ScannerRequest request, String organizerUsername) {
-        Organizer organizer = findOrganizerByUsername(organizerUsername);
+    public ScannerResponse createScanner(ScannerRequest request, String organizerEmail) {
+        Organizer organizer = findOrganizerByEmail(organizerEmail);
         Scanner scanner = Scanner.builder()
-                .username(request.getUsername())
+                .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .organizer(organizer)
                 .build();
@@ -37,34 +37,34 @@ public class ScannerService {
     }
 
     @Transactional(readOnly = true)
-    public List<ScannerResponse> getAllScannersByOrganizer(String organizerUsername) {
-        Organizer organizer = findOrganizerByUsername(organizerUsername);
+    public List<ScannerResponse> getAllScannersByOrganizer(String organizerEmail) {
+        Organizer organizer = findOrganizerByEmail(organizerEmail);
         return organizer.getScanners().stream()
                 .map(this::toScannerResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public void deleteScanner(Long scannerId, String organizerUsername) {
+    public void deleteScanner(Long scannerId, String organizerEmail) {
         Scanner scanner = scannerRepository.findById(scannerId)
                 .orElseThrow(() -> new EntityNotFoundException("Scanner with ID " + scannerId + " not found"));
 
-        if (!scanner.getOrganizer().getUsername().equals(organizerUsername)) {
+        if (!scanner.getOrganizer().getEmail().equals(organizerEmail)) {
             throw new AccessDeniedException("You do not have permission to delete this scanner");
         }
 
         scannerRepository.delete(scanner);
     }
 
-    private Organizer findOrganizerByUsername(String username) {
-        return organizerRepository.findByUsername(username)
+    private Organizer findOrganizerByEmail(String email) {
+        return organizerRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Organizer not found"));
     }
 
     private ScannerResponse toScannerResponse(Scanner scanner) {
         return ScannerResponse.builder()
                 .id(scanner.getId())
-                .username(scanner.getUsername())
+                .email(scanner.getEmail())
                 .build();
     }
 }

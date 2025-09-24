@@ -22,11 +22,11 @@ public class ReportService {
     private final AttendanceRecordRepository attendanceRecordRepository;
 
     @Transactional(readOnly = true)
-    public EventAnalyticsResponse getEventAnalytics(Long eventId, String organizerUsername) {
+    public EventAnalyticsResponse getEventAnalytics(Long eventId, String organizerEmail) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EntityNotFoundException("Event not found"));
 
-        if (!event.getOrganizer().getUsername().equals(organizerUsername)) {
+        if (!event.getOrganizer().getEmail().equals(organizerEmail)) {
             throw new AccessDeniedException("You do not have permission to access this event's analytics");
         }
 
