@@ -4,7 +4,8 @@ import {createJSONStorage, persist} from "zustand/middleware";
 interface AuthState {
     accessToken: string | null;
     isAuthenticated: boolean;
-    setToken: (token: string) => void;
+    userEmail: string | null;
+    setToken: (token: string, email: string) => void;
     clearToken: () => void;
 }
 
@@ -13,15 +14,18 @@ export const useAuthStore = create<AuthState>()(
         (set) => ({
             accessToken: null,
             isAuthenticated: false,
-            setToken: (token) =>
+            userEmail: null,
+            setToken: (token, email) =>
                 set({
                     accessToken: token,
                     isAuthenticated: true,
+                    userEmail: email,
                 }),
             clearToken: () =>
                 set({
                     accessToken: null,
                     isAuthenticated: false,
+                    userEmail: null,
                 }),
         }),
         {

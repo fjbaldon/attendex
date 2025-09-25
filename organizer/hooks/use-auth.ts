@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import {AuthRequest, AuthResponse, RegisterRequest} from "@/types";
 import {toast} from "sonner";
 import {AxiosError} from "axios";
+import {jwtDecode} from "jwt-decode";
 
 type ApiErrorResponse = {
     timestamp: string;
@@ -25,7 +26,7 @@ const getErrorMessage = (error: AxiosError, defaultMessage: string): string => {
     if (errorData.validationErrors) {
         const messages = Object.values(errorData.validationErrors);
         if (messages.length > 0) {
-            return messages.join('. ');
+            return messages.join(". ");
         }
     }
 
@@ -36,23 +37,27 @@ const getErrorMessage = (error: AxiosError, defaultMessage: string): string => {
     return defaultMessage;
 };
 
-
 export const useAuth = () => {
     const {setToken, clearToken, isAuthenticated} = useAuthStore();
     const router = useRouter();
 
-    const loginMutation = useMutation<AuthResponse, AxiosError<ApiErrorResponse>, AuthRequest>({
+    const loginMutation = useMutation<
+        AuthResponse,
+        AxiosError<ApiErrorResponse>,
+        AuthRequest
+    >({
         mutationFn: (credentials) =>
             api.post("/api/v1/auth/login", credentials).then((res) => res.data),
         onSuccess: (data) => {
-            setToken(data.accessToken);
+            const decodedToken: { sub: string } = jwtDecode(data.accessToken);
+            setToken(data.accessToken, decodedToken.sub);
             toast.success("Login successful!", {
                 description: "Redirecting to your dashboard...",
             });
             router.replace("/dashboard");
         },
         onError: (error) => {
-            const errorMessage = getErrorMessage(error, "Invalid username or password.");
+            const errorMessage = getErrorMessage(error, "Invalid email or password.");
             toast.error("Login failed", {
                 description: errorMessage,
             });
@@ -60,8 +65,13 @@ export const useAuth = () => {
         },
     });
 
-    const registerMutation = useMutation<void, AxiosError<ApiErrorResponse>, RegisterRequest>({
-        mutationFn: (userInfo) => api.post("/api/v1/auth/register", userInfo).then((res) => res.data),
+    const registerMutation = useMutation<
+        void,
+        AxiosError<ApiErrorResponse>,
+        RegisterRequest
+    >({
+        mutationFn: (userInfo) =>
+            api.post("/api/v1/auth/register", userInfo).then((res) => res.data),
         onSuccess: () => {
             toast.success("Account created successfully!", {
                 description: "Please log in to continue.",
@@ -73,7 +83,10 @@ export const useAuth = () => {
             toast.error("Registration failed", {
                 description: errorMessage,
             });
-            console.error("Registration failed:", error.response?.data || error.message);
+            console.error(
+                "Registration failed:",
+                error.response?.data || error.message
+            );
         },
     });
 
