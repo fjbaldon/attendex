@@ -1,21 +1,7 @@
-"use client";
-
 import {Ticket} from "lucide-react";
-import {LoginForm} from "@/components/login-form";
-import {useAuth} from "@/hooks/use-auth";
-import {useRouter} from "next/navigation";
-import {useEffect} from "react";
+import {RegisterForm} from "@/components/register-form";
 
-export default function LoginPage() {
-    const {isAuthenticated} = useAuth();
-    const router = useRouter();
-
-    useEffect(() => {
-        if (isAuthenticated) {
-            router.replace("/dashboard");
-        }
-    }, [isAuthenticated, router]);
-
+export default function RegisterPage() {
     return (
         <div className="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
             <div className="flex w-full max-w-sm flex-col gap-6">
@@ -26,7 +12,7 @@ export default function LoginPage() {
                     </div>
                     AttendEx
                 </div>
-                <LoginForm/>
+                <RegisterForm/>
                 <div
                     className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
                     By clicking continue, you agree to our{" "}

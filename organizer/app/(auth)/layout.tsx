@@ -4,7 +4,11 @@ import {useAuthStore} from "@/store/auth";
 import {useRouter} from "next/navigation";
 import {useEffect, useState} from "react";
 
-export function AuthGuard({children}: { children: React.ReactNode }) {
+export default function AuthLayout({
+                                       children,
+                                   }: {
+    children: React.ReactNode;
+}) {
     const {isAuthenticated} = useAuthStore();
     const router = useRouter();
     const [isClient, setIsClient] = useState(false);
@@ -14,12 +18,12 @@ export function AuthGuard({children}: { children: React.ReactNode }) {
     }, []);
 
     useEffect(() => {
-        if (isClient && !isAuthenticated) {
-            router.replace("/login");
+        if (isClient && isAuthenticated) {
+            router.replace("/dashboard");
         }
     }, [isClient, isAuthenticated, router]);
 
-    if (!isClient || !isAuthenticated) {
+    if (!isClient || isAuthenticated) {
         return null;
     }
 
