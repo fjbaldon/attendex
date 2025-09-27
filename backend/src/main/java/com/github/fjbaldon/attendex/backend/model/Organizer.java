@@ -9,24 +9,30 @@ import java.util.Set;
 
 @Getter
 @Setter
-@ToString(exclude = {"events", "scanners"})
-@EqualsAndHashCode(exclude = {"events", "scanners"})
+@ToString(exclude = {"events", "organization", "role"})
+@EqualsAndHashCode(exclude = {"events", "organization", "role"})
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "organizer")
+@Table(name = "organizer", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"organization_id", "email"})
+})
 public class Organizer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String email;
 
     @Column(nullable = false)
     private String password;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Column(nullable = false, updatable = false)
     @Builder.Default
@@ -36,7 +42,13 @@ public class Organizer {
     @Builder.Default
     private Set<Event> events = new HashSet<>();
 
-    @OneToMany(mappedBy = "organizer", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id")
+    private Role role;
+
+    private boolean enabled = true;
+
+    @Column(nullable = false)
     @Builder.Default
-    private Set<Scanner> scanners = new HashSet<>();
+    private boolean forcePasswordChange = true;
 }

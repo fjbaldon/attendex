@@ -6,7 +6,6 @@ import com.github.fjbaldon.attendex.backend.repository.AttendanceRecordRepositor
 import com.github.fjbaldon.attendex.backend.repository.EventRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,12 +21,12 @@ public class ReportService {
     private final AttendanceRecordRepository attendanceRecordRepository;
 
     @Transactional(readOnly = true)
-    public EventAnalyticsResponse getEventAnalytics(Long eventId, String organizerEmail) {
+    public EventAnalyticsResponse getEventAnalytics(Long eventId, Long organizationId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EntityNotFoundException("Event not found"));
 
-        if (!event.getOrganizer().getEmail().equals(organizerEmail)) {
-            throw new AccessDeniedException("You do not have permission to access this event's analytics");
+        if (!event.getOrganization().getId().equals(organizationId)) {
+            throw new EntityNotFoundException("Event with ID " + eventId + " not found in your organization");
         }
 
         long totalRegistered = event.getEventAttendees().size();

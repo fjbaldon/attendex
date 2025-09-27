@@ -10,7 +10,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,7 +25,7 @@ public class JwtService {
     @Value("${jwt.expiration-ms}")
     private long expirationTime;
 
-    private Key getSignInKey() {
+    private SecretKey getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
@@ -42,10 +41,17 @@ public class JwtService {
 
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> extraClaims = new HashMap<>();
+
+        if (userDetails instanceof CustomUserDetails customUserDetails) {
+            extraClaims.put("organizationId", customUserDetails.getOrganizationId());
+            extraClaims.put("forcePasswordChange", customUserDetails.isForcePasswordChange());
+        }
+
         String roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
         extraClaims.put("roles", roles);
+
         return generateToken(extraClaims, userDetails);
     }
 
@@ -74,9 +80,10 @@ public class JwtService {
 
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .verifyWith((SecretKey) getSignInKey())
+                .verifyWith(getSignInKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 }
+

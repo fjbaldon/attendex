@@ -10,8 +10,8 @@ import java.util.Set;
 
 @Getter
 @Setter
-@ToString(exclude = {"organizer", "eventAttendees"})
-@EqualsAndHashCode(exclude = {"organizer", "eventAttendees"})
+@ToString(exclude = {"organizer", "eventAttendees", "organization"})
+@EqualsAndHashCode(exclude = {"organizer", "eventAttendees", "organization"})
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -38,6 +38,10 @@ public class Event {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organizer_id", nullable = false)
     private Organizer organizer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

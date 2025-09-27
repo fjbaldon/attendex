@@ -2,13 +2,15 @@ package com.github.fjbaldon.attendex.backend.service;
 
 import com.github.fjbaldon.attendex.backend.dto.ScannerRequest;
 import com.github.fjbaldon.attendex.backend.dto.ScannerResponse;
-import com.github.fjbaldon.attendex.backend.model.Organizer;
+import com.github.fjbaldon.attendex.backend.exception.EmailAlreadyExistsException;
+import com.github.fjbaldon.attendex.backend.model.Organization;
+import com.github.fjbaldon.attendex.backend.model.Role;
 import com.github.fjbaldon.attendex.backend.model.Scanner;
 import com.github.fjbaldon.attendex.backend.repository.OrganizerRepository;
+import com.github.fjbaldon.attendex.backend.repository.RoleRepository;
 import com.github.fjbaldon.attendex.backend.repository.ScannerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,43 +24,49 @@ public class ScannerService {
 
     private final ScannerRepository scannerRepository;
     private final OrganizerRepository organizerRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public ScannerResponse createScanner(ScannerRequest request, String organizerEmail) {
-        Organizer organizer = findOrganizerByEmail(organizerEmail);
+    public ScannerResponse createScanner(ScannerRequest request, Long organizationId) {
+        if (organizerRepository.existsByEmailAndOrganizationId(request.getEmail(), organizationId) ||
+                scannerRepository.existsByEmailAndOrganizationId(request.getEmail(), organizationId)) {
+            throw new EmailAlreadyExistsException("Email '" + request.getEmail() + "' is already in use for this organization");
+        }
+
+        Role assignedRole = roleRepository.findByIdAndOrganizationId(request.getRoleId(), organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Role not found in your organization."));
+
+        Organization orgReference = new Organization();
+        orgReference.setId(organizationId);
+
         Scanner scanner = Scanner.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .organizer(organizer)
+                .organization(orgReference)
+                .role(assignedRole)
                 .build();
         Scanner savedScanner = scannerRepository.save(scanner);
         return toScannerResponse(savedScanner);
     }
 
     @Transactional(readOnly = true)
-    public List<ScannerResponse> getAllScannersByOrganizer(String organizerEmail) {
-        Organizer organizer = findOrganizerByEmail(organizerEmail);
-        return organizer.getScanners().stream()
+    public List<ScannerResponse> getAllScannersByOrganization(Long organizationId) {
+        return scannerRepository.findAllByOrganizationId(organizationId).stream()
                 .map(this::toScannerResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public void deleteScanner(Long scannerId, String organizerEmail) {
+    public void deleteScanner(Long scannerId, Long organizationId) {
         Scanner scanner = scannerRepository.findById(scannerId)
                 .orElseThrow(() -> new EntityNotFoundException("Scanner with ID " + scannerId + " not found"));
 
-        if (!scanner.getOrganizer().getEmail().equals(organizerEmail)) {
-            throw new AccessDeniedException("You do not have permission to delete this scanner");
+        if (!scanner.getOrganization().getId().equals(organizationId)) {
+            throw new EntityNotFoundException("Scanner with ID " + scannerId + " not found in your organization");
         }
 
         scannerRepository.delete(scanner);
-    }
-
-    private Organizer findOrganizerByEmail(String email) {
-        return organizerRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("Organizer not found"));
     }
 
     private ScannerResponse toScannerResponse(Scanner scanner) {

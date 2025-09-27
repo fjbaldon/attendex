@@ -12,7 +12,6 @@ import com.github.fjbaldon.attendex.backend.repository.EventRepository;
 import com.github.fjbaldon.attendex.backend.repository.ScannerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +33,7 @@ public class AppService {
         Scanner scanner = findScannerByEmail(scannerEmail);
         LocalDate today = LocalDate.now();
 
-        return eventRepository.findAllByOrganizerAndDate(scanner.getOrganizer(), today).stream()
+        return eventRepository.findActiveEventsByOrganizationIdAndDate(scanner.getOrganization().getId(), today).stream()
                 .map(event -> new ActiveEventResponse(event.getId(), event.getEventName()))
                 .collect(Collectors.toList());
     }
@@ -44,14 +43,14 @@ public class AppService {
         Scanner scanner = findScannerByEmail(scannerEmail);
         Event event = findEventById(eventId);
 
-        if (!event.getOrganizer().getId().equals(scanner.getOrganizer().getId())) {
-            throw new AccessDeniedException("You do not have permission to access this event's attendee list");
+        if (!event.getOrganization().getId().equals(scanner.getOrganization().getId())) {
+            throw new EntityNotFoundException("Event with ID " + eventId + " not found in your organization");
         }
 
         return event.getEventAttendees().stream()
                 .map(eventAttendee -> new EventAttendeeSyncResponse(
                         eventAttendee.getAttendee().getId(),
-                        eventAttendee.getAttendee().getSchoolIdNumber(),
+                        eventAttendee.getAttendee().getUniqueIdentifier(),
                         eventAttendee.getQrCodeHash()
                 ))
                 .collect(Collectors.toList());
@@ -60,12 +59,13 @@ public class AppService {
     @Transactional
     public void syncAttendance(AttendanceSyncRequest request, String scannerEmail) {
         Scanner scanner = findScannerByEmail(scannerEmail);
+        Long scannerOrganizationId = scanner.getOrganization().getId();
 
         List<AttendanceRecord> recordsToSave = request.getRecords().stream().map(recordDto -> {
             Event event = findEventById(recordDto.getEventId());
 
-            if (!event.getOrganizer().getId().equals(scanner.getOrganizer().getId())) {
-                throw new AccessDeniedException("Access denied for event ID: " + event.getId());
+            if (!event.getOrganization().getId().equals(scannerOrganizationId)) {
+                throw new EntityNotFoundException("Event with ID " + event.getId() + " not found in your organization");
             }
 
             return AttendanceRecord.builder()

@@ -13,6 +13,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class RegisterRequest {
+    @NotBlank(message = "Organization name cannot be blank")
+    private String organizationName;
 
     @NotBlank(message = "Email cannot be blank")
     @Email(message = "Please provide a valid email address")

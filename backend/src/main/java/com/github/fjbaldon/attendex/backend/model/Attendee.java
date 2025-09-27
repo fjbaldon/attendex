@@ -2,9 +2,12 @@ package com.github.fjbaldon.attendex.backend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 @Getter
@@ -16,7 +19,8 @@ import java.util.Set;
 @AllArgsConstructor
 @Entity
 @Table(name = "attendee", indexes = {
-        @Index(name = "idx_attendee_lastname", columnList = "lastName")
+        @Index(name = "idx_attendee_lastname", columnList = "lastName"),
+        @Index(name = "uk_attendee_org_identifier", columnList = "organization_id, unique_identifier", unique = true)
 })
 public class Attendee {
 
@@ -24,20 +28,18 @@ public class Attendee {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "school_id_number", unique = true, nullable = false)
-    private String schoolIdNumber;
+    @Column(name = "unique_identifier", nullable = false)
+    private String uniqueIdentifier;
 
     @Column(nullable = false)
     private String firstName;
 
-    private Character middleInitial;
-
     @Column(nullable = false)
     private String lastName;
 
-    private String course;
-
-    private Integer yearLevel;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> customFields;
 
     @Column(nullable = false, updatable = false)
     @Builder.Default
@@ -46,4 +48,8 @@ public class Attendee {
     @OneToMany(mappedBy = "attendee", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<EventAttendee> eventRegistrations = new HashSet<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 }

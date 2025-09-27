@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class EventAttendeeSyncResponse {
     private Long attendeeId;
-    private String schoolIdNumber;
+    private String uniqueIdentifier;
     private String qrCodeHash;
 }

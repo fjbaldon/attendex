@@ -40,9 +40,9 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(jwt, "Bearer"));
     }
 
-    @PostMapping("/register")
+    @PostMapping("/register-organization")
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
-        authService.registerOrganizer(request);
+        authService.registerNewOrganization(request);
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
 }

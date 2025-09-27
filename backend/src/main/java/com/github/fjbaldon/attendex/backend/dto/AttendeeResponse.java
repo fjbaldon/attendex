@@ -3,14 +3,14 @@ package com.github.fjbaldon.attendex.backend.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 @Builder
 public class AttendeeResponse {
     private Long id;
-    private String schoolIdNumber;
+    private String uniqueIdentifier;
     private String firstName;
-    private Character middleInitial;
     private String lastName;
-    private String course;
-    private Integer yearLevel;
+    private Map<String, Object> customFields;
 }

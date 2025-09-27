@@ -7,30 +7,42 @@ import java.time.Instant;
 
 @Getter
 @Setter
-@ToString(exclude = "organizer")
-@EqualsAndHashCode(exclude = "organizer")
+@ToString(exclude = {"organization", "role"})
+@EqualsAndHashCode(exclude = {"organization", "role"})
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "scanner")
+@Table(name = "scanner", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"organization_id", "email"})
+})
 public class Scanner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String email;
 
     @Column(nullable = false)
     private String password;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "organizer_id", nullable = false)
-    private Organizer organizer;
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Column(nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id")
+    private Role role;
+
+    private boolean enabled = true;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean forcePasswordChange = true;
 }

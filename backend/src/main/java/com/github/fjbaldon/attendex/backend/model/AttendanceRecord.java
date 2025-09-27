@@ -39,5 +39,6 @@ public class AttendanceRecord {
     private Instant checkInTimestamp;
 
     @Column(nullable = false)
+    @Builder.Default
     private Instant syncTimestamp = Instant.now();
 }
