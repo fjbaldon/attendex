@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -30,10 +29,10 @@ public class Event {
     private String eventName;
 
     @Column(nullable = false)
-    private LocalDate startDate;
+    private Instant startDate;
 
     @Column(nullable = false)
-    private LocalDate endDate;
+    private Instant endDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organizer_id", nullable = false)

@@ -3,13 +3,13 @@ package com.github.fjbaldon.attendex.backend.dto;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDate;
+import java.time.Instant; // CHANGED
 
 @Data
 @Builder
 public class EventResponse {
     private Long id;
     private String eventName;
-    private LocalDate startDate;
-    private LocalDate endDate;
+    private Instant startDate;
+    private Instant endDate;
 }

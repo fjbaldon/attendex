@@ -5,7 +5,8 @@ interface AuthState {
     accessToken: string | null;
     isAuthenticated: boolean;
     userEmail: string | null;
-    setToken: (token: string, email: string) => void;
+    forcePasswordChange: boolean;
+    setToken: (token: string, email: string, forcePasswordChange: boolean) => void;
     clearToken: () => void;
 }
 
@@ -15,17 +16,20 @@ export const useAuthStore = create<AuthState>()(
             accessToken: null,
             isAuthenticated: false,
             userEmail: null,
-            setToken: (token, email) =>
+            forcePasswordChange: false,
+            setToken: (token, email, forcePasswordChange) =>
                 set({
                     accessToken: token,
                     isAuthenticated: true,
                     userEmail: email,
+                    forcePasswordChange: forcePasswordChange,
                 }),
             clearToken: () =>
                 set({
                     accessToken: null,
                     isAuthenticated: false,
                     userEmail: null,
+                    forcePasswordChange: false,
                 }),
         }),
         {

@@ -11,9 +11,9 @@ import {
     IconHelp,
     IconSearch,
 } from "@tabler/icons-react";
-import {NavMain} from "@/components/nav-main";
-import {NavSecondary} from "@/components/nav-secondary";
-import {NavUser} from "@/components/nav-user";
+import {NavMain} from "@/components/navigation/nav-main";
+import {NavSecondary} from "@/components/navigation/nav-secondary";
+import {NavUser} from "@/components/navigation/nav-user";
 import {
     Sidebar,
     SidebarContent,

@@ -2,40 +2,11 @@ import {useMutation} from "@tanstack/react-query";
 import {useRouter} from "next/navigation";
 import {useAuthStore} from "@/store/auth";
 import api from "@/lib/api";
-import {AuthRequest, AuthResponse, RegisterRequest} from "@/types";
+import {ApiErrorResponse, AuthRequest, AuthResponse, DecodedToken, RegisterRequest} from "@/types";
 import {toast} from "sonner";
 import {AxiosError} from "axios";
 import {jwtDecode} from "jwt-decode";
-
-type ApiErrorResponse = {
-    timestamp: string;
-    status: number;
-    error: string;
-    message: string;
-    path: string;
-    validationErrors?: Record<string, string>;
-};
-
-const getErrorMessage = (error: AxiosError, defaultMessage: string): string => {
-    const errorData = error.response?.data as ApiErrorResponse;
-
-    if (!errorData) {
-        return defaultMessage;
-    }
-
-    if (errorData.validationErrors) {
-        const messages = Object.values(errorData.validationErrors);
-        if (messages.length > 0) {
-            return messages.join(". ");
-        }
-    }
-
-    if (errorData.message) {
-        return errorData.message;
-    }
-
-    return defaultMessage;
-};
+import {getErrorMessage} from "@/lib/utils";
 
 export const useAuth = () => {
     const {setToken, clearToken, isAuthenticated} = useAuthStore();
@@ -49,12 +20,20 @@ export const useAuth = () => {
         mutationFn: (credentials) =>
             api.post("/api/v1/auth/login", credentials).then((res) => res.data),
         onSuccess: (data) => {
-            const decodedToken: { sub: string } = jwtDecode(data.accessToken);
-            setToken(data.accessToken, decodedToken.sub);
-            toast.success("Login successful!", {
-                description: "Redirecting to your dashboard...",
-            });
-            router.replace("/dashboard");
+            const decodedToken: DecodedToken = jwtDecode(data.accessToken);
+            setToken(data.accessToken, decodedToken.sub, decodedToken.forcePasswordChange);
+
+            if (decodedToken.forcePasswordChange) {
+                toast.info("Password change required", {
+                    description: "Please create a new password to continue.",
+                });
+                router.replace("/force-password-change");
+            } else {
+                toast.success("Login successful!", {
+                    description: "Redirecting to your dashboard...",
+                });
+                router.replace("/dashboard");
+            }
         },
         onError: (error) => {
             const errorMessage = getErrorMessage(error, "Invalid email or password.");
@@ -71,7 +50,7 @@ export const useAuth = () => {
         RegisterRequest
     >({
         mutationFn: (userInfo) =>
-            api.post("/api/v1/auth/register", userInfo).then((res) => res.data),
+            api.post("/api/v1/auth/register-organization", userInfo).then((res) => res.data),
         onSuccess: () => {
             toast.success("Account created successfully!", {
                 description: "Please log in to continue.",
