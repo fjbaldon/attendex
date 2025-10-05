@@ -19,7 +19,7 @@ interface EventFormProps {
 }
 
 export function EventForm({event, onSubmit, isLoading, onClose}: EventFormProps) {
-    const form = useForm<z.infer<typeof eventSchema>>({
+    const form = useForm({
         resolver: zodResolver(eventSchema),
         defaultValues: {
             eventName: event?.eventName || "",
