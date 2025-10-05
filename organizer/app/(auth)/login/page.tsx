@@ -1,21 +1,24 @@
 "use client";
 
 import {LoginForm} from "@/components/shared/login-form";
-import {useEffect} from "react";
+import {useEffect, useRef} from "react";
 import {useSearchParams, useRouter} from "next/navigation";
 import {toast} from "sonner";
 
 export default function LoginPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
+    const toastShownRef = useRef(false);
 
     useEffect(() => {
         const sessionExpired = searchParams.get("sessionExpired");
 
-        if (sessionExpired) {
+        if (sessionExpired && !toastShownRef.current) {
             toast.error("Session Expired", {
                 description: "You have been logged out. Please sign in again.",
             });
+
+            toastShownRef.current = true;
 
             router.replace('/login', {scroll: false});
         }
