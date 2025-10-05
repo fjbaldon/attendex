@@ -31,3 +31,21 @@ export const eventSchema = z.object({
     message: "End date cannot be before the start date",
     path: ["endDate"],
 });
+
+export const attendeeSchema = z.object({
+    uniqueIdentifier: z.string().min(1, "A unique identifier is required."),
+    firstName: z.string().min(1, "First name is required."),
+    lastName: z.string().min(1, "Last name is required."),
+    customFields: z.string().optional().transform((val, ctx) => {
+        if (!val) return {};
+        try {
+            return JSON.parse(val);
+        } catch {
+            ctx.addIssue({
+                code: "custom",
+                message: "Invalid JSON format for custom fields.",
+            });
+            return z.NEVER;
+        }
+    }),
+});

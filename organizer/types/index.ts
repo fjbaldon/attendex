@@ -36,6 +36,37 @@ export interface EventResponse {
     endDate: string;
 }
 
+export interface PaginatedResponse<T> {
+    content: T[];
+    pageable: {
+        pageNumber: number;
+        pageSize: number;
+    };
+    last: boolean;
+    totalPages: number;
+    totalElements: number;
+    first: boolean;
+    numberOfElements: number;
+    size: number;
+    number: number;
+    empty: boolean;
+}
+
+export interface AttendeeRequest {
+    uniqueIdentifier: string;
+    firstName: string;
+    lastName: string;
+    customFields?: Record<string, unknown>;
+}
+
+export interface AttendeeResponse {
+    id: number;
+    uniqueIdentifier: string;
+    firstName: string;
+    lastName: string;
+    customFields?: Record<string, unknown>;
+}
+
 export interface ApiErrorResponse {
     timestamp: string;
     status: number;
