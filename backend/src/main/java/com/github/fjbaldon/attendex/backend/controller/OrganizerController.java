@@ -6,6 +6,8 @@ import com.github.fjbaldon.attendex.backend.security.CustomUserDetails;
 import com.github.fjbaldon.attendex.backend.service.OrganizerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,8 +29,10 @@ public class OrganizerController {
     }
 
     @GetMapping
-    public ResponseEntity<List<OrganizerResponseDto>> getOrganizers(@AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(organizerService.getOrganizersByOrganization(user.getOrganizationId()));
+    public ResponseEntity<Page<OrganizerResponseDto>> getOrganizers(
+            @AuthenticationPrincipal CustomUserDetails user,
+            Pageable pageable) {
+        return ResponseEntity.ok(organizerService.getOrganizersByOrganization(user.getOrganizationId(), pageable));
     }
 
     @PutMapping("/{organizerId}/role")

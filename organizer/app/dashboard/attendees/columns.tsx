@@ -49,10 +49,12 @@ export const columns: ColumnDef<AttendeeResponse>[] = [
     {
         accessorKey: "lastName",
         header: "Last Name",
+        cell: ({row}) => <div className="font-medium">{row.original.lastName}</div>,
     },
     {
         accessorKey: "firstName",
         header: "First Name",
+        cell: ({row}) => <div className="font-medium">{row.original.firstName}</div>,
     },
     {
         accessorKey: "customFields",
@@ -60,25 +62,25 @@ export const columns: ColumnDef<AttendeeResponse>[] = [
         cell: ({row}) => {
             const customFields = row.original.customFields;
             if (!customFields || Object.keys(customFields).length === 0) {
-                return <span className="text-muted-foreground">None</span>;
+                return <span className="text-muted-foreground text-sm">None</span>;
             }
             return (
                 <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8">
+                        <Button variant="outline" size="sm" className="h-8">
                             <IconInfoCircle className="h-4 w-4 mr-2"/>
-                            View Fields
+                            View ({Object.keys(customFields).length})
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-80">
                         <div className="grid gap-4">
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <h4 className="font-medium leading-none">Custom Fields</h4>
                                 <p className="text-sm text-muted-foreground">
                                     Additional data for this attendee.
                                 </p>
                             </div>
-                            <pre className="mt-2 w-full rounded-md bg-slate-950 p-4 overflow-x-auto">
+                            <pre className="mt-2 w-full rounded-md bg-slate-950 p-4 overflow-x-auto text-sm">
                                 <code className="text-white">
                                     {JSON.stringify(customFields, null, 2)}
                                 </code>
@@ -86,8 +88,8 @@ export const columns: ColumnDef<AttendeeResponse>[] = [
                         </div>
                     </PopoverContent>
                 </Popover>
-            )
-        }
+            );
+        },
     },
     {
         id: "actions",

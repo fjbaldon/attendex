@@ -4,17 +4,17 @@ import * as React from "react";
 import {AppSidebar} from "@/components/layout/app-sidebar";
 import {SiteHeader} from "@/components/layout/site-header";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
-import {useAttendees} from "@/hooks/use-attendees";
+import {useUsers} from "@/hooks/use-users";
 import {columns} from "./columns";
-import {AttendeesDataTable} from "./attendees-data-table";
+import {TeamDataTable} from "./team-data-table";
 
-export default function AttendeesPage() {
+export default function TeamPage() {
     const [{pageIndex, pageSize}, setPagination] = React.useState({
         pageIndex: 0,
         pageSize: 10,
     });
 
-    const {attendees, pageInfo, isLoadingAttendees} = useAttendees(pageIndex, pageSize);
+    const {organizers, pageInfo, isLoadingOrganizers} = useUsers(pageIndex, pageSize);
     const pageCount = pageInfo?.totalPages ?? 0;
 
     return (
@@ -28,14 +28,14 @@ export default function AttendeesPage() {
         >
             <AppSidebar variant="inset"/>
             <SidebarInset>
-                <SiteHeader title="Attendees"/>
+                <SiteHeader title="Team"/>
                 <div className="flex flex-1 flex-col">
                     <div className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
                         <div className="px-4 lg:px-6">
-                            <AttendeesDataTable
+                            <TeamDataTable
                                 columns={columns}
-                                data={attendees}
-                                isLoading={isLoadingAttendees}
+                                data={organizers}
+                                isLoading={isLoadingOrganizers}
                                 pageCount={pageCount}
                                 pagination={{pageIndex, pageSize}}
                                 setPagination={setPagination}

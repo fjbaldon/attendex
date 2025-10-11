@@ -8,6 +8,8 @@ import com.github.fjbaldon.attendex.backend.repository.OrganizerRepository;
 import com.github.fjbaldon.attendex.backend.repository.RoleRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,10 +25,9 @@ public class OrganizerService {
     private final EventRepository eventRepository;
 
     @Transactional(readOnly = true)
-    public List<OrganizerResponseDto> getOrganizersByOrganization(Long organizationId) {
-        return organizerRepository.findAllByOrganizationId(organizationId).stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
+    public Page<OrganizerResponseDto> getOrganizersByOrganization(Long organizationId, Pageable pageable) {
+        return organizerRepository.findAllByOrganizationId(organizationId, pageable)
+                .map(this::toDto);
     }
 
     @Transactional(readOnly = true)
@@ -43,6 +44,16 @@ public class OrganizerService {
 
         Role newRole = roleRepository.findByIdAndOrganizationId(newRoleId, organizationId)
                 .orElseThrow(() -> new EntityNotFoundException("Role not found in your organization."));
+
+        boolean isCurrentUserAdmin = "Admin".equalsIgnoreCase(organizer.getRole().getName());
+        boolean isNewRoleNotAdmin = !"Admin".equalsIgnoreCase(newRole.getName());
+
+        if (isCurrentUserAdmin && isNewRoleNotAdmin) {
+            long adminCount = organizerRepository.countByOrganizationIdAndRole_Name(organizationId, "Admin");
+            if (adminCount <= 1) {
+                throw new IllegalStateException("Cannot unassign the last admin. The organization must have at least one administrator.");
+            }
+        }
 
         organizer.setRole(newRole);
         Organizer updatedOrganizer = organizerRepository.save(organizer);

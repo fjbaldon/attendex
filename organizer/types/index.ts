@@ -75,3 +75,41 @@ export interface ApiErrorResponse {
     path: string;
     validationErrors?: Record<string, string>;
 }
+
+export interface RoleResponse {
+    id: number;
+    name: string;
+    permissions: string[];
+}
+
+export interface OrganizerResponse {
+    id: number;
+    email: string;
+    roleName: string;
+    roleId: number;
+}
+
+export interface UserCreateRequest {
+    email: string;
+    roleId: number;
+    temporaryPassword: string;
+}
+
+export interface OrganizerRoleUpdateRequest {
+    roleId: number;
+}
+
+export type FieldType = 'TEXT' | 'NUMBER' | 'DATE' | 'SELECT';
+
+export interface CustomFieldDefinition {
+    id: number;
+    fieldName: string;
+    fieldType: FieldType;
+    options?: string[];
+}
+
+export interface CustomFieldDefinitionRequest {
+    fieldName: string;
+    fieldType: FieldType;
+    options?: string[];
+}

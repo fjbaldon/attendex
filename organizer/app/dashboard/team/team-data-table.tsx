@@ -15,31 +15,35 @@ import {
 import {IconPlus} from "@tabler/icons-react";
 import {Button} from "@/components/ui/button";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
-import {AttendeeResponse} from "@/types";
-import {useAttendees} from "@/hooks/use-attendees";
+import {OrganizerResponse} from "@/types";
+import {useUsers} from "@/hooks/use-users";
+import {UserDialog} from "./user-dialog";
 import {ConfirmDialog} from "@/components/shared/confirm-dialog";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {Input} from "@/components/ui/input";
-import {AttendeeDialog} from "./attendee-dialog";
 
-interface AttendeesDataTableProps {
-    columns: ColumnDef<AttendeeResponse>[];
-    data: AttendeeResponse[];
+interface TeamDataTableProps {
+    columns: ColumnDef<OrganizerResponse>[];
+    data: OrganizerResponse[];
     isLoading: boolean;
     pageCount: number;
     pagination: { pageIndex: number; pageSize: number; };
     setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
 }
 
-export function AttendeesDataTable({
-                                       columns,
-                                       data,
-                                       isLoading,
-                                       pageCount,
-                                       pagination,
-                                       setPagination
-                                   }: AttendeesDataTableProps) {
-    const {deleteAttendee, isDeletingAttendee} = useAttendees();
+export function TeamDataTable({
+                                  columns,
+                                  data,
+                                  isLoading,
+                                  pageCount,
+                                  pagination,
+                                  setPagination
+                              }: TeamDataTableProps) {
+    const {
+        roles,
+        deleteUser,
+        isDeletingUser,
+    } = useUsers();
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -47,13 +51,18 @@ export function AttendeesDataTable({
 
     const [isFormDialogOpen, setIsFormDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
-    const [selectedAttendee, setSelectedAttendee] = React.useState<AttendeeResponse | null>(null);
+    const [selectedUser, setSelectedUser] = React.useState<OrganizerResponse | null>(null);
 
     const table = useReactTable({
         data,
         columns,
         pageCount,
-        state: {sorting, columnFilters, rowSelection, pagination},
+        state: {
+            sorting,
+            columnFilters,
+            rowSelection,
+            pagination,
+        },
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         onRowSelectionChange: setRowSelection,
@@ -63,27 +72,33 @@ export function AttendeesDataTable({
         getPaginationRowModel: getPaginationRowModel(),
         onPaginationChange: (updater) => {
             if (typeof updater === 'function') {
-                setPagination(updater(pagination));
+                const newPagination = updater(pagination);
+                setPagination(newPagination);
             } else {
                 setPagination(updater);
             }
         },
         manualPagination: true,
         meta: {
-            openEditDialog: (attendee: AttendeeResponse) => {
-                setSelectedAttendee(attendee);
+            openEditDialog: (user: OrganizerResponse) => {
+                setSelectedUser(user);
                 setIsFormDialogOpen(true);
             },
-            openDeleteDialog: (attendee: AttendeeResponse) => {
-                setSelectedAttendee(attendee);
+            openDeleteDialog: (user: OrganizerResponse) => {
+                setSelectedUser(user);
                 setIsConfirmDialogOpen(true);
             },
         },
     });
 
+    const handleOpenCreateDialog = () => {
+        setSelectedUser(null);
+        setIsFormDialogOpen(true);
+    };
+
     const handleDeleteConfirm = () => {
-        if (selectedAttendee) {
-            deleteAttendee(selectedAttendee.id, {
+        if (selectedUser) {
+            deleteUser(selectedUser.id, {
                 onSuccess: () => setIsConfirmDialogOpen(false),
             });
         }
@@ -91,38 +106,34 @@ export function AttendeesDataTable({
 
     return (
         <>
-            <AttendeeDialog
+            <UserDialog
                 open={isFormDialogOpen}
                 onOpenChange={setIsFormDialogOpen}
-                attendee={selectedAttendee}
+                roles={roles}
+                user={selectedUser}
             />
             <ConfirmDialog
                 open={isConfirmDialogOpen}
                 onOpenChange={setIsConfirmDialogOpen}
                 onConfirm={handleDeleteConfirm}
                 title="Are you sure?"
-                description={`This will permanently delete ${selectedAttendee?.firstName} ${selectedAttendee?.lastName}. This action cannot be undone.`}
-                isLoading={isDeletingAttendee}
+                description={`This will permanently remove ${selectedUser?.email} from the organization.`}
+                isLoading={isDeletingUser}
             />
             <div className="flex w-full flex-col justify-start gap-4">
                 <div className="flex items-center justify-between">
                     <Input
-                        placeholder="Filter attendees by name..."
-                        value={(table.getColumn("lastName")?.getFilterValue() as string) ?? ""}
+                        placeholder="Filter users by email..."
+                        value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
                         onChange={(event) =>
-                            table.getColumn("lastName")?.setFilterValue(event.target.value)
+                            table.getColumn("email")?.setFilterValue(event.target.value)
                         }
                         className="h-9 max-w-sm"
                     />
-                    <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" className="h-9">
-                            Import CSV
-                        </Button>
-                        <Button size="sm" className="h-9" onClick={() => setIsFormDialogOpen(true)}>
-                            <IconPlus className="mr-2 h-4 w-4"/>
-                            <span>Add Attendee</span>
-                        </Button>
-                    </div>
+                    <Button size="sm" className="h-9" onClick={handleOpenCreateDialog}>
+                        <IconPlus className="mr-2 h-4 w-4"/>
+                        <span>Add User</span>
+                    </Button>
                 </div>
                 <div className="rounded-md border">
                     <Table>
@@ -141,7 +152,7 @@ export function AttendeesDataTable({
                             {isLoading ? (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        Loading attendees...
+                                        Loading team members...
                                     </TableCell>
                                 </TableRow>
                             ) : table.getRowModel().rows?.length ? (
@@ -157,7 +168,7 @@ export function AttendeesDataTable({
                             ) : (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        No attendees found.
+                                        No team members found.
                                     </TableCell>
                                 </TableRow>
                             )}

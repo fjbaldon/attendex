@@ -21,6 +21,17 @@ export const useAuth = () => {
             api.post("/api/v1/auth/login", credentials).then((res) => res.data),
         onSuccess: (data) => {
             const decodedToken: DecodedToken = jwtDecode(data.accessToken);
+
+            const userPermissions = decodedToken.roles ? decodedToken.roles.toString() : '';
+            const isOrganizer = userPermissions.includes('MANAGE_EVENTS') || userPermissions.includes('MANAGE_USERS');
+
+            if (!isOrganizer) {
+                toast.error("Access Denied", {
+                    description: "This account does not have permission to access the organizer dashboard.",
+                });
+                return;
+            }
+
             setToken(data.accessToken, decodedToken.sub, decodedToken.forcePasswordChange);
 
             if (decodedToken.forcePasswordChange) {

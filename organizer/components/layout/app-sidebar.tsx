@@ -9,7 +9,7 @@ import {
     IconUsers,
     IconSettings,
     IconHelp,
-    IconSearch,
+    IconSearch, IconUsersGroup,
 } from "@tabler/icons-react";
 import {NavMain} from "@/components/navigation/nav-main";
 import {NavSecondary} from "@/components/navigation/nav-secondary";
@@ -31,11 +31,12 @@ const navMain = [
     {title: "Events", url: "/dashboard/events", icon: IconCalendar},
     {title: "Scanners", url: "/dashboard/scanners", icon: IconScan},
     {title: "Attendees", url: "/dashboard/attendees", icon: IconUsers},
+    {title: "Team", url: "/dashboard/team", icon: IconUsersGroup},
     {title: "Analytics", url: "#", icon: IconChartBar},
 ];
 
 const navSecondary = [
-    {title: "Settings", url: "#", icon: IconSettings},
+    {title: "Settings", url: "/dashboard/settings/custom-fields", icon: IconSettings},
     {title: "Get Help", url: "#", icon: IconHelp},
     {title: "Search", url: "#", icon: IconSearch},
 ];

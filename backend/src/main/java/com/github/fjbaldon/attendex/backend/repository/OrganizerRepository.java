@@ -1,6 +1,8 @@
 package com.github.fjbaldon.attendex.backend.repository;
 
 import com.github.fjbaldon.attendex.backend.model.Organizer;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -17,7 +19,7 @@ public interface OrganizerRepository extends JpaRepository<Organizer, Long> {
 
     boolean existsByRoleId(Long roleId);
 
-    List<Organizer> findAllByOrganizationId(Long organizationId);
+    Page<Organizer> findAllByOrganizationId(Long organizationId, Pageable pageable);
 
     Optional<Organizer> findByIdAndOrganizationId(Long id, Long organizationId);
 

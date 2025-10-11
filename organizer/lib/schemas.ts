@@ -36,16 +36,48 @@ export const attendeeSchema = z.object({
     uniqueIdentifier: z.string().min(1, "A unique identifier is required."),
     firstName: z.string().min(1, "First name is required."),
     lastName: z.string().min(1, "Last name is required."),
-    customFields: z.string().optional().transform((val, ctx) => {
-        if (!val) return {};
-        try {
-            return JSON.parse(val);
-        } catch {
-            ctx.addIssue({
-                code: "custom",
-                message: "Invalid JSON format for custom fields.",
-            });
-            return z.NEVER;
-        }
-    }),
+
+    customFields: z.string().optional()
+        .transform((val, ctx) => {
+            if (!val || val.trim() === "") {
+                return {};
+            }
+            try {
+                return JSON.parse(val);
+            } catch {
+                ctx.addIssue({
+                    code: "custom",
+                    message: "Custom fields must be a valid JSON object.",
+                });
+                return z.NEVER;
+            }
+        }),
+});
+
+export const userCreateSchema = z.object({
+    email: z.email("Please enter a valid email address."),
+    roleId: z.coerce.number({
+        error: "Please select a role for the user.",
+    }).min(1, "Please select a role."),
+    temporaryPassword: z.string().min(8, "Password must be at least 8 characters long."),
+});
+
+export const userRoleUpdateSchema = z.object({
+    roleId: z.coerce.number({
+        error: "Please select a role for the user.",
+    }).min(1, "Please select a role."),
+});
+
+export const customFieldSchema = z.object({
+    fieldName: z.string().min(2, "Field name must be at least 2 characters."),
+    fieldType: z.enum(["TEXT", "NUMBER", "DATE", "SELECT"]),
+    options: z.string().optional(),
+}).refine(data => {
+    if (data.fieldType === 'SELECT') {
+        return data.options && data.options.trim().length > 0;
+    }
+    return true;
+}, {
+    message: "Options (comma-separated) are required for a Select field.",
+    path: ["options"],
 });

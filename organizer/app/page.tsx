@@ -1,11 +1,11 @@
 "use client";
 
-import {useAuth} from "@/hooks/use-auth";
+import {useAuthStore} from "@/store/auth";
 import {useRouter} from "next/navigation";
 import {useEffect} from "react";
 
 export default function Home() {
-    const {isAuthenticated} = useAuth();
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const router = useRouter();
 
     useEffect(() => {
