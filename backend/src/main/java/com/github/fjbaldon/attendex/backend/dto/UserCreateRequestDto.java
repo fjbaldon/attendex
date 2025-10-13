@@ -2,7 +2,6 @@ package com.github.fjbaldon.attendex.backend.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -11,9 +10,6 @@ public class UserCreateRequestDto {
     @NotBlank(message = "Email cannot be blank")
     @Email
     private String email;
-
-    @NotNull(message = "Role ID cannot be null")
-    private Long roleId;
 
     @NotBlank(message = "Temporary password cannot be blank")
     @Size(min = 8, message = "Password must be at least 8 characters long")

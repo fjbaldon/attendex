@@ -17,7 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/custom-fields")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('MANAGE_ORGANIZATION')")
+@PreAuthorize("hasRole('ORGANIZER')")
 public class CustomFieldController {
 
     private final CustomFieldService customFieldService;

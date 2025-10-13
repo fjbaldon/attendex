@@ -1,20 +1,18 @@
 "use client";
 
+import {useEffect} from "react";
 import {useForm} from "react-hook-form";
 import {z} from "zod";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {attendeeSchema} from "@/lib/schemas";
 import {AttendeeResponse} from "@/types";
-import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
-import {Input} from "@/components/ui/input";
+import {Form} from "@/components/ui/form";
 import {Button} from "@/components/ui/button";
 import {Separator} from "@/components/ui/separator";
 import {Skeleton} from "@/components/ui/skeleton";
-import {IconUser, IconHash} from "@tabler/icons-react";
 import {useCustomFields} from "@/hooks/use-custom-fields";
-import {DynamicFormField} from "./dynamic-form-field";
+import {DynamicFormField, StandardFormField} from "./dynamic-form-field";
 
-type AttendeeFormValues = z.input<typeof attendeeSchema>;
 type AttendeeFormSubmitValues = z.infer<typeof attendeeSchema>;
 
 interface AttendeeFormProps {
@@ -27,79 +25,52 @@ interface AttendeeFormProps {
 export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeFormProps) {
     const {definitions, isLoading: isLoadingDefinitions} = useCustomFields();
 
-    const form = useForm({
+    const form = useForm<AttendeeFormSubmitValues>({
         resolver: zodResolver(attendeeSchema),
-        defaultValues: {
+    });
+
+    useEffect(() => {
+        const defaultCustomFields = definitions.reduce((acc, field) => {
+            acc[field.fieldName] = attendee?.customFields?.[field.fieldName] ?? "";
+            return acc;
+        }, {} as Record<string, unknown>);
+
+        form.reset({
             uniqueIdentifier: attendee?.uniqueIdentifier || "",
             firstName: attendee?.firstName || "",
             lastName: attendee?.lastName || "",
-            customFields: attendee?.customFields ? JSON.stringify(attendee.customFields, null, 2) : "",
-        },
-    });
+            customFields: defaultCustomFields,
+        });
+    }, [definitions, attendee, form]);
+
 
     const isEditing = !!attendee;
 
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
-                <FormField
+                <StandardFormField
                     control={form.control}
                     name="uniqueIdentifier"
-                    render={({field}) => (
-                        <FormItem>
-                            <FormLabel>Unique Identifier</FormLabel>
-                            <div className="relative">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <IconHash className="h-4 w-4 text-muted-foreground"/>
-                                </div>
-                                <FormControl>
-                                    <Input placeholder="e.g., 202012345" className="pl-10" {...field} />
-                                </FormControl>
-                            </div>
-                            <FormMessage/>
-                        </FormItem>
-                    )}
+                    label="Unique Identifier"
+                    placeholder="e.g., 202012345"
+                    iconType="hash"
                 />
-                <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="firstName"
-                        render={({field}) => (
-                            <FormItem>
-                                <FormLabel>First Name</FormLabel>
-                                <div className="relative">
-                                    <div
-                                        className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                        <IconUser className="h-4 w-4 text-muted-foreground"/>
-                                    </div>
-                                    <FormControl>
-                                        <Input placeholder="John" className="pl-10" {...field} />
-                                    </FormControl>
-                                </div>
-                                <FormMessage/>
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="lastName"
-                        render={({field}) => (
-                            <FormItem>
-                                <FormLabel>Last Name</FormLabel>
-                                <div className="relative">
-                                    <div
-                                        className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                        <IconUser className="h-4 w-4 text-muted-foreground"/>
-                                    </div>
-                                    <FormControl>
-                                        <Input placeholder="Doe" className="pl-10" {...field} />
-                                    </FormControl>
-                                </div>
-                                <FormMessage/>
-                            </FormItem>
-                        )}
-                    />
-                </div>
+                {/* Reverted to the simpler, single-column layout */}
+                <StandardFormField
+                    control={form.control}
+                    name="firstName"
+                    label="First Name"
+                    placeholder="John"
+                    iconType="user"
+                />
+                <StandardFormField
+                    control={form.control}
+                    name="lastName"
+                    label="Last Name"
+                    placeholder="Doe"
+                    iconType="user"
+                />
 
                 <Separator className="my-2"/>
 
@@ -113,7 +84,7 @@ export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeF
                 ) : null}
 
                 {definitions.map((fieldDef) => (
-                    <DynamicFormField<AttendeeFormValues>
+                    <DynamicFormField
                         key={fieldDef.id}
                         fieldDef={fieldDef}
                         control={form.control}

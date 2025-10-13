@@ -4,26 +4,24 @@ import {useForm} from "react-hook-form";
 import {z} from "zod";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {userCreateSchema} from "@/lib/schemas";
-import {RoleResponse} from "@/types";
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {IconMail, IconKey, IconUserShield} from "@tabler/icons-react";
+import {IconMail, IconKey} from "@tabler/icons-react";
 
-interface UserFormProps {
-    roles: RoleResponse[];
-    onSubmit: (values: z.infer<typeof userCreateSchema>) => void;
+export const scannerCreateSchema = userCreateSchema.omit({roleId: true});
+
+interface ScannerFormProps {
+    onSubmit: (values: z.infer<typeof scannerCreateSchema>) => void;
     isLoading: boolean;
     onClose: () => void;
 }
 
-export function UserForm({roles, onSubmit, isLoading, onClose}: UserFormProps) {
-    const form = useForm({
-        resolver: zodResolver(userCreateSchema),
+export function ScannerForm({onSubmit, isLoading, onClose}: ScannerFormProps) {
+    const form = useForm<z.infer<typeof scannerCreateSchema>>({
+        resolver: zodResolver(scannerCreateSchema),
         defaultValues: {
             email: "",
-            roleId: undefined,
             temporaryPassword: "",
         },
     });
@@ -42,40 +40,9 @@ export function UserForm({roles, onSubmit, isLoading, onClose}: UserFormProps) {
                                     <IconMail className="h-4 w-4 text-muted-foreground"/>
                                 </div>
                                 <FormControl>
-                                    <Input
-                                        type="email"
-                                        placeholder="name@example.com"
-                                        className="pl-10"
-                                        {...field}
-                                    />
+                                    <Input type="email" placeholder="name@example.com" className="pl-10" {...field} />
                                 </FormControl>
                             </div>
-                            <FormMessage/>
-                        </FormItem>
-                    )}
-                />
-
-                <FormField
-                    control={form.control}
-                    name="roleId"
-                    render={({field}) => (
-                        <FormItem>
-                            <FormLabel>Role</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <IconUserShield className="mr-2 h-4 w-4 text-muted-foreground"/>
-                                        <SelectValue placeholder="Select a role for the user"/>
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {roles.map((role) => (
-                                        <SelectItem key={role.id} value={String(role.id)}>
-                                            {role.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
                             <FormMessage/>
                         </FormItem>
                     )}
@@ -92,12 +59,7 @@ export function UserForm({roles, onSubmit, isLoading, onClose}: UserFormProps) {
                                     <IconKey className="h-4 w-4 text-muted-foreground"/>
                                 </div>
                                 <FormControl>
-                                    <Input
-                                        type="password"
-                                        placeholder="••••••••"
-                                        className="pl-10"
-                                        {...field}
-                                    />
+                                    <Input type="password" placeholder="••••••••" className="pl-10" {...field} />
                                 </FormControl>
                             </div>
                             <FormMessage/>
@@ -108,7 +70,7 @@ export function UserForm({roles, onSubmit, isLoading, onClose}: UserFormProps) {
                 <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
                     <Button type="submit" disabled={isLoading}>
-                        {isLoading ? "Sending Invite..." : "Add User"}
+                        {isLoading ? "Adding Scanner..." : "Add Scanner"}
                     </Button>
                 </div>
             </form>

@@ -1,3 +1,4 @@
+// organizer/components/layout/app-sidebar.tsx
 "use client";
 
 import * as React from "react";
@@ -9,7 +10,7 @@ import {
     IconUsers,
     IconSettings,
     IconHelp,
-    IconSearch, IconUsersGroup,
+    IconSearch,
 } from "@tabler/icons-react";
 import {NavMain} from "@/components/navigation/nav-main";
 import {NavSecondary} from "@/components/navigation/nav-secondary";
@@ -31,8 +32,9 @@ const navMain = [
     {title: "Events", url: "/dashboard/events", icon: IconCalendar},
     {title: "Scanners", url: "/dashboard/scanners", icon: IconScan},
     {title: "Attendees", url: "/dashboard/attendees", icon: IconUsers},
-    {title: "Team", url: "/dashboard/team", icon: IconUsersGroup},
-    {title: "Analytics", url: "#", icon: IconChartBar},
+    // Renamed from "Team" to "Organizers" and path updated
+    {title: "Organizers", url: "/dashboard/organizers", icon: IconUsers},
+    {title: "Analytics", url: "/dashboard/analytics", icon: IconChartBar},
 ];
 
 const navSecondary = [
@@ -47,7 +49,7 @@ export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
     const user = {
         name: "Organizer",
         email: userEmail || "organizer@example.com",
-        avatar: "", // No avatar for now
+        avatar: "",
     };
 
     return (

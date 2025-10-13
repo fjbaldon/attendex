@@ -36,36 +36,12 @@ export const attendeeSchema = z.object({
     uniqueIdentifier: z.string().min(1, "A unique identifier is required."),
     firstName: z.string().min(1, "First name is required."),
     lastName: z.string().min(1, "Last name is required."),
-
-    customFields: z.string().optional()
-        .transform((val, ctx) => {
-            if (!val || val.trim() === "") {
-                return {};
-            }
-            try {
-                return JSON.parse(val);
-            } catch {
-                ctx.addIssue({
-                    code: "custom",
-                    message: "Custom fields must be a valid JSON object.",
-                });
-                return z.NEVER;
-            }
-        }),
+    customFields: z.record(z.string(), z.any()).optional(),
 });
 
 export const userCreateSchema = z.object({
     email: z.email("Please enter a valid email address."),
-    roleId: z.coerce.number({
-        error: "Please select a role for the user.",
-    }).min(1, "Please select a role."),
     temporaryPassword: z.string().min(8, "Password must be at least 8 characters long."),
-});
-
-export const userRoleUpdateSchema = z.object({
-    roleId: z.coerce.number({
-        error: "Please select a role for the user.",
-    }).min(1, "Please select a role."),
 });
 
 export const customFieldSchema = z.object({

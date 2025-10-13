@@ -4,17 +4,17 @@ import * as React from "react";
 import {AppSidebar} from "@/components/layout/app-sidebar";
 import {SiteHeader} from "@/components/layout/site-header";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
-import {useUsers} from "@/hooks/use-users";
+import {useOrganizers} from "@/hooks/use-organizers";
 import {columns} from "./columns";
-import {TeamDataTable} from "./team-data-table";
+import {OrganizersDataTable} from "./organizers-data-table";
 
-export default function TeamPage() {
+export default function OrganizersPage() {
     const [{pageIndex, pageSize}, setPagination] = React.useState({
         pageIndex: 0,
         pageSize: 10,
     });
 
-    const {organizers, pageInfo, isLoadingOrganizers} = useUsers(pageIndex, pageSize);
+    const {organizers, pageInfo, isLoadingOrganizers} = useOrganizers(pageIndex, pageSize);
     const pageCount = pageInfo?.totalPages ?? 0;
 
     return (
@@ -28,11 +28,11 @@ export default function TeamPage() {
         >
             <AppSidebar variant="inset"/>
             <SidebarInset>
-                <SiteHeader title="Team"/>
+                <SiteHeader title="Organizers"/>
                 <div className="flex flex-1 flex-col">
                     <div className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
                         <div className="px-4 lg:px-6">
-                            <TeamDataTable
+                            <OrganizersDataTable
                                 columns={columns}
                                 data={organizers}
                                 isLoading={isLoadingOrganizers}

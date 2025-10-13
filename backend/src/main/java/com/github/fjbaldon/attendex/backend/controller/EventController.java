@@ -18,7 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/events")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('MANAGE_EVENTS')")
+@PreAuthorize("hasRole('ORGANIZER')")
 public class EventController {
     private final EventService eventService;
 

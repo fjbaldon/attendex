@@ -16,7 +16,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/app")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('SCAN_ATTENDANCE')")
+@PreAuthorize("hasRole('SCANNER')")
 public class AppController {
 
     private final AppService appService;

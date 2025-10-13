@@ -9,8 +9,8 @@ import java.util.Set;
 
 @Getter
 @Setter
-@ToString(exclude = {"events", "organization", "role"})
-@EqualsAndHashCode(exclude = {"events", "organization", "role"})
+@ToString(exclude = {"events", "organization"})
+@EqualsAndHashCode(exclude = {"events", "organization"})
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -42,10 +42,7 @@ public class Organizer {
     @Builder.Default
     private Set<Event> events = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "role_id")
-    private Role role;
-
+    @Builder.Default
     private boolean enabled = true;
 
     @Column(nullable = false)

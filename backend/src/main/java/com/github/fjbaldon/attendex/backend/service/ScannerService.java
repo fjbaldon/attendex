@@ -1,13 +1,11 @@
 package com.github.fjbaldon.attendex.backend.service;
 
-import com.github.fjbaldon.attendex.backend.dto.ScannerRequest;
 import com.github.fjbaldon.attendex.backend.dto.ScannerResponse;
+import com.github.fjbaldon.attendex.backend.dto.UserCreateRequestDto;
 import com.github.fjbaldon.attendex.backend.exception.EmailAlreadyExistsException;
 import com.github.fjbaldon.attendex.backend.model.Organization;
-import com.github.fjbaldon.attendex.backend.model.Role;
 import com.github.fjbaldon.attendex.backend.model.Scanner;
 import com.github.fjbaldon.attendex.backend.repository.OrganizerRepository;
-import com.github.fjbaldon.attendex.backend.repository.RoleRepository;
 import com.github.fjbaldon.attendex.backend.repository.ScannerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -24,28 +22,24 @@ public class ScannerService {
 
     private final ScannerRepository scannerRepository;
     private final OrganizerRepository organizerRepository;
-    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public ScannerResponse createScanner(ScannerRequest request, Long organizationId) {
+    public ScannerResponse createScanner(UserCreateRequestDto request, Long organizationId) {
         if (organizerRepository.existsByEmailAndOrganizationId(request.getEmail(), organizationId) ||
                 scannerRepository.existsByEmailAndOrganizationId(request.getEmail(), organizationId)) {
             throw new EmailAlreadyExistsException("Email '" + request.getEmail() + "' is already in use for this organization");
         }
-
-        Role assignedRole = roleRepository.findByIdAndOrganizationId(request.getRoleId(), organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Role not found in your organization."));
 
         Organization orgReference = new Organization();
         orgReference.setId(organizationId);
 
         Scanner scanner = Scanner.builder()
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .password(passwordEncoder.encode(request.getTemporaryPassword()))
                 .organization(orgReference)
-                .role(assignedRole)
                 .build();
+
         Scanner savedScanner = scannerRepository.save(scanner);
         return toScannerResponse(savedScanner);
     }

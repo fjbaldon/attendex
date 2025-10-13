@@ -2,49 +2,35 @@
 
 import * as React from "react";
 import {z} from "zod";
-import {attendeeSchema} from "@/lib/schemas";
+import {scannerCreateSchema} from "./scanner-form";
 import {useIsMobile} from "@/hooks/use-mobile";
-import {AttendeeResponse} from "@/types";
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle} from "@/components/ui/drawer";
-import {AttendeeForm} from "./attendee-form";
-import {useAttendees} from "@/hooks/use-attendees";
+import {ScannerForm} from "./scanner-form";
+import {useScanners} from "@/hooks/use-scanners";
 
-interface AttendeeDialogProps {
+interface ScannerDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    attendee?: AttendeeResponse | null;
 }
 
-export function AttendeeDialog({open, onOpenChange, attendee}: AttendeeDialogProps) {
+export function ScannerDialog({open, onOpenChange}: ScannerDialogProps) {
     const isMobile = useIsMobile();
-    const isEditing = !!attendee;
+    const {createScanner, isCreatingScanner} = useScanners();
 
-    const {createAttendee, isCreatingAttendee, updateAttendee, isUpdatingAttendee} = useAttendees();
+    const title = "Add New Scanner";
+    const description = "Create a new account for use with the mobile scanner app. The user will be prompted to change their password on first login.";
 
-    const title = isEditing ? "Edit Attendee" : "Add a New Attendee";
-    const description = isEditing
-        ? "Make changes to this attendee's profile. Click save when you're done."
-        : "Fill in the details below to create a new attendee.";
-
-    const handleSubmit = (values: z.infer<typeof attendeeSchema>) => {
-        if (isEditing && attendee) {
-            updateAttendee({id: attendee.id, data: values}, {
-                onSuccess: () => onOpenChange(false),
-            });
-        } else {
-            createAttendee(values, {
-                onSuccess: () => onOpenChange(false),
-            });
-        }
+    const handleSubmit = (values: z.infer<typeof scannerCreateSchema>) => {
+        createScanner(values, {
+            onSuccess: () => onOpenChange(false),
+        });
     };
 
     const form = (
-        <AttendeeForm
-            key={attendee?.id || 'new-attendee'}
-            attendee={attendee}
+        <ScannerForm
             onSubmit={handleSubmit}
-            isLoading={isCreatingAttendee || isUpdatingAttendee}
+            isLoading={isCreatingScanner}
             onClose={() => onOpenChange(false)}
         />
     );
@@ -65,7 +51,7 @@ export function AttendeeDialog({open, onOpenChange, attendee}: AttendeeDialogPro
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[480px]">
+            <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>

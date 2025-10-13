@@ -19,7 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/attendees")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('MANAGE_ATTENDEES')")
+@PreAuthorize("hasRole('ORGANIZER')")
 public class AttendeeController {
 
     private final AttendeeService attendeeService;

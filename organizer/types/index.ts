@@ -18,7 +18,7 @@ export interface DecodedToken {
     sub: string;
     organizationId: number;
     forcePasswordChange: boolean;
-    roles: string[];
+    roles: string;
     iat: number;
     exp: number;
 }
@@ -67,6 +67,13 @@ export interface AttendeeResponse {
     customFields?: Record<string, unknown>;
 }
 
+export interface AttendeeImportResponse {
+    message: string;
+    successfulImports: number;
+    failedImports: number;
+    errors: string[];
+}
+
 export interface ApiErrorResponse {
     timestamp: string;
     status: number;
@@ -76,27 +83,19 @@ export interface ApiErrorResponse {
     validationErrors?: Record<string, string>;
 }
 
-export interface RoleResponse {
-    id: number;
-    name: string;
-    permissions: string[];
-}
-
 export interface OrganizerResponse {
     id: number;
     email: string;
-    roleName: string;
-    roleId: number;
+}
+
+export interface ScannerResponse {
+    id: number;
+    email: string;
 }
 
 export interface UserCreateRequest {
     email: string;
-    roleId: number;
     temporaryPassword: string;
-}
-
-export interface OrganizerRoleUpdateRequest {
-    roleId: number;
 }
 
 export type FieldType = 'TEXT' | 'NUMBER' | 'DATE' | 'SELECT';
@@ -112,4 +111,9 @@ export interface CustomFieldDefinitionRequest {
     fieldName: string;
     fieldType: FieldType;
     options?: string[];
+}
+
+export interface AnalyticsBreakdownDto {
+    groupName: string;
+    count: number;
 }

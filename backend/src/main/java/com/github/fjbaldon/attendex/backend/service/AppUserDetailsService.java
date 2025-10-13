@@ -1,8 +1,5 @@
 package com.github.fjbaldon.attendex.backend.service;
 
-import com.github.fjbaldon.attendex.backend.model.Organizer;
-import com.github.fjbaldon.attendex.backend.model.Permission;
-import com.github.fjbaldon.attendex.backend.model.Scanner;
 import com.github.fjbaldon.attendex.backend.repository.OrganizerRepository;
 import com.github.fjbaldon.attendex.backend.repository.ScannerRepository;
 import com.github.fjbaldon.attendex.backend.security.CustomUserDetails;
@@ -16,8 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -49,15 +45,15 @@ public class AppUserDetailsService {
     }
 
     private Collection<? extends GrantedAuthority> getAuthorities(Object user) {
-        Set<Permission> permissions;
         boolean forceChange;
+        List<GrantedAuthority> authorities;
 
-        if (user instanceof Organizer o) {
-            permissions = o.getRole().getPermissions();
+        if (user instanceof com.github.fjbaldon.attendex.backend.model.Organizer o) {
             forceChange = o.isForcePasswordChange();
-        } else if (user instanceof Scanner s) {
-            permissions = s.getRole().getPermissions();
+            authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_ORGANIZER"));
+        } else if (user instanceof com.github.fjbaldon.attendex.backend.model.Scanner s) {
             forceChange = s.isForcePasswordChange();
+            authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_SCANNER"));
         } else {
             return Collections.emptyList();
         }
@@ -66,8 +62,6 @@ public class AppUserDetailsService {
             return Collections.singletonList(new SimpleGrantedAuthority("FORCE_PASSWORD_CHANGE"));
         }
 
-        return permissions.stream()
-                .map(permission -> new SimpleGrantedAuthority(permission.name()))
-                .collect(Collectors.toList());
+        return authorities;
     }
 }

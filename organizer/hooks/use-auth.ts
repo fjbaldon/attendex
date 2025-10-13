@@ -22,8 +22,7 @@ export const useAuth = () => {
         onSuccess: (data) => {
             const decodedToken: DecodedToken = jwtDecode(data.accessToken);
 
-            const userPermissions = decodedToken.roles ? decodedToken.roles.toString() : '';
-            const isOrganizer = userPermissions.includes('MANAGE_EVENTS') || userPermissions.includes('MANAGE_USERS');
+            const isOrganizer = decodedToken.roles.includes('ROLE_ORGANIZER');
 
             if (!isOrganizer) {
                 toast.error("Access Denied", {
@@ -51,7 +50,6 @@ export const useAuth = () => {
             toast.error("Login failed", {
                 description: errorMessage,
             });
-            console.error("Login failed:", error.response?.data || error.message);
         },
     });
 
@@ -73,10 +71,6 @@ export const useAuth = () => {
             toast.error("Registration failed", {
                 description: errorMessage,
             });
-            console.error(
-                "Registration failed:",
-                error.response?.data || error.message
-            );
         },
     });
 
@@ -89,10 +83,8 @@ export const useAuth = () => {
     return {
         login: loginMutation.mutate,
         isLoggingIn: loginMutation.isPending,
-        loginError: loginMutation.error,
         register: registerMutation.mutate,
         isRegistering: registerMutation.isPending,
-        registerError: registerMutation.error,
         logout,
         isAuthenticated,
     };

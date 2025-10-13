@@ -16,13 +16,13 @@ import {IconPlus} from "@tabler/icons-react";
 import {Button} from "@/components/ui/button";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {OrganizerResponse} from "@/types";
-import {useUsers} from "@/hooks/use-users";
-import {UserDialog} from "./user-dialog";
+import {useOrganizers} from "@/hooks/use-organizers";
+import {OrganizerDialog} from "./organizer-dialog";
 import {ConfirmDialog} from "@/components/shared/confirm-dialog";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {Input} from "@/components/ui/input";
 
-interface TeamDataTableProps {
+interface OrganizersDataTableProps {
     columns: ColumnDef<OrganizerResponse>[];
     data: OrganizerResponse[];
     isLoading: boolean;
@@ -31,38 +31,28 @@ interface TeamDataTableProps {
     setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
 }
 
-export function TeamDataTable({
-                                  columns,
-                                  data,
-                                  isLoading,
-                                  pageCount,
-                                  pagination,
-                                  setPagination
-                              }: TeamDataTableProps) {
-    const {
-        roles,
-        deleteUser,
-        isDeletingUser,
-    } = useUsers();
+export function OrganizersDataTable({
+                                        columns,
+                                        data,
+                                        isLoading,
+                                        pageCount,
+                                        pagination,
+                                        setPagination,
+                                    }: OrganizersDataTableProps) {
+    const {deleteOrganizer, isDeletingOrganizer} = useOrganizers();
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [rowSelection, setRowSelection] = React.useState({});
-
     const [isFormDialogOpen, setIsFormDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
-    const [selectedUser, setSelectedUser] = React.useState<OrganizerResponse | null>(null);
+    const [selectedOrganizer, setSelectedOrganizer] = React.useState<OrganizerResponse | null>(null);
 
     const table = useReactTable({
         data,
         columns,
         pageCount,
-        state: {
-            sorting,
-            columnFilters,
-            rowSelection,
-            pagination,
-        },
+        state: {sorting, columnFilters, rowSelection, pagination},
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         onRowSelectionChange: setRowSelection,
@@ -71,34 +61,26 @@ export function TeamDataTable({
         getFilteredRowModel: getFilteredRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
         onPaginationChange: (updater) => {
-            if (typeof updater === 'function') {
-                const newPagination = updater(pagination);
-                setPagination(newPagination);
-            } else {
-                setPagination(updater);
-            }
+            if (typeof updater === 'function') setPagination(updater(pagination));
+            else setPagination(updater);
         },
         manualPagination: true,
         meta: {
-            openEditDialog: (user: OrganizerResponse) => {
-                setSelectedUser(user);
-                setIsFormDialogOpen(true);
-            },
-            openDeleteDialog: (user: OrganizerResponse) => {
-                setSelectedUser(user);
+            openDeleteDialog: (organizer: OrganizerResponse) => {
+                setSelectedOrganizer(organizer);
                 setIsConfirmDialogOpen(true);
             },
         },
     });
 
     const handleOpenCreateDialog = () => {
-        setSelectedUser(null);
+        setSelectedOrganizer(null);
         setIsFormDialogOpen(true);
     };
 
     const handleDeleteConfirm = () => {
-        if (selectedUser) {
-            deleteUser(selectedUser.id, {
+        if (selectedOrganizer) {
+            deleteOrganizer(selectedOrganizer.id, {
                 onSuccess: () => setIsConfirmDialogOpen(false),
             });
         }
@@ -106,33 +88,29 @@ export function TeamDataTable({
 
     return (
         <>
-            <UserDialog
+            <OrganizerDialog
                 open={isFormDialogOpen}
                 onOpenChange={setIsFormDialogOpen}
-                roles={roles}
-                user={selectedUser}
             />
             <ConfirmDialog
                 open={isConfirmDialogOpen}
                 onOpenChange={setIsConfirmDialogOpen}
                 onConfirm={handleDeleteConfirm}
                 title="Are you sure?"
-                description={`This will permanently remove ${selectedUser?.email} from the organization.`}
-                isLoading={isDeletingUser}
+                description={`This will permanently remove the organizer ${selectedOrganizer?.email} from the organization.`}
+                isLoading={isDeletingOrganizer}
             />
             <div className="flex w-full flex-col justify-start gap-4">
                 <div className="flex items-center justify-between">
                     <Input
-                        placeholder="Filter users by email..."
+                        placeholder="Filter organizers by email..."
                         value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
-                        onChange={(event) =>
-                            table.getColumn("email")?.setFilterValue(event.target.value)
-                        }
+                        onChange={(event) => table.getColumn("email")?.setFilterValue(event.target.value)}
                         className="h-9 max-w-sm"
                     />
                     <Button size="sm" className="h-9" onClick={handleOpenCreateDialog}>
                         <IconPlus className="mr-2 h-4 w-4"/>
-                        <span>Add User</span>
+                        <span>Add Organizer</span>
                     </Button>
                 </div>
                 <div className="rounded-md border">
@@ -152,7 +130,7 @@ export function TeamDataTable({
                             {isLoading ? (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        Loading team members...
+                                        Loading organizers...
                                     </TableCell>
                                 </TableRow>
                             ) : table.getRowModel().rows?.length ? (
@@ -168,7 +146,7 @@ export function TeamDataTable({
                             ) : (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        No team members found.
+                                        No organizers found.
                                     </TableCell>
                                 </TableRow>
                             )}

@@ -2,7 +2,6 @@ package com.github.fjbaldon.attendex.backend.controller;
 
 import com.github.fjbaldon.attendex.backend.dto.PasswordChangeRequestDto;
 import com.github.fjbaldon.attendex.backend.dto.PasswordResetRequestDto;
-import com.github.fjbaldon.attendex.backend.dto.UserCreateRequestDto;
 import com.github.fjbaldon.attendex.backend.security.CustomUserDetails;
 import com.github.fjbaldon.attendex.backend.service.UserService;
 import jakarta.validation.Valid;
@@ -19,15 +18,6 @@ public class UserController {
 
     private final UserService userService;
 
-    @PostMapping
-    @PreAuthorize("hasAuthority('MANAGE_USERS')")
-    public ResponseEntity<Void> createUser(
-            @Valid @RequestBody UserCreateRequestDto request,
-            @AuthenticationPrincipal CustomUserDetails user) {
-        userService.createUser(request, user.getOrganizationId());
-        return ResponseEntity.ok().build();
-    }
-
     @PostMapping("/me/change-password")
     @PreAuthorize("hasAuthority('FORCE_PASSWORD_CHANGE')")
     public ResponseEntity<Void> forceChangePassword(
@@ -38,7 +28,7 @@ public class UserController {
     }
 
     @PutMapping("/{userId}/reset-password")
-    @PreAuthorize("hasAuthority('MANAGE_USERS')")
+    @PreAuthorize("hasRole('ORGANIZER')")
     public ResponseEntity<Void> resetUserPassword(
             @PathVariable Long userId,
             @Valid @RequestBody PasswordResetRequestDto request,

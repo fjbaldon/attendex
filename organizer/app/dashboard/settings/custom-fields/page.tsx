@@ -16,12 +16,11 @@ import {Button} from "@/components/ui/button";
 import {Badge} from "@/components/ui/badge";
 import {IconX} from "@tabler/icons-react";
 import {Skeleton} from "@/components/ui/skeleton";
-import {CustomFieldDefinitionRequest} from "@/types";
 
 function AddCustomFieldForm() {
     const {createDefinition, isCreating} = useCustomFields();
 
-    const form = useForm({
+    const form = useForm<z.infer<typeof customFieldSchema>>({
         resolver: zodResolver(customFieldSchema),
         defaultValues: {
             fieldName: "",
@@ -33,14 +32,13 @@ function AddCustomFieldForm() {
     const fieldType = form.watch("fieldType");
 
     function onSubmit(values: z.infer<typeof customFieldSchema>) {
-        const requestData: CustomFieldDefinitionRequest = {
+        const requestData = {
             fieldName: values.fieldName,
             fieldType: values.fieldType,
+            options: values.fieldType === 'SELECT' && values.options
+                ? values.options.split(',').map(opt => opt.trim())
+                : undefined,
         };
-
-        if (values.fieldType === 'SELECT' && values.options) {
-            requestData.options = values.options.split(',').map(opt => opt.trim());
-        }
 
         createDefinition(requestData, {
             onSuccess: () => form.reset(),
@@ -54,7 +52,7 @@ function AddCustomFieldForm() {
                     control={form.control}
                     name="fieldName"
                     render={({field}) => (
-                        <FormItem className="sm:col-span-2">
+                        <FormItem className="sm:col-span-2 flex flex-col gap-1.5">
                             <FormLabel>Field Name</FormLabel>
                             <FormControl>
                                 <Input placeholder="e.g., Department" {...field} />
@@ -68,7 +66,7 @@ function AddCustomFieldForm() {
                     control={form.control}
                     name="fieldType"
                     render={({field}) => (
-                        <FormItem>
+                        <FormItem className="flex flex-col gap-1.5">
                             <FormLabel>Field Type</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
@@ -93,7 +91,7 @@ function AddCustomFieldForm() {
                         control={form.control}
                         name="options"
                         render={({field}) => (
-                            <FormItem className="sm:col-span-4">
+                            <FormItem className="sm:col-span-4 flex flex-col gap-1.5">
                                 <FormLabel>Options (comma-separated)</FormLabel>
                                 <FormControl>
                                     <Input placeholder="Small, Medium, Large" {...field} />

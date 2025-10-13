@@ -8,6 +8,4 @@ import lombok.Data;
 public class OrganizerResponseDto {
     private Long id;
     private String email;
-    private String roleName;
-    private Long roleId;
 }

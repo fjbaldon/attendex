@@ -26,7 +26,7 @@ import {
 
 declare module '@tanstack/react-table' {
     interface TableMeta<TData extends RowData> {
-        openEditDialog: (event: TData) => void;
+        openEditDialog?: (event: TData) => void;
         openDeleteDialog: (event: TData) => void;
     }
 }
@@ -176,7 +176,7 @@ export const columns: ColumnDef<EventResponse>[] = [
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => table.options.meta?.openEditDialog(event)}>
+                            <DropdownMenuItem onClick={() => table.options.meta?.openEditDialog?.(event)}>
                                 Edit Event
                             </DropdownMenuItem>
                             <DropdownMenuItem disabled>

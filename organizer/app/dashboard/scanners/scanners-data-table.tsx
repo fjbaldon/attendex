@@ -12,51 +12,36 @@ import {
     SortingState,
     ColumnFiltersState,
 } from "@tanstack/react-table";
-import {IconPlus, IconUpload} from "@tabler/icons-react";
+import {IconPlus} from "@tabler/icons-react";
 import {Button} from "@/components/ui/button";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
-import {AttendeeResponse} from "@/types";
-import {useAttendees} from "@/hooks/use-attendees";
+import {ScannerResponse} from "@/types";
+import {useScanners} from "@/hooks/use-scanners";
+import {ScannerDialog} from "./scanner-dialog";
 import {ConfirmDialog} from "@/components/shared/confirm-dialog";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {Input} from "@/components/ui/input";
-import {AttendeeDialog} from "./attendee-dialog";
-import {useRef} from "react";
-import {toast} from "sonner";
 
-interface AttendeesDataTableProps {
-    columns: ColumnDef<AttendeeResponse>[];
-    data: AttendeeResponse[];
+interface ScannersDataTableProps {
+    columns: ColumnDef<ScannerResponse>[];
+    data: ScannerResponse[];
     isLoading: boolean;
-    pageCount: number;
-    pagination: { pageIndex: number; pageSize: number; };
-    setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
 }
 
-export function AttendeesDataTable({
-                                       columns,
-                                       data,
-                                       isLoading,
-                                       pageCount,
-                                       pagination,
-                                       setPagination
-                                   }: AttendeesDataTableProps) {
-    const {deleteAttendee, isDeletingAttendee, importAttendees, isImportingAttendees} = useAttendees();
-    const fileInputRef = useRef<HTMLInputElement>(null);
+export function ScannersDataTable({columns, data, isLoading}: ScannersDataTableProps) {
+    const {deleteScanner, isDeletingScanner} = useScanners();
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [rowSelection, setRowSelection] = React.useState({});
-
     const [isFormDialogOpen, setIsFormDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
-    const [selectedAttendee, setSelectedAttendee] = React.useState<AttendeeResponse | null>(null);
+    const [selectedScanner, setSelectedScanner] = React.useState<ScannerResponse | null>(null);
 
     const table = useReactTable({
         data,
         columns,
-        pageCount,
-        state: {sorting, columnFilters, rowSelection, pagination},
+        state: {sorting, columnFilters, rowSelection},
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         onRowSelectionChange: setRowSelection,
@@ -64,102 +49,48 @@ export function AttendeesDataTable({
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
-        onPaginationChange: (updater) => {
-            if (typeof updater === 'function') {
-                setPagination(updater(pagination));
-            } else {
-                setPagination(updater);
-            }
-        },
-        manualPagination: true,
         meta: {
-            openEditDialog: (attendee: AttendeeResponse) => {
-                setSelectedAttendee(attendee);
-                setIsFormDialogOpen(true);
-            },
-            openDeleteDialog: (attendee: AttendeeResponse) => {
-                setSelectedAttendee(attendee);
+            openDeleteDialog: (scanner: ScannerResponse) => {
+                setSelectedScanner(scanner);
                 setIsConfirmDialogOpen(true);
             },
         },
     });
 
-    const handleOpenCreateDialog = () => {
-        setSelectedAttendee(null);
-        setIsFormDialogOpen(true);
-    };
-
     const handleDeleteConfirm = () => {
-        if (selectedAttendee) {
-            deleteAttendee(selectedAttendee.id, {
+        if (selectedScanner) {
+            deleteScanner(selectedScanner.id, {
                 onSuccess: () => setIsConfirmDialogOpen(false),
             });
         }
     };
 
-    const handleImportClick = () => {
-        fileInputRef.current?.click();
-    };
-
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            if (file.type !== "text/csv") {
-                toast.error("Invalid File Type", {
-                    description: "Please upload a valid .csv file.",
-                });
-                return;
-            }
-            importAttendees(file);
-        }
-        if (event.target) {
-            event.target.value = "";
-        }
-    };
-
     return (
         <>
-            <AttendeeDialog
+            <ScannerDialog
                 open={isFormDialogOpen}
                 onOpenChange={setIsFormDialogOpen}
-                attendee={selectedAttendee}
             />
             <ConfirmDialog
                 open={isConfirmDialogOpen}
                 onOpenChange={setIsConfirmDialogOpen}
                 onConfirm={handleDeleteConfirm}
                 title="Are you sure?"
-                description={`This will permanently delete ${selectedAttendee?.firstName} ${selectedAttendee?.lastName}. This action cannot be undone.`}
-                isLoading={isDeletingAttendee}
+                description={`This will permanently remove the scanner account for ${selectedScanner?.email}.`}
+                isLoading={isDeletingScanner}
             />
             <div className="flex w-full flex-col justify-start gap-4">
                 <div className="flex items-center justify-between">
                     <Input
-                        placeholder="Filter attendees by name..."
-                        value={(table.getColumn("lastName")?.getFilterValue() as string) ?? ""}
-                        onChange={(event) =>
-                            table.getColumn("lastName")?.setFilterValue(event.target.value)
-                        }
+                        placeholder="Filter scanners by email..."
+                        value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
+                        onChange={(event) => table.getColumn("email")?.setFilterValue(event.target.value)}
                         className="h-9 max-w-sm"
                     />
-                    <div className="flex items-center gap-2">
-                        <Input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                            accept=".csv"
-                        />
-                        <Button size="sm" variant="outline" className="h-9" onClick={handleImportClick}
-                                disabled={isImportingAttendees}>
-                            <IconUpload className="mr-2 h-4 w-4"/>
-                            {isImportingAttendees ? "Importing..." : "Import CSV"}
-                        </Button>
-                        <Button size="sm" className="h-9" onClick={handleOpenCreateDialog}>
-                            <IconPlus className="mr-2 h-4 w-4"/>
-                            <span>Add Attendee</span>
-                        </Button>
-                    </div>
+                    <Button size="sm" className="h-9" onClick={() => setIsFormDialogOpen(true)}>
+                        <IconPlus className="mr-2 h-4 w-4"/>
+                        <span>Add Scanner</span>
+                    </Button>
                 </div>
                 <div className="rounded-md border">
                     <Table>
@@ -178,7 +109,7 @@ export function AttendeesDataTable({
                             {isLoading ? (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        Loading attendees...
+                                        Loading scanners...
                                     </TableCell>
                                 </TableRow>
                             ) : table.getRowModel().rows?.length ? (
@@ -194,7 +125,7 @@ export function AttendeesDataTable({
                             ) : (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        No attendees found.
+                                        No scanners found.
                                     </TableCell>
                                 </TableRow>
                             )}

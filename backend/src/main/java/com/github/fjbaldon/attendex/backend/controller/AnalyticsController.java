@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/analytics")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('VIEW_REPORTS')")
+@PreAuthorize("hasRole('ORGANIZER')")
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;

@@ -1,7 +1,7 @@
 package com.github.fjbaldon.attendex.backend.controller;
 
-import com.github.fjbaldon.attendex.backend.dto.ScannerRequest;
 import com.github.fjbaldon.attendex.backend.dto.ScannerResponse;
+import com.github.fjbaldon.attendex.backend.dto.UserCreateRequestDto;
 import com.github.fjbaldon.attendex.backend.security.CustomUserDetails;
 import com.github.fjbaldon.attendex.backend.service.ScannerService;
 import jakarta.validation.Valid;
@@ -17,13 +17,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/scanners")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('MANAGE_SCANNERS')")
+@PreAuthorize("hasRole('ORGANIZER')")
 public class ScannerController {
 
     private final ScannerService scannerService;
 
     @PostMapping
-    public ResponseEntity<ScannerResponse> createScanner(@Valid @RequestBody ScannerRequest request, @AuthenticationPrincipal CustomUserDetails user) {
+    public ResponseEntity<ScannerResponse> createScanner(@Valid @RequestBody UserCreateRequestDto request, @AuthenticationPrincipal CustomUserDetails user) {
         ScannerResponse createdScanner = scannerService.createScanner(request, user.getOrganizationId());
         return new ResponseEntity<>(createdScanner, HttpStatus.CREATED);
     }

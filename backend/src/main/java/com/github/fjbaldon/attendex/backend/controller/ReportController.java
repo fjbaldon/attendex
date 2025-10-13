@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('VIEW_REPORTS')")
+@PreAuthorize("hasRole('ORGANIZER')")
 public class ReportController {
 
     private final ReportService reportService;

@@ -7,8 +7,8 @@ import java.time.Instant;
 
 @Getter
 @Setter
-@ToString(exclude = {"organization", "role"})
-@EqualsAndHashCode(exclude = {"organization", "role"})
+@ToString(exclude = {"organization"})
+@EqualsAndHashCode(exclude = {"organization"})
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -36,10 +36,7 @@ public class Scanner {
     @Builder.Default
     private Instant createdAt = Instant.now();
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "role_id")
-    private Role role;
-
+    @Builder.Default
     private boolean enabled = true;
 
     @Column(nullable = false)

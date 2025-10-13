@@ -8,17 +8,14 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {IconDotsVertical} from "@tabler/icons-react";
-import {Badge} from "@/components/ui/badge";
 import {Checkbox} from "@/components/ui/checkbox";
 
 declare module '@tanstack/react-table' {
     interface TableMeta<TData extends RowData> {
-        openEditDialog: (user: TData) => void;
-        openDeleteDialog: (user: TData) => void;
+        openDeleteDialog: (organizer: TData) => void;
     }
 }
 
@@ -50,21 +47,9 @@ export const columns: ColumnDef<OrganizerResponse>[] = [
         }
     },
     {
-        accessorKey: "roleName",
-        header: "Role",
-        cell: ({row}) => {
-            const isOwner = row.original.roleName.toLowerCase() === 'admin';
-            return (
-                <Badge variant={isOwner ? "default" : "secondary"}>
-                    {row.original.roleName}
-                </Badge>
-            );
-        }
-    },
-    {
         id: "actions",
         cell: ({row, table}) => {
-            const user = row.original;
+            const organizer = row.original;
             return (
                 <div className="flex justify-end">
                     <DropdownMenu>
@@ -79,15 +64,11 @@ export const columns: ColumnDef<OrganizerResponse>[] = [
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => table.options.meta?.openEditDialog(user)}>
-                                Change Role
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator/>
                             <DropdownMenuItem
                                 variant="destructive"
-                                onClick={() => table.options.meta?.openDeleteDialog(user)}
+                                onClick={() => table.options.meta?.openDeleteDialog(organizer)}
                             >
-                                Remove User
+                                Remove Organizer
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

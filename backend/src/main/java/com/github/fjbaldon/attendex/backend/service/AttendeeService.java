@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.backend.service;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeImportResponse;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeRequest;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeResponse;
+import com.github.fjbaldon.attendex.backend.exception.CsvValidationException;
 import com.github.fjbaldon.attendex.backend.model.Attendee;
 import com.github.fjbaldon.attendex.backend.model.Organization;
 import com.github.fjbaldon.attendex.backend.repository.AttendeeRepository;
@@ -15,16 +16,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -76,7 +76,7 @@ public class AttendeeService {
     @Transactional
     public AttendeeImportResponse importAttendeesFromCsv(MultipartFile file, Long organizationId) {
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("CSV file is empty");
+            throw new CsvValidationException("Cannot import an empty file.");
         }
 
         List<Attendee> attendeesToSave = new ArrayList<>();
@@ -90,20 +90,37 @@ public class AttendeeService {
         try (BufferedReader fileReader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setTrim(true).get();
             CSVParser csvParser = CSVParser.parse(fileReader, csvFormat);
+
             List<String> headers = csvParser.getHeaderNames();
+            List<String> requiredHeaders = Arrays.asList("uniqueIdentifier", "firstName", "lastName");
+            List<String> missingHeaders = requiredHeaders.stream()
+                    .filter(requiredHeader -> !headers.contains(requiredHeader))
+                    .collect(Collectors.toList());
+
+            if (!missingHeaders.isEmpty()) {
+                throw new CsvValidationException("CSV file is missing required columns: " + String.join(", ", missingHeaders));
+            }
 
             for (CSVRecord csvRecord : csvParser) {
                 try {
+                    String uniqueIdentifier = csvRecord.get("uniqueIdentifier");
+                    String firstName = csvRecord.get("firstName");
+                    String lastName = csvRecord.get("lastName");
+
+                    if (!StringUtils.hasText(uniqueIdentifier) || !StringUtils.hasText(firstName) || !StringUtils.hasText(lastName)) {
+                        throw new IllegalStateException("Required fields (uniqueIdentifier, firstName, lastName) cannot be empty.");
+                    }
+
                     Attendee attendee = new Attendee();
                     attendee.setOrganization(orgReference);
-                    attendee.setUniqueIdentifier(csvRecord.get("uniqueIdentifier"));
-                    attendee.setFirstName(csvRecord.get("firstName"));
-                    attendee.setLastName(csvRecord.get("lastName"));
+                    attendee.setUniqueIdentifier(uniqueIdentifier);
+                    attendee.setFirstName(firstName);
+                    attendee.setLastName(lastName);
 
                     Map<String, Object> customFields = new HashMap<>();
                     for (String header : headers) {
-                        if (!header.equals("uniqueIdentifier") && !header.equals("firstName") && !header.equals("lastName")) {
-                            if (csvRecord.isMapped(header) && !csvRecord.get(header).isEmpty()) {
+                        if (!requiredHeaders.contains(header)) {
+                            if (csvRecord.isMapped(header) && StringUtils.hasText(csvRecord.get(header))) {
                                 customFields.put(header, csvRecord.get(header));
                             }
                         }
@@ -116,6 +133,10 @@ public class AttendeeService {
                     failedImports++;
                     errors.add("Error on row " + csvRecord.getRecordNumber() + ": " + e.getMessage());
                 }
+            }
+
+            if (failedImports > 0 && successfulImports == 0 && !errors.isEmpty()) {
+                throw new CsvValidationException("Failed to process any rows. Please check file content. First error: " + errors.get(0));
             }
 
             attendeeRepository.saveAll(attendeesToSave);
