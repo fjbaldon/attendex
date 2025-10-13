@@ -35,6 +35,15 @@ public class CustomFieldController {
         return new ResponseEntity<>(newField, HttpStatus.CREATED);
     }
 
+    @PutMapping("/{fieldId}")
+    public ResponseEntity<CustomFieldDefinitionDto> updateDefinition(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @PathVariable Long fieldId,
+            @Valid @RequestBody CustomFieldDefinitionRequest request) {
+        CustomFieldDefinitionDto updatedField = customFieldService.updateDefinition(fieldId, request, user.getOrganizationId());
+        return ResponseEntity.ok(updatedField);
+    }
+
     @DeleteMapping("/{fieldId}")
     public ResponseEntity<Void> deleteDefinition(
             @AuthenticationPrincipal CustomUserDetails user,

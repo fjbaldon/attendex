@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List; // Import List
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -47,9 +48,9 @@ public class JwtService {
             extraClaims.put("forcePasswordChange", customUserDetails.isForcePasswordChange());
         }
 
-        String roles = userDetails.getAuthorities().stream()
+        List<String> roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.joining(","));
+                .collect(Collectors.toList());
         extraClaims.put("roles", roles);
 
         return generateToken(extraClaims, userDetails);
@@ -86,4 +87,3 @@ public class JwtService {
                 .getPayload();
     }
 }
-

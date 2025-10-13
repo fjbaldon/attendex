@@ -8,6 +8,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {IconDotsVertical} from "@tabler/icons-react";
@@ -16,6 +17,7 @@ import {Checkbox} from "@/components/ui/checkbox";
 declare module '@tanstack/react-table' {
     interface TableMeta<TData extends RowData> {
         openDeleteDialog: (organizer: TData) => void;
+        openResetPasswordDialog?: (organizer: TData) => void;
     }
 }
 
@@ -62,8 +64,12 @@ export const columns: ColumnDef<OrganizerResponse>[] = [
                                 <span className="sr-only">Open menu</span>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => table.options.meta?.openResetPasswordDialog?.(organizer)}>
+                                Reset Password
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator/>
                             <DropdownMenuItem
                                 variant="destructive"
                                 onClick={() => table.options.meta?.openDeleteDialog(organizer)}

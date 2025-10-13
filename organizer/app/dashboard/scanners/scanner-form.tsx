@@ -9,17 +9,15 @@ import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
 import {IconMail, IconKey} from "@tabler/icons-react";
 
-export const scannerCreateSchema = userCreateSchema.omit({roleId: true});
-
 interface ScannerFormProps {
-    onSubmit: (values: z.infer<typeof scannerCreateSchema>) => void;
+    onSubmit: (values: z.infer<typeof userCreateSchema>) => void;
     isLoading: boolean;
     onClose: () => void;
 }
 
 export function ScannerForm({onSubmit, isLoading, onClose}: ScannerFormProps) {
-    const form = useForm<z.infer<typeof scannerCreateSchema>>({
-        resolver: zodResolver(scannerCreateSchema),
+    const form = useForm({
+        resolver: zodResolver(userCreateSchema),
         defaultValues: {
             email: "",
             temporaryPassword: "",

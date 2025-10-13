@@ -1,6 +1,7 @@
 package com.github.fjbaldon.attendex.backend.service;
 
 import com.github.fjbaldon.attendex.backend.dto.OrganizerResponseDto;
+import com.github.fjbaldon.attendex.backend.dto.PaginatedResponseDto;
 import com.github.fjbaldon.attendex.backend.dto.UserCreateRequestDto;
 import com.github.fjbaldon.attendex.backend.model.Organizer;
 import com.github.fjbaldon.attendex.backend.model.Organization;
@@ -46,9 +47,10 @@ public class OrganizerService {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrganizerResponseDto> getOrganizersByOrganization(Long organizationId, Pageable pageable) {
-        return organizerRepository.findAllByOrganizationId(organizationId, pageable)
+    public PaginatedResponseDto<OrganizerResponseDto> getOrganizersByOrganization(Long organizationId, Pageable pageable) {
+        Page<OrganizerResponseDto> page = organizerRepository.findAllByOrganizationId(organizationId, pageable)
                 .map(this::toDto);
+        return new PaginatedResponseDto<>(page);
     }
 
     @Transactional(readOnly = true)

@@ -1,4 +1,3 @@
-// organizer/components/layout/app-sidebar.tsx
 "use client";
 
 import * as React from "react";
@@ -11,6 +10,7 @@ import {
     IconSettings,
     IconHelp,
     IconSearch,
+    IconUserShield,
 } from "@tabler/icons-react";
 import {NavMain} from "@/components/navigation/nav-main";
 import {NavSecondary} from "@/components/navigation/nav-secondary";
@@ -32,15 +32,13 @@ const navMain = [
     {title: "Events", url: "/dashboard/events", icon: IconCalendar},
     {title: "Scanners", url: "/dashboard/scanners", icon: IconScan},
     {title: "Attendees", url: "/dashboard/attendees", icon: IconUsers},
-    // Renamed from "Team" to "Organizers" and path updated
-    {title: "Organizers", url: "/dashboard/organizers", icon: IconUsers},
-    {title: "Analytics", url: "/dashboard/analytics", icon: IconChartBar},
+    {title: "Organizers", url: "/dashboard/organizers", icon: IconUserShield},
+    {title: "Reports", url: "/dashboard/reports", icon: IconChartBar},
 ];
 
 const navSecondary = [
-    {title: "Settings", url: "/dashboard/settings/custom-fields", icon: IconSettings},
+    {title: "Settings", url: "/dashboard/settings/organization", icon: IconSettings},
     {title: "Get Help", url: "#", icon: IconHelp},
-    {title: "Search", url: "#", icon: IconSearch},
 ];
 
 export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {

@@ -18,4 +18,6 @@ public interface ScannerRepository extends JpaRepository<Scanner, Long> {
     boolean existsByEmailAndOrganizationId(String email, Long organizationId);
 
     Optional<Scanner> findByIdAndOrganizationId(Long id, Long organizationId);
+
+    long countByOrganizationId(Long organizationId);
 }

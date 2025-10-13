@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import {z} from "zod";
-import {organizerCreateSchema} from "./organizer-form";
+import {userCreateSchema} from "@/lib/schemas";
 import {useIsMobile} from "@/hooks/use-mobile";
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle} from "@/components/ui/drawer";
@@ -21,7 +21,7 @@ export function OrganizerDialog({open, onOpenChange}: OrganizerDialogProps) {
     const title = "Add New Organizer";
     const description = "Create an account for a new organizer. They will be prompted to change their password on first login.";
 
-    const handleSubmit = (values: z.infer<typeof organizerCreateSchema>) => {
+    const handleSubmit = (values: z.infer<typeof userCreateSchema>) => {
         createOrganizer(values, {
             onSuccess: () => onOpenChange(false),
         });

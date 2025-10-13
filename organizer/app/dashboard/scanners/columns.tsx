@@ -8,6 +8,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {IconDotsVertical} from "@tabler/icons-react";
@@ -15,8 +16,8 @@ import {Checkbox} from "@/components/ui/checkbox";
 
 declare module '@tanstack/react-table' {
     interface TableMeta<TData extends RowData> {
-        openEditDialog?: (data: TData) => void;
         openDeleteDialog: (data: TData) => void;
+        openResetPasswordDialog?: (data: TData) => void;
     }
 }
 
@@ -63,8 +64,12 @@ export const getColumns = (): ColumnDef<ScannerResponse>[] => [
                                 <span className="sr-only">Open menu</span>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => table.options.meta?.openResetPasswordDialog?.(scanner)}>
+                                Reset Password
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator/>
                             <DropdownMenuItem
                                 variant="destructive"
                                 onClick={() => table.options.meta?.openDeleteDialog(scanner)}

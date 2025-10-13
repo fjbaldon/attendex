@@ -22,7 +22,9 @@ export const useAuth = () => {
         onSuccess: (data) => {
             const decodedToken: DecodedToken = jwtDecode(data.accessToken);
 
-            const isOrganizer = decodedToken.roles.includes('ROLE_ORGANIZER');
+            const userRoles = decodedToken.roles || [];
+
+            const isOrganizer = userRoles.includes('ROLE_ORGANIZER');
 
             if (!isOrganizer) {
                 toast.error("Access Denied", {

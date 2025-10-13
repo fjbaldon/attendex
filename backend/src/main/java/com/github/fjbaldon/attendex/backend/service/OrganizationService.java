@@ -1,5 +1,6 @@
 package com.github.fjbaldon.attendex.backend.service;
 
+import com.github.fjbaldon.attendex.backend.dto.OrganizationResponseDto;
 import com.github.fjbaldon.attendex.backend.dto.OrganizationUpdateRequest;
 import com.github.fjbaldon.attendex.backend.model.Organization;
 import com.github.fjbaldon.attendex.backend.repository.OrganizationRepository;
@@ -15,16 +16,29 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
 
     @Transactional(readOnly = true)
-    public Organization getOrganizationById(Long organizationId) {
+    public OrganizationResponseDto getOrganizationDtoById(Long organizationId) {
         return organizationRepository.findById(organizationId)
+                .map(this::toDto)
                 .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
     }
 
     @Transactional
-    public Organization updateOrganization(Long organizationId, OrganizationUpdateRequest request) {
-        Organization organization = getOrganizationById(organizationId);
+    public OrganizationResponseDto updateOrganization(Long organizationId, OrganizationUpdateRequest request) {
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+
         organization.setName(request.getName());
         organization.setIdentifierFormatRegex(request.getIdentifierFormatRegex());
-        return organizationRepository.save(organization);
+
+        Organization savedOrganization = organizationRepository.save(organization);
+        return toDto(savedOrganization);
+    }
+
+    private OrganizationResponseDto toDto(Organization organization) {
+        return OrganizationResponseDto.builder()
+                .id(organization.getId())
+                .name(organization.getName())
+                .identifierFormatRegex(organization.getIdentifierFormatRegex())
+                .build();
     }
 }

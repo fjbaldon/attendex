@@ -14,15 +14,7 @@ import {
 import {Checkbox} from "@/components/ui/checkbox";
 import {IconDotsVertical, IconCircleCheckFilled, IconLoader, IconCalendarOff} from "@tabler/icons-react";
 import {Badge} from "@/components/ui/badge";
-import {useIsMobile} from "@/hooks/use-mobile";
-import {
-    Drawer,
-    DrawerContent,
-    DrawerDescription,
-    DrawerHeader,
-    DrawerTitle,
-    DrawerTrigger
-} from "@/components/ui/drawer";
+import Link from "next/link";
 
 declare module '@tanstack/react-table' {
     interface TableMeta<TData extends RowData> {
@@ -66,31 +58,6 @@ const formatTime = (dateString: string) => {
     });
 };
 
-function EventCellViewer({item}: { item: EventResponse }) {
-    const isMobile = useIsMobile();
-    return (
-        <Drawer direction={isMobile ? "bottom" : "right"}>
-            <DrawerTrigger asChild>
-                <Button variant="link" className="text-foreground h-auto w-fit p-0 text-left font-medium">
-                    {item.eventName}
-                </Button>
-            </DrawerTrigger>
-            <DrawerContent className="p-4">
-                <DrawerHeader>
-                    <DrawerTitle>{item.eventName}</DrawerTitle>
-                    <DrawerDescription>
-                        Details for this event will be shown here. This drawer can be expanded with more features later.
-                    </DrawerDescription>
-                </DrawerHeader>
-                <div className="p-4">
-                    <p className="text-sm text-muted-foreground">Start: {new Date(item.startDate).toLocaleString()}</p>
-                    <p className="text-sm text-muted-foreground">End: {new Date(item.endDate).toLocaleString()}</p>
-                </div>
-            </DrawerContent>
-        </Drawer>
-    );
-}
-
 export const columns: ColumnDef<EventResponse>[] = [
     {
         id: "select",
@@ -114,7 +81,12 @@ export const columns: ColumnDef<EventResponse>[] = [
     {
         accessorKey: "eventName",
         header: "Event",
-        cell: ({row}) => <EventCellViewer item={row.original}/>,
+        cell: ({row}) => (
+            <Link href={`/dashboard/events/${row.original.id}`}
+                  className="font-medium text-primary underline-offset-4 hover:underline">
+                {row.original.eventName}
+            </Link>
+        ),
         enableHiding: false,
     },
     {
@@ -179,8 +151,8 @@ export const columns: ColumnDef<EventResponse>[] = [
                             <DropdownMenuItem onClick={() => table.options.meta?.openEditDialog?.(event)}>
                                 Edit Event
                             </DropdownMenuItem>
-                            <DropdownMenuItem disabled>
-                                View Attendees
+                            <DropdownMenuItem asChild>
+                                <Link href={`/dashboard/events/${event.id}`}>View Roster</Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator/>
                             <DropdownMenuItem

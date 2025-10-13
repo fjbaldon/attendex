@@ -34,6 +34,23 @@ export const useCustomFields = () => {
         },
     });
 
+    const updateDefinitionMutation = useMutation<
+        CustomFieldDefinition,
+        AxiosError<ApiErrorResponse>,
+        { fieldId: number; data: CustomFieldDefinitionRequest }
+    >({
+        mutationFn: ({fieldId, data}) => api.put(`/api/v1/custom-fields/${fieldId}`, data),
+        onSuccess: async () => {
+            toast.success("Custom field updated successfully!");
+            await queryClient.invalidateQueries({queryKey});
+        },
+        onError: (error) => {
+            toast.error("Failed to update field", {
+                description: getErrorMessage(error, "An unknown error occurred."),
+            });
+        },
+    });
+
     const deleteDefinitionMutation = useMutation<
         void,
         AxiosError<ApiErrorResponse>,
@@ -56,6 +73,8 @@ export const useCustomFields = () => {
         isLoading,
         createDefinition: createDefinitionMutation.mutate,
         isCreating: createDefinitionMutation.isPending,
+        updateDefinition: updateDefinitionMutation.mutate,
+        isUpdating: updateDefinitionMutation.isPending,
         deleteDefinition: deleteDefinitionMutation.mutate,
         isDeleting: deleteDefinitionMutation.isPending,
     };

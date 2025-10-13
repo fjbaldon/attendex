@@ -11,8 +11,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -46,20 +46,20 @@ public class AppUserDetailsService {
 
     private Collection<? extends GrantedAuthority> getAuthorities(Object user) {
         boolean forceChange;
-        List<GrantedAuthority> authorities;
+        List<GrantedAuthority> authorities = new ArrayList<>();
 
         if (user instanceof com.github.fjbaldon.attendex.backend.model.Organizer o) {
             forceChange = o.isForcePasswordChange();
-            authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_ORGANIZER"));
+            authorities.add(new SimpleGrantedAuthority("ROLE_ORGANIZER"));
         } else if (user instanceof com.github.fjbaldon.attendex.backend.model.Scanner s) {
             forceChange = s.isForcePasswordChange();
-            authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_SCANNER"));
+            authorities.add(new SimpleGrantedAuthority("ROLE_SCANNER"));
         } else {
-            return Collections.emptyList();
+            return authorities;
         }
 
         if (forceChange) {
-            return Collections.singletonList(new SimpleGrantedAuthority("FORCE_PASSWORD_CHANGE"));
+            authorities.add(new SimpleGrantedAuthority("FORCE_PASSWORD_CHANGE"));
         }
 
         return authorities;

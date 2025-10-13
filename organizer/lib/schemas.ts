@@ -19,6 +19,14 @@ export const passwordChangeSchema = z.object({
     path: ["confirmPassword"],
 });
 
+export const passwordResetSchema = z.object({
+    newTemporaryPassword: z.string().min(8, "Password must be at least 8 characters long"),
+    confirmPassword: z.string(),
+}).refine((data) => data.newTemporaryPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+});
+
 export const eventSchema = z.object({
     eventName: z.string().min(3, "Event name must be at least 3 characters long"),
     startDate: z.date({
@@ -56,4 +64,9 @@ export const customFieldSchema = z.object({
 }, {
     message: "Options (comma-separated) are required for a Select field.",
     path: ["options"],
+});
+
+export const organizationSettingsSchema = z.object({
+    name: z.string().min(2, "Organization name must be at least 2 characters long."),
+    identifierFormatRegex: z.string().optional(),
 });

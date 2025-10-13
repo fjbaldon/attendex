@@ -1,12 +1,12 @@
 package com.github.fjbaldon.attendex.backend.controller;
 
 import com.github.fjbaldon.attendex.backend.dto.OrganizerResponseDto;
+import com.github.fjbaldon.attendex.backend.dto.PaginatedResponseDto;
 import com.github.fjbaldon.attendex.backend.dto.UserCreateRequestDto;
 import com.github.fjbaldon.attendex.backend.security.CustomUserDetails;
 import com.github.fjbaldon.attendex.backend.service.OrganizerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -36,7 +36,7 @@ public class OrganizerController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<OrganizerResponseDto>> getOrganizers(
+    public ResponseEntity<PaginatedResponseDto<OrganizerResponseDto>> getOrganizers(
             @AuthenticationPrincipal CustomUserDetails user,
             Pageable pageable) {
         return ResponseEntity.ok(organizerService.getOrganizersByOrganization(user.getOrganizationId(), pageable));

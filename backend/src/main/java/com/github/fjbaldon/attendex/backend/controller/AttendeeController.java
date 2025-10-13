@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.backend.controller;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeImportResponse;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeRequest;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeResponse;
+import com.github.fjbaldon.attendex.backend.dto.PaginatedResponseDto;
 import com.github.fjbaldon.attendex.backend.security.CustomUserDetails;
 import com.github.fjbaldon.attendex.backend.service.AttendeeService;
 import jakarta.validation.Valid;
@@ -30,7 +31,7 @@ public class AttendeeController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<AttendeeResponse>> getAllAttendees(Pageable pageable, @AuthenticationPrincipal CustomUserDetails user) {
+    public ResponseEntity<PaginatedResponseDto<AttendeeResponse>> getAllAttendees(Pageable pageable, @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(attendeeService.getAllAttendees(user.getOrganizationId(), pageable));
     }
 

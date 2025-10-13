@@ -1,5 +1,6 @@
 "use client";
 
+import {usePathname} from "next/navigation";
 import {type Icon} from "@tabler/icons-react";
 import {
     SidebarGroup,
@@ -18,20 +19,28 @@ export function NavMain({
         icon?: Icon;
     }[];
 }) {
+    const pathname = usePathname();
+
     return (
         <SidebarGroup>
             <SidebarGroupContent>
                 <SidebarMenu>
-                    {items.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                            <SidebarMenuButton asChild tooltip={item.title}>
-                                <a href={item.url}>
-                                    {item.icon && <item.icon/>}
-                                    <span>{item.title}</span>
-                                </a>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    ))}
+                    {items.map((item) => {
+                        const isActive = item.url === '/dashboard'
+                            ? pathname === item.url
+                            : pathname.startsWith(item.url);
+
+                        return (
+                            <SidebarMenuItem key={item.title}>
+                                <SidebarMenuButton asChild tooltip={item.title} isActive={isActive}>
+                                    <a href={item.url}>
+                                        {item.icon && <item.icon/>}
+                                        <span>{item.title}</span>
+                                    </a>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        );
+                    })}
                 </SidebarMenu>
             </SidebarGroupContent>
         </SidebarGroup>

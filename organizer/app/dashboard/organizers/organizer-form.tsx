@@ -9,17 +9,15 @@ import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
 import {IconMail, IconKey} from "@tabler/icons-react";
 
-export const organizerCreateSchema = userCreateSchema.omit({roleId: true});
-
 interface OrganizerFormProps {
-    onSubmit: (values: z.infer<typeof organizerCreateSchema>) => void;
+    onSubmit: (values: z.infer<typeof userCreateSchema>) => void;
     isLoading: boolean;
     onClose: () => void;
 }
 
 export function OrganizerForm({onSubmit, isLoading, onClose}: OrganizerFormProps) {
-    const form = useForm<z.infer<typeof organizerCreateSchema>>({
-        resolver: zodResolver(organizerCreateSchema),
+    const form = useForm({
+        resolver: zodResolver(userCreateSchema),
         defaultValues: {
             email: "",
             temporaryPassword: "",

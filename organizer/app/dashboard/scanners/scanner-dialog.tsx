@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import {z} from "zod";
-import {scannerCreateSchema} from "./scanner-form";
+import {userCreateSchema} from "@/lib/schemas";
 import {useIsMobile} from "@/hooks/use-mobile";
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle} from "@/components/ui/drawer";
@@ -21,7 +21,7 @@ export function ScannerDialog({open, onOpenChange}: ScannerDialogProps) {
     const title = "Add New Scanner";
     const description = "Create a new account for use with the mobile scanner app. The user will be prompted to change their password on first login.";
 
-    const handleSubmit = (values: z.infer<typeof scannerCreateSchema>) => {
+    const handleSubmit = (values: z.infer<typeof userCreateSchema>) => {
         createScanner(values, {
             onSuccess: () => onOpenChange(false),
         });

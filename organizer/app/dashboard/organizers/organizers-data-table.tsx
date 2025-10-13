@@ -21,6 +21,8 @@ import {OrganizerDialog} from "./organizer-dialog";
 import {ConfirmDialog} from "@/components/shared/confirm-dialog";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {Input} from "@/components/ui/input";
+import {useUserActions} from "@/hooks/use-user-actions";
+import {ResetPasswordDialog} from "@/components/shared/reset-password-dialog";
 
 interface OrganizersDataTableProps {
     columns: ColumnDef<OrganizerResponse>[];
@@ -40,12 +42,14 @@ export function OrganizersDataTable({
                                         setPagination,
                                     }: OrganizersDataTableProps) {
     const {deleteOrganizer, isDeletingOrganizer} = useOrganizers();
+    const {resetPassword, isResettingPassword} = useUserActions();
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [rowSelection, setRowSelection] = React.useState({});
     const [isFormDialogOpen, setIsFormDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
+    const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
     const [selectedOrganizer, setSelectedOrganizer] = React.useState<OrganizerResponse | null>(null);
 
     const table = useReactTable({
@@ -70,6 +74,10 @@ export function OrganizersDataTable({
                 setSelectedOrganizer(organizer);
                 setIsConfirmDialogOpen(true);
             },
+            openResetPasswordDialog: (organizer: OrganizerResponse) => {
+                setSelectedOrganizer(organizer);
+                setIsResetDialogOpen(true);
+            },
         },
     });
 
@@ -86,11 +94,24 @@ export function OrganizersDataTable({
         }
     };
 
+    const handleResetPasswordSubmit = (values: { userId: number, newTemporaryPassword: string }) => {
+        resetPassword(values, {
+            onSuccess: () => setIsResetDialogOpen(false),
+        });
+    };
+
     return (
         <>
             <OrganizerDialog
                 open={isFormDialogOpen}
                 onOpenChange={setIsFormDialogOpen}
+            />
+            <ResetPasswordDialog
+                open={isResetDialogOpen}
+                onOpenChange={setIsResetDialogOpen}
+                user={selectedOrganizer}
+                onSubmit={handleResetPasswordSubmit}
+                isLoading={isResettingPassword}
             />
             <ConfirmDialog
                 open={isConfirmDialogOpen}

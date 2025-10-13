@@ -18,7 +18,7 @@ export interface DecodedToken {
     sub: string;
     organizationId: number;
     forcePasswordChange: boolean;
-    roles: string;
+    roles: string[];
     iat: number;
     exp: number;
 }
@@ -116,4 +116,31 @@ export interface CustomFieldDefinitionRequest {
 export interface AnalyticsBreakdownDto {
     groupName: string;
     count: number;
+}
+
+export interface EventAnalyticsResponse {
+    eventId: number;
+    eventName: string;
+    totalRegistered: number;
+    totalCheckedIn: number;
+    attendanceRate: number;
+    checkInsByDate: Record<string, number>;
+}
+
+export interface DashboardStats {
+    totalEvents: number;
+    totalAttendees: number;
+    totalScanners: number;
+    liveCheckIns: number;
+}
+
+export interface DailyActivity {
+    date: string;
+    count: number;
+}
+
+export interface Organization {
+    id: number;
+    name: string;
+    identifierFormatRegex: string | null;
 }

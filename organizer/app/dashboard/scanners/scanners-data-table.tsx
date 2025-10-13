@@ -1,3 +1,4 @@
+// organizer/app/dashboard/scanners/scanners-data-table.tsx
 "use client";
 
 import * as React from "react";
@@ -21,6 +22,8 @@ import {ScannerDialog} from "./scanner-dialog";
 import {ConfirmDialog} from "@/components/shared/confirm-dialog";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {Input} from "@/components/ui/input";
+import {useUserActions} from "@/hooks/use-user-actions";
+import {ResetPasswordDialog} from "@/components/shared/reset-password-dialog";
 
 interface ScannersDataTableProps {
     columns: ColumnDef<ScannerResponse>[];
@@ -30,12 +33,14 @@ interface ScannersDataTableProps {
 
 export function ScannersDataTable({columns, data, isLoading}: ScannersDataTableProps) {
     const {deleteScanner, isDeletingScanner} = useScanners();
+    const {resetPassword, isResettingPassword} = useUserActions();
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [rowSelection, setRowSelection] = React.useState({});
     const [isFormDialogOpen, setIsFormDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
+    const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
     const [selectedScanner, setSelectedScanner] = React.useState<ScannerResponse | null>(null);
 
     const table = useReactTable({
@@ -54,6 +59,10 @@ export function ScannersDataTable({columns, data, isLoading}: ScannersDataTableP
                 setSelectedScanner(scanner);
                 setIsConfirmDialogOpen(true);
             },
+            openResetPasswordDialog: (scanner: ScannerResponse) => {
+                setSelectedScanner(scanner);
+                setIsResetDialogOpen(true);
+            },
         },
     });
 
@@ -65,11 +74,24 @@ export function ScannersDataTable({columns, data, isLoading}: ScannersDataTableP
         }
     };
 
+    const handleResetPasswordSubmit = (values: { userId: number, newTemporaryPassword: string }) => {
+        resetPassword(values, {
+            onSuccess: () => setIsResetDialogOpen(false),
+        });
+    };
+
     return (
         <>
             <ScannerDialog
                 open={isFormDialogOpen}
                 onOpenChange={setIsFormDialogOpen}
+            />
+            <ResetPasswordDialog
+                open={isResetDialogOpen}
+                onOpenChange={setIsResetDialogOpen}
+                user={selectedScanner}
+                onSubmit={handleResetPasswordSubmit}
+                isLoading={isResettingPassword}
             />
             <ConfirmDialog
                 open={isConfirmDialogOpen}

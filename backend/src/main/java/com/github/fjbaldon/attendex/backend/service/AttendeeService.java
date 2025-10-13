@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.backend.service;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeImportResponse;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeRequest;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeResponse;
+import com.github.fjbaldon.attendex.backend.dto.PaginatedResponseDto;
 import com.github.fjbaldon.attendex.backend.exception.CsvValidationException;
 import com.github.fjbaldon.attendex.backend.model.Attendee;
 import com.github.fjbaldon.attendex.backend.model.Organization;
@@ -49,9 +50,10 @@ public class AttendeeService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AttendeeResponse> getAllAttendees(Long organizationId, Pageable pageable) {
-        return attendeeRepository.findAllByOrganizationId(organizationId, pageable)
+    public PaginatedResponseDto<AttendeeResponse> getAllAttendees(Long organizationId, Pageable pageable) {
+        Page<AttendeeResponse> page = attendeeRepository.findAllByOrganizationId(organizationId, pageable)
                 .map(this::toAttendeeResponse);
+        return new PaginatedResponseDto<>(page);
     }
 
     @Transactional
