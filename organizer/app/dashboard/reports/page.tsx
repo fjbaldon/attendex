@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {useMemo, useState, useRef, useEffect} from "react";
+import {useMemo, useState, useRef} from "react";
 import {AppSidebar} from "@/components/layout/app-sidebar";
 import {SiteHeader} from "@/components/layout/site-header";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
@@ -9,7 +9,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/c
 import {useEvents} from "@/hooks/use-events";
 import {useEventDetails} from "@/hooks/use-event-details";
 import {Skeleton} from "@/components/ui/skeleton";
-import {IconPrinter, IconFileSpreadsheet, IconLoader} from "@tabler/icons-react";
+import {IconPrinter, IconReportAnalytics, IconLoader} from "@tabler/icons-react";
 import {Button} from "@/components/ui/button";
 import {exportToPdf} from "@/lib/pdf-exporter";
 import {ReportFilters} from "./report-filters";
@@ -34,17 +34,6 @@ export default function ReportsPage() {
             customFieldDefinitions.map(def => def.fieldName),
         [customFieldDefinitions]
     );
-
-    // --- ADD THIS ENTIRE useEffect BLOCK FOR DEBUGGING ---
-    useEffect(() => {
-        // This will run whenever the attendee list changes after a selection
-        if (allAttendees && allAttendees.length > 0) {
-            console.log("--- DEBUG: Attendee Data Received ---");
-            console.log("Total attendees loaded:", allAttendees.length);
-            console.log("Data for the first attendee:", allAttendees[0]);
-            console.log("Custom fields for the first attendee:", allAttendees[0]?.customFields);
-        }
-    }, [allAttendees]);
 
     const selectedEvent = events.find(e => e.id === selectedEventId);
 
@@ -149,7 +138,7 @@ export default function ReportsPage() {
                             ) : (
                                 <div
                                     className="flex flex-col h-96 items-center justify-center rounded-lg border-2 border-dashed text-center">
-                                    <IconFileSpreadsheet className="h-16 w-16 text-muted-foreground mb-4" stroke={1.5}/>
+                                    <IconReportAnalytics className="h-16 w-16 text-muted-foreground mb-4" stroke={1.5}/>
                                     <h2 className="text-xl font-semibold">Select an Event to Begin</h2>
                                     <p className="text-muted-foreground mt-2">Choose an event from the dropdown above to
                                         view and filter its attendee roster.</p>

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import {
-    IconChartBar,
+    IconGraph,
     IconDashboard,
     IconCalendar,
     IconScan,
@@ -10,7 +10,7 @@ import {
     IconSettings,
     IconHelp,
     IconUserShield,
-    IconFileSpreadsheet,
+    IconReportAnalytics,
 } from "@tabler/icons-react";
 import {NavMain} from "@/components/navigation/nav-main";
 import {NavSecondary} from "@/components/navigation/nav-secondary";
@@ -33,8 +33,8 @@ const navMain = [
     {title: "Scanners", url: "/dashboard/scanners", icon: IconScan},
     {title: "Attendees", url: "/dashboard/attendees", icon: IconUsers},
     {title: "Organizers", url: "/dashboard/organizers", icon: IconUserShield},
-    {title: "Analytics", url: "/dashboard/analytics", icon: IconChartBar},
-    {title: "Reports", url: "/dashboard/reports", icon: IconFileSpreadsheet},
+    {title: "Analytics", url: "/dashboard/analytics", icon: IconGraph},
+    {title: "Reports", url: "/dashboard/reports", icon: IconReportAnalytics},
 ];
 
 const navSecondary = [
