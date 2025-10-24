@@ -21,9 +21,7 @@ export const useAuth = () => {
             api.post("/api/v1/auth/login", credentials).then((res) => res.data),
         onSuccess: (data) => {
             const decodedToken: DecodedToken = jwtDecode(data.accessToken);
-
             const userRoles = decodedToken.roles || [];
-
             const isOrganizer = userRoles.includes('ROLE_ORGANIZER');
 
             if (!isOrganizer) {
@@ -63,10 +61,7 @@ export const useAuth = () => {
         mutationFn: (userInfo) =>
             api.post("/api/v1/auth/register-organization", userInfo).then((res) => res.data),
         onSuccess: () => {
-            toast.success("Account created successfully!", {
-                description: "Please log in to continue.",
-            });
-            router.push("/login");
+            router.push("/register-success");
         },
         onError: (error) => {
             const errorMessage = getErrorMessage(error, "An unknown error occurred.");

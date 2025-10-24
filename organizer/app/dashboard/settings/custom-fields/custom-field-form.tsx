@@ -10,7 +10,6 @@ import {Input} from "@/components/ui/input";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {Button} from "@/components/ui/button";
 import {CustomFieldDefinition} from "@/types";
-import {useEffect} from "react";
 
 interface CustomFieldFormProps {
     onSuccess: () => void;
@@ -23,23 +22,12 @@ export function CustomFieldForm({onSuccess, field}: CustomFieldFormProps) {
 
     const form = useForm<z.infer<typeof customFieldSchema>>({
         resolver: zodResolver(customFieldSchema),
+        defaultValues: {
+            fieldName: field?.fieldName || "",
+            fieldType: field?.fieldType || "TEXT",
+            options: field?.options?.join(', ') || "",
+        },
     });
-
-    useEffect(() => {
-        if (isEditing) {
-            form.reset({
-                fieldName: field.fieldName,
-                fieldType: field.fieldType,
-                options: field.options?.join(', ') || "",
-            });
-        } else {
-            form.reset({
-                fieldName: "",
-                fieldType: "TEXT",
-                options: "",
-            });
-        }
-    }, [field, isEditing, form]);
 
     const fieldType = form.watch("fieldType");
     const isLoading = isCreating || isUpdating;

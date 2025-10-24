@@ -5,60 +5,52 @@ import {toast} from "sonner";
 import {getErrorMessage} from "@/lib/utils";
 import {AxiosError} from "axios";
 
-export const useEventDetails = (eventId: number) => {
+export const useEventDetails = (eventId: number | null) => {
     const queryClient = useQueryClient();
-    const queryKey = ["eventDetails", eventId];
 
     const {data: event, isLoading: isLoadingEvent} = useQuery<EventResponse>({
-        queryKey: [queryKey, 'details'],
+        queryKey: ["eventDetails", eventId, "details"],
         queryFn: async () => {
+            if (!eventId) return null;
             const response = await api.get(`/api/v1/events/${eventId}`);
             return response.data;
         },
+        enabled: !!eventId,
     });
 
     const {data: attendees, isLoading: isLoadingAttendees} = useQuery<AttendeeResponse[]>({
-        queryKey: [queryKey, 'attendees'],
+        queryKey: ["eventDetails", eventId, "attendees"],
         queryFn: async () => {
+            if (!eventId) return [];
             const response = await api.get(`/api/v1/events/${eventId}/attendees`);
             return response.data;
         },
+        enabled: !!eventId,
     });
 
-    const addAttendeeMutation = useMutation<
-        void,
-        AxiosError<ApiErrorResponse>,
-        { eventId: number; attendeeId: number; }
-    >({
+    const addAttendeeMutation = useMutation<void, AxiosError<ApiErrorResponse>, {
+        eventId: number;
+        attendeeId: number;
+    }>({
         mutationFn: ({eventId, attendeeId}) => api.post(`/api/v1/events/${eventId}/attendees/${attendeeId}`),
-        onSuccess: async () => {
+        onSuccess: (_, {eventId}) => {
             toast.success("Attendee added to event successfully!");
-            await queryClient.invalidateQueries({queryKey: [queryKey, 'attendees']});
+            return queryClient.invalidateQueries({queryKey: ["eventDetails", eventId, "attendees"]});
         },
-        onError: (error) => {
-            toast.error("Failed to add attendee", {
-                description: getErrorMessage(error, "An unknown error occurred."),
-            });
-        },
+        onError: (error) => toast.error("Failed to add attendee", {description: getErrorMessage(error, "An unknown error occurred.")}),
     });
 
-    const removeAttendeeMutation = useMutation<
-        void,
-        AxiosError<ApiErrorResponse>,
-        { eventId: number; attendeeId: number; }
-    >({
+    const removeAttendeeMutation = useMutation<void, AxiosError<ApiErrorResponse>, {
+        eventId: number;
+        attendeeId: number;
+    }>({
         mutationFn: ({eventId, attendeeId}) => api.delete(`/api/v1/events/${eventId}/attendees/${attendeeId}`),
-        onSuccess: async () => {
+        onSuccess: (_, {eventId}) => {
             toast.success("Attendee removed from event successfully!");
-            await queryClient.invalidateQueries({queryKey: [queryKey, 'attendees']});
+            return queryClient.invalidateQueries({queryKey: ["eventDetails", eventId, "attendees"]});
         },
-        onError: (error) => {
-            toast.error("Failed to remove attendee", {
-                description: getErrorMessage(error, "An unknown error occurred."),
-            });
-        },
+        onError: (error) => toast.error("Failed to remove attendee", {description: getErrorMessage(error, "An unknown error occurred.")}),
     });
-
 
     return {
         event,

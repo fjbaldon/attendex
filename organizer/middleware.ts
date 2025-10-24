@@ -4,11 +4,11 @@ import {jwtDecode} from 'jwt-decode';
 
 interface DecodedToken {
     forcePasswordChange: boolean;
-    exp: number; // Expiration time in seconds
+    exp: number;
 }
 
 export function middleware(request: NextRequest) {
-    const publicPaths = ['/login', '/register'];
+    const publicPaths = ['/login', '/register', '/verify', '/register-success'];
 
     const token = request.cookies.get('auth-token')?.value;
 
@@ -60,5 +60,7 @@ export const config = {
         '/login',
         '/register',
         '/force-password-change',
+        '/verify',
+        '/register-success',
     ],
 };

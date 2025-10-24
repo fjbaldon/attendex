@@ -11,7 +11,7 @@ export const useReports = (eventId: number | null) => {
         }
     });
 
-    const {data: report, isLoading: isLoadingReport} = useQuery<EventAnalyticsResponse>({
+    const {data: report, isLoading: isLoadingReport, isFetching: isFetchingReport} = useQuery<EventAnalyticsResponse>({
         queryKey: ['report', eventId],
         queryFn: async () => {
             const response = await api.get(`/api/v1/reports/events/${eventId}/analytics`);
@@ -25,5 +25,6 @@ export const useReports = (eventId: number | null) => {
         isLoadingEvents,
         report,
         isLoadingReport,
+        isFetchingReport,
     };
 };

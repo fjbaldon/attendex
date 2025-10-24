@@ -1,3 +1,5 @@
+// backend/src/main/java/com/github/fjbaldon/attendex/backend/repository/OrganizerRepository.java
+
 package com.github.fjbaldon.attendex.backend.repository;
 
 import com.github.fjbaldon.attendex.backend.model.Organizer;
@@ -21,4 +23,6 @@ public interface OrganizerRepository extends JpaRepository<Organizer, Long> {
     Optional<Organizer> findByIdAndOrganizationId(Long id, Long organizationId);
 
     long countByOrganizationId(Long organizationId);
+
+    Optional<Organizer> findByVerificationToken(String token);
 }

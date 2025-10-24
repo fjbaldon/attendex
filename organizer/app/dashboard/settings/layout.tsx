@@ -7,9 +7,33 @@ import Link from "next/link";
 import {usePathname} from "next/navigation";
 import {AppSidebar} from "@/components/layout/app-sidebar";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
+import {Skeleton} from "@/components/ui/skeleton";
 
 export default function SettingsLayout({children}: { children: React.ReactNode }) {
     const pathname = usePathname();
+
+    const [isClient, setIsClient] = React.useState(false);
+
+    React.useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    if (!isClient) {
+        return (
+            <SidebarProvider>
+                <div className="flex h-svh w-full">
+                    <Skeleton className="hidden md:block" style={{width: 'calc(var(--spacing) * 72)'}}/>
+                    <div className="flex flex-1 flex-col">
+                        <Skeleton className="h-12 w-full shrink-0 border-b"/>
+                        <div className="p-4 lg:p-6">
+                            <Skeleton className="h-10 w-96"/>
+                            <Skeleton className="mt-6 h-64 w-full"/>
+                        </div>
+                    </div>
+                </div>
+            </SidebarProvider>
+        );
+    }
 
     return (
         <SidebarProvider
@@ -25,7 +49,6 @@ export default function SettingsLayout({children}: { children: React.ReactNode }
                 <SiteHeader title="Settings"/>
                 <main className="flex-1 p-4 lg:p-6">
                     <div className="w-full max-w-6xl mx-auto space-y-6">
-                        {/* The redundant title block has been removed from here */}
                         <Tabs value={pathname} className="w-full">
                             <TabsList className="grid w-full grid-cols-2 sm:w-96">
                                 <TabsTrigger value="/dashboard/settings/organization" asChild>

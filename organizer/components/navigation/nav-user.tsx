@@ -2,7 +2,6 @@
 
 import {useAuth} from "@/hooks/use-auth";
 import {
-    IconCreditCard,
     IconDotsVertical,
     IconLogout,
     IconNotification,

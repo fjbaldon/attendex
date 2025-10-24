@@ -43,9 +43,13 @@ public class Organizer {
     private Set<Event> events = new HashSet<>();
 
     @Builder.Default
-    private boolean enabled = true;
+    private boolean enabled = false;
 
     @Column(nullable = false)
     @Builder.Default
-    private boolean forcePasswordChange = true;
+    private boolean forcePasswordChange = false;
+
+    private String verificationToken;
+
+    private Instant tokenExpiryDate;
 }

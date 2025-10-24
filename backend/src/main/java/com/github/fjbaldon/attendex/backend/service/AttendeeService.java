@@ -6,8 +6,10 @@ import com.github.fjbaldon.attendex.backend.dto.AttendeeResponse;
 import com.github.fjbaldon.attendex.backend.dto.PaginatedResponseDto;
 import com.github.fjbaldon.attendex.backend.exception.CsvValidationException;
 import com.github.fjbaldon.attendex.backend.model.Attendee;
+import com.github.fjbaldon.attendex.backend.model.CustomFieldDefinition;
 import com.github.fjbaldon.attendex.backend.model.Organization;
 import com.github.fjbaldon.attendex.backend.repository.AttendeeRepository;
+import com.github.fjbaldon.attendex.backend.repository.CustomFieldDefinitionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.csv.CSVFormat;
@@ -24,7 +26,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,6 +37,7 @@ import java.util.stream.Collectors;
 public class AttendeeService {
 
     private final AttendeeRepository attendeeRepository;
+    private final CustomFieldDefinitionRepository customFieldDefinitionRepository;
 
     @Transactional
     public AttendeeResponse createAttendee(AttendeeRequest request, Long organizationId) {
@@ -81,6 +87,17 @@ public class AttendeeService {
             throw new CsvValidationException("Cannot import an empty file.");
         }
 
+        List<CustomFieldDefinition> customFieldDefinitions = customFieldDefinitionRepository.findByOrganizationId(organizationId);
+        Map<String, CustomFieldDefinition> headerToDefMap = customFieldDefinitions.stream()
+                .collect(Collectors.toMap(def -> def.getFieldName().toLowerCase(), Function.identity()));
+
+        Set<String> existingIdentifiers = attendeeRepository.findAllByOrganizationId(organizationId, Pageable.unpaged())
+                .stream()
+                .map(Attendee::getUniqueIdentifier)
+                .collect(Collectors.toSet());
+
+        Set<String> identifiersInThisFile = new HashSet<>();
+
         List<Attendee> attendeesToSave = new ArrayList<>();
         List<String> errors = new ArrayList<>();
         int successfulImports = 0;
@@ -94,36 +111,59 @@ public class AttendeeService {
             CSVParser csvParser = CSVParser.parse(fileReader, csvFormat);
 
             List<String> headers = csvParser.getHeaderNames();
-            List<String> requiredHeaders = Arrays.asList("uniqueIdentifier", "firstName", "lastName");
-            List<String> missingHeaders = requiredHeaders.stream()
-                    .filter(requiredHeader -> !headers.contains(requiredHeader))
-                    .collect(Collectors.toList());
-
-            if (!missingHeaders.isEmpty()) {
-                throw new CsvValidationException("CSV file is missing required columns: " + String.join(", ", missingHeaders));
-            }
+            String uniqueIdentifierHeader = headers.stream().filter(h -> h.equalsIgnoreCase("uniqueIdentifier")).findFirst().orElse("uniqueIdentifier");
+            String firstNameHeader = headers.stream().filter(h -> h.equalsIgnoreCase("firstName")).findFirst().orElse("firstName");
+            String lastNameHeader = headers.stream().filter(h -> h.equalsIgnoreCase("lastName")).findFirst().orElse("lastName");
 
             for (CSVRecord csvRecord : csvParser) {
                 try {
-                    String uniqueIdentifier = csvRecord.get("uniqueIdentifier");
-                    String firstName = csvRecord.get("firstName");
-                    String lastName = csvRecord.get("lastName");
-
-                    if (!StringUtils.hasText(uniqueIdentifier) || !StringUtils.hasText(firstName) || !StringUtils.hasText(lastName)) {
-                        throw new IllegalStateException("Required fields (uniqueIdentifier, firstName, lastName) cannot be empty.");
+                    String uniqueIdentifier = csvRecord.get(uniqueIdentifierHeader);
+                    if (existingIdentifiers.contains(uniqueIdentifier) || identifiersInThisFile.contains(uniqueIdentifier)) {
+                        throw new IllegalStateException("Duplicate identifier '" + uniqueIdentifier + "' found.");
                     }
+                    identifiersInThisFile.add(uniqueIdentifier);
 
-                    Attendee attendee = new Attendee();
-                    attendee.setOrganization(orgReference);
-                    attendee.setUniqueIdentifier(uniqueIdentifier);
-                    attendee.setFirstName(firstName);
-                    attendee.setLastName(lastName);
+                    Attendee attendee = Attendee.builder()
+                            .organization(orgReference)
+                            .uniqueIdentifier(uniqueIdentifier)
+                            .firstName(csvRecord.get(firstNameHeader))
+                            .lastName(csvRecord.get(lastNameHeader))
+                            .build();
 
                     Map<String, Object> customFields = new HashMap<>();
                     for (String header : headers) {
-                        if (!requiredHeaders.contains(header)) {
-                            if (csvRecord.isMapped(header) && StringUtils.hasText(csvRecord.get(header))) {
-                                customFields.put(header, csvRecord.get(header));
+                        CustomFieldDefinition fieldDef = headerToDefMap.get(header.toLowerCase());
+
+                        if (fieldDef != null && csvRecord.isMapped(header) && StringUtils.hasText(csvRecord.get(header))) {
+                            String value = csvRecord.get(header);
+                            String fieldName = fieldDef.getFieldName();
+
+                            switch (fieldDef.getFieldType()) {
+                                case SELECT:
+                                    if (fieldDef.getOptions() == null || !fieldDef.getOptions().contains(value)) {
+                                        assert fieldDef.getOptions() != null;
+                                        throw new IllegalStateException("Invalid value '" + value + "' for field '" + fieldName + "'. Allowed values are: " + String.join(", ", fieldDef.getOptions()));
+                                    }
+                                    customFields.put(fieldName, value);
+                                    break;
+                                case NUMBER:
+                                    try {
+                                        customFields.put(fieldName, Double.parseDouble(value));
+                                    } catch (NumberFormatException e) {
+                                        throw new IllegalStateException("Invalid number format for field '" + fieldName + "'. Value was: '" + value + "'.");
+                                    }
+                                    break;
+                                case DATE:
+                                    try {
+                                        customFields.put(fieldName, LocalDate.parse(value).toString());
+                                    } catch (DateTimeParseException e) {
+                                        throw new IllegalStateException("Invalid date format for field '" + fieldName + "'. Please use YYYY-MM-DD format. Value was: '" + value + "'.");
+                                    }
+                                    break;
+                                case TEXT:
+                                default:
+                                    customFields.put(fieldName, value);
+                                    break;
                             }
                         }
                     }
@@ -133,15 +173,13 @@ public class AttendeeService {
                     successfulImports++;
                 } catch (Exception e) {
                     failedImports++;
-                    errors.add("Error on row " + csvRecord.getRecordNumber() + ": " + e.getMessage());
+                    errors.add("Row " + csvRecord.getRecordNumber() + ": " + e.getMessage());
                 }
             }
 
-            if (failedImports > 0 && successfulImports == 0 && !errors.isEmpty()) {
-                throw new CsvValidationException("Failed to process any rows. Please check file content. First error: " + errors.get(0));
+            if (!attendeesToSave.isEmpty()) {
+                attendeeRepository.saveAll(attendeesToSave);
             }
-
-            attendeeRepository.saveAll(attendeesToSave);
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse CSV file: " + e.getMessage());

@@ -1,6 +1,5 @@
 "use client";
 
-import {useEffect} from "react";
 import {useForm} from "react-hook-form";
 import {z} from "zod";
 import {zodResolver} from "@hookform/resolvers/zod";
@@ -24,27 +23,22 @@ interface AttendeeFormProps {
 
 export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeFormProps) {
     const {definitions, isLoading: isLoadingDefinitions} = useCustomFields();
+    const isEditing = !!attendee;
+
+    const defaultCustomFields = definitions.reduce((acc, field) => {
+        acc[field.fieldName] = attendee?.customFields?.[field.fieldName] ?? "";
+        return acc;
+    }, {} as Record<string, unknown>);
 
     const form = useForm<AttendeeFormSubmitValues>({
         resolver: zodResolver(attendeeSchema),
-    });
-
-    useEffect(() => {
-        const defaultCustomFields = definitions.reduce((acc, field) => {
-            acc[field.fieldName] = attendee?.customFields?.[field.fieldName] ?? "";
-            return acc;
-        }, {} as Record<string, unknown>);
-
-        form.reset({
+        defaultValues: {
             uniqueIdentifier: attendee?.uniqueIdentifier || "",
             firstName: attendee?.firstName || "",
             lastName: attendee?.lastName || "",
             customFields: defaultCustomFields,
-        });
-    }, [definitions, attendee, form]);
-
-
-    const isEditing = !!attendee;
+        },
+    });
 
     return (
         <Form {...form}>
@@ -56,7 +50,6 @@ export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeF
                     placeholder="e.g., 202012345"
                     iconType="hash"
                 />
-                {/* Reverted to the simpler, single-column layout */}
                 <StandardFormField
                     control={form.control}
                     name="firstName"
