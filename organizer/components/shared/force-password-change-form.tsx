@@ -16,11 +16,12 @@ import {useRouter} from "next/navigation";
 import {useAuthStore} from "@/store/auth";
 import {Card, CardContent} from "@/components/ui/card";
 import {Ticket} from "lucide-react";
+import Image from "next/image";
 
 export function ForcePasswordChangeForm() {
-    const { logout } = useAuth();
+    const {logout} = useAuth();
     const router = useRouter();
-    const { clearToken } = useAuthStore();
+    const {clearToken} = useAuthStore();
 
     const form = useForm<z.infer<typeof passwordChangeSchema>>({
         resolver: zodResolver(passwordChangeSchema),
@@ -48,7 +49,7 @@ export function ForcePasswordChangeForm() {
     });
 
     function onSubmit(values: z.infer<typeof passwordChangeSchema>) {
-        mutation.mutate({ newPassword: values.newPassword });
+        mutation.mutate({newPassword: values.newPassword});
     }
 
     return (
@@ -59,8 +60,9 @@ export function ForcePasswordChangeForm() {
                         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
                             <div className="flex flex-col items-center text-center gap-2">
                                 <div className="flex items-center gap-2 self-center font-semibold text-lg">
-                                    <div className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
-                                        <Ticket className="size-5" />
+                                    <div
+                                        className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
+                                        <Ticket className="size-5"/>
                                     </div>
                                     AttendEx
                                 </div>
@@ -72,26 +74,26 @@ export function ForcePasswordChangeForm() {
                             <FormField
                                 control={form.control}
                                 name="newPassword"
-                                render={({ field }) => (
+                                render={({field}) => (
                                     <FormItem className="grid gap-2 text-left">
                                         <FormLabel>New Password</FormLabel>
                                         <FormControl>
                                             <Input type="password" placeholder="••••••••" {...field} />
                                         </FormControl>
-                                        <FormMessage />
+                                        <FormMessage/>
                                     </FormItem>
                                 )}
                             />
                             <FormField
                                 control={form.control}
                                 name="confirmPassword"
-                                render={({ field }) => (
+                                render={({field}) => (
                                     <FormItem className="grid gap-2 text-left">
                                         <FormLabel>Confirm Password</FormLabel>
                                         <FormControl>
                                             <Input type="password" placeholder="••••••••" {...field} />
                                         </FormControl>
-                                        <FormMessage />
+                                        <FormMessage/>
                                     </FormItem>
                                 )}
                             />
@@ -107,9 +109,10 @@ export function ForcePasswordChangeForm() {
                     </Form>
                 </div>
                 <div className="bg-muted relative hidden md:block">
-                    <img
+                    <Image
                         src="https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?q=80&w=2787&auto=format&fit=crop"
                         alt="A person securing their account"
+                        fill
                         className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
                     />
                 </div>

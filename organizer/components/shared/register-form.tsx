@@ -19,6 +19,7 @@ import {Card, CardContent} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import Link from "next/link";
 import {Ticket} from "lucide-react";
+import Image from "next/image";
 
 export function RegisterForm({
                                  className,
@@ -113,9 +114,10 @@ export function RegisterForm({
                         </Form>
                     </div>
                     <div className="bg-muted relative hidden md:block">
-                        <img
+                        <Image
                             src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2940&auto=format&fit=crop"
                             alt="A group of people working together on laptops"
+                            fill
                             className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
                         />
                     </div>

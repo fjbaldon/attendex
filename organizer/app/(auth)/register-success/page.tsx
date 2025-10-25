@@ -3,6 +3,7 @@ import {Button} from '@/components/ui/button';
 import {Card, CardContent} from '@/components/ui/card';
 import {MailCheck} from 'lucide-react';
 import {Separator} from '@/components/ui/separator';
+import Image from "next/image";
 
 export default function RegisterSuccessPage() {
     return (
@@ -31,9 +32,10 @@ export default function RegisterSuccessPage() {
                         </div>
                     </div>
                     <div className="bg-muted relative hidden md:block">
-                        <img
+                        <Image
                             src="https://images.unsplash.com/photo-1516387938699-a93567ec168e?q=80&w=2940&auto=format&fit=crop"
                             alt="Person checking their email on a laptop"
+                            fill
                             className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
                         />
                     </div>

@@ -19,6 +19,7 @@ import {Card, CardContent} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import Link from "next/link";
 import {Ticket} from "lucide-react";
+import Image from "next/image";
 
 export function LoginForm({
                               className,
@@ -106,9 +107,11 @@ export function LoginForm({
                         </Form>
                     </div>
                     <div className="bg-muted relative hidden md:block">
-                        <img
+                        <Image
                             src="https://images.unsplash.com/photo-1543269865-cbf427effbad?q=80&w=2940&auto=format&fit=crop"
                             alt="People collaborating at a professional event"
+                            fill
+                            priority
                             className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
                         />
                     </div>
