@@ -5,6 +5,7 @@ import {type Icon} from "@tabler/icons-react";
 import {
     SidebarGroup,
     SidebarGroupContent,
+    SidebarGroupLabel,
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
@@ -12,17 +13,20 @@ import {
 
 export function NavMain({
                             items,
+                            label
                         }: {
     items: {
         title: string;
         url: string;
         icon?: Icon;
     }[];
+    label?: string;
 }) {
     const pathname = usePathname();
 
     return (
         <SidebarGroup>
+            {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
             <SidebarGroupContent>
                 <SidebarMenu>
                     {items.map((item) => {

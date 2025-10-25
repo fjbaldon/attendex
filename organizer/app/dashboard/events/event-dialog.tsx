@@ -8,18 +8,19 @@ import {EventResponse} from "@/types";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
+    DialogDescription, DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import {
     Drawer,
     DrawerContent,
-    DrawerDescription,
+    DrawerDescription, DrawerFooter,
     DrawerHeader,
     DrawerTitle,
 } from "@/components/ui/drawer";
 import {EventForm} from "./event-form";
+import {Button} from "@/components/ui/button";
 
 interface EventDialogProps {
     open: boolean;
@@ -32,6 +33,7 @@ interface EventDialogProps {
 export function EventDialog({open, onOpenChange, event, onSubmit, isLoading}: EventDialogProps) {
     const isMobile = useIsMobile();
     const isEditing = !!event;
+    const formId = "event-form";
 
     const title = isEditing ? "Edit Event" : "Add a New Event";
     const description = isEditing
@@ -43,19 +45,32 @@ export function EventDialog({open, onOpenChange, event, onSubmit, isLoading}: Ev
             event={event}
             onSubmit={onSubmit}
             isLoading={isLoading}
-            onClose={() => onOpenChange(false)}
         />
+    );
+
+    const footer = (
+        <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" form={formId} disabled={isLoading}>
+                {isLoading ? (isEditing ? "Saving..." : "Creating...") : (isEditing ? "Save Changes" : "Create Event")}
+            </Button>
+        </div>
     );
 
     if (isMobile) {
         return (
             <Drawer open={open} onOpenChange={onOpenChange}>
-                <DrawerContent className="p-4">
+                <DrawerContent>
                     <DrawerHeader className="text-left">
                         <DrawerTitle>{title}</DrawerTitle>
                         <DrawerDescription>{description}</DrawerDescription>
                     </DrawerHeader>
-                    <div className="px-4">{form}</div>
+                    <div className="overflow-y-auto max-h-[70vh] px-4">
+                        {form}
+                    </div>
+                    <DrawerFooter className="pt-2 border-t">
+                        {footer}
+                    </DrawerFooter>
                 </DrawerContent>
             </Drawer>
         );
@@ -63,12 +78,17 @@ export function EventDialog({open, onOpenChange, event, onSubmit, isLoading}: Ev
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[525px]">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[525px] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0 max-h-[90vh]">
+                <DialogHeader className="p-6 pb-4">
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
-                {form}
+                <div className="overflow-y-auto px-6">
+                    {form}
+                </div>
+                <DialogFooter className="p-6 pt-4 border-t">
+                    {footer}
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

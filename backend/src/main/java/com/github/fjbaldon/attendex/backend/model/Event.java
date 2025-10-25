@@ -9,8 +9,8 @@ import java.util.Set;
 
 @Getter
 @Setter
-@ToString(exclude = {"organizer", "eventAttendees", "organization"})
-@EqualsAndHashCode(exclude = {"organizer", "eventAttendees", "organization"})
+@ToString(exclude = {"organizer", "eventAttendees", "organization", "timeSlots"})
+@EqualsAndHashCode(exclude = {"organizer", "eventAttendees", "organization", "timeSlots"})
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -45,6 +45,10 @@ public class Event {
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<EventAttendee> eventAttendees = new HashSet<>();
+
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<EventTimeSlot> timeSlots = new HashSet<>();
 
     @Column(nullable = false, updatable = false)
     @Builder.Default

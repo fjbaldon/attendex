@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {startOfDay, endOfDay} from "date-fns";
 
 export const loginSchema = z.object({
     email: z.email("Please enter a valid email address"),
@@ -35,9 +36,30 @@ export const eventSchema = z.object({
     endDate: z.date({
         error: "An end date is required.",
     }),
+    timeSlots: z.array(z.object({
+        startTime: z.date(),
+        endTime: z.date(),
+        type: z.enum(["CHECK_IN", "CHECK_OUT"]),
+    })).min(1, "At least one time slot is required.").refine(
+        (slots) => slots.every(slot => slot.endTime > slot.startTime),
+        {
+            message: "End time must be after start time for all slots.",
+            path: ["timeSlots"],
+        }
+    ),
 }).refine((data) => data.endDate >= data.startDate, {
     message: "End date cannot be before the start date",
     path: ["endDate"],
+}).refine((data) => {
+    if (!data.startDate || !data.endDate) return true;
+    const eventStart = startOfDay(data.startDate);
+    const eventEnd = endOfDay(data.endDate);
+    return data.timeSlots.every(slot =>
+        slot.startTime >= eventStart && slot.endTime <= eventEnd
+    );
+}, {
+    message: "All time slots must be within the event's start and end dates.",
+    path: ["timeSlots"],
 });
 
 export const attendeeSchema = z.object({

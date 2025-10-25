@@ -4,6 +4,7 @@ import * as React from 'react';
 import {AttendeeResponse} from "@/types";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {Separator} from '@/components/ui/separator';
+import {Badge} from "@/components/ui/badge";
 
 interface AttendeeRosterProps {
     eventName: string;
@@ -22,7 +23,7 @@ export const AttendeeRoster = React.forwardRef<HTMLDivElement, AttendeeRosterPro
 
         return (
             <div ref={ref} className="bg-background rounded-lg border p-8">
-                {/* --- HEADER --- (Re-styled and re-ordered for better hierarchy) */}
+                {/* --- HEADER --- */}
                 <div className="mb-6">
                     <h2 className="text-3xl font-bold">{eventName}</h2>
                     <p className="text-lg text-muted-foreground">Attendee Roster</p>
@@ -40,13 +41,16 @@ export const AttendeeRoster = React.forwardRef<HTMLDivElement, AttendeeRosterPro
                     </div>
                     <div className="space-y-1">
                         <p className="font-semibold">Filters Applied:</p>
-                        <div className="text-muted-foreground">
+                        <div className="flex flex-wrap gap-1">
                             {activeFilterEntries.length > 0 ? (
                                 activeFilterEntries.map(([field, values]) => (
-                                    <div key={field}>{field}: {values.join(', ')}</div>
+                                    <Badge key={field} variant="secondary" className="font-normal">
+                                        <span className="font-semibold">{field}:</span>&nbsp;
+                                        <span>{values.join(', ')}</span>
+                                    </Badge>
                                 ))
                             ) : (
-                                "None"
+                                <p className="text-muted-foreground">None</p>
                             )}
                         </div>
                     </div>

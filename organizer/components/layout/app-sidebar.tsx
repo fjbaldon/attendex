@@ -27,12 +27,18 @@ import {
 import {useAuthStore} from "@/store/auth";
 import {Ticket} from "lucide-react";
 
-const navMain = [
+const navDashboard = [
     {title: "Dashboard", url: "/dashboard", icon: IconDashboard},
+];
+
+const navManagement = [
     {title: "Events", url: "/dashboard/events", icon: IconCalendar},
     {title: "Scanners", url: "/dashboard/scanners", icon: IconScan},
     {title: "Attendees", url: "/dashboard/attendees", icon: IconUsers},
     {title: "Organizers", url: "/dashboard/organizers", icon: IconUserShield},
+];
+
+const navData = [
     {title: "Analytics", url: "/dashboard/analytics", icon: IconGraph},
     {title: "Reports", url: "/dashboard/reports", icon: IconReportAnalytics},
 ];
@@ -69,8 +75,10 @@ export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
                 </SidebarMenu>
             </SidebarHeader>
             <SidebarContent>
-                <NavMain items={navMain}/>
-                <NavSecondary items={navSecondary} className="mt-auto"/>
+                <NavMain items={navDashboard}/>
+                <NavMain items={navManagement} label="Management"/>
+                <NavMain items={navData} label="Data"/>
+                <NavSecondary items={navSecondary} className="mt-auto" label="General"/>
             </SidebarContent>
             <SidebarFooter>
                 <NavUser user={user}/>

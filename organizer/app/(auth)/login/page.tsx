@@ -14,9 +14,11 @@ export default function LoginPage() {
         const sessionExpired = searchParams.get("sessionExpired");
 
         if (sessionExpired && !toastShownRef.current) {
-            toast.error("Session Expired", {
-                description: "You have been logged out. Please sign in again.",
-            });
+            setTimeout(() => {
+                toast.error("Session Expired", {
+                    description: "You have been logged out. Please sign in again.",
+                });
+            }, 100);
 
             toastShownRef.current = true;
 

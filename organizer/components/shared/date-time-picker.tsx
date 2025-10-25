@@ -1,14 +1,14 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { FormControl } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { CalendarIcon, ClockIcon } from "lucide-react";
-import { ControllerRenderProps, FieldValues, FieldPath } from "react-hook-form";
+import {Button} from "@/components/ui/button";
+import {Calendar} from "@/components/ui/calendar";
+import {FormControl} from "@/components/ui/form";
+import {Input} from "@/components/ui/input";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
+import {cn} from "@/lib/utils";
+import {format} from "date-fns";
+import {CalendarIcon, ClockIcon} from "lucide-react";
+import {ControllerRenderProps, FieldValues, FieldPath} from "react-hook-form";
 import * as React from "react";
 
 type CalendarProps = React.ComponentProps<typeof Calendar>;
@@ -38,27 +38,29 @@ const combineDateAndTime = (date: Date, time: string): Date => {
 export function DateTimePicker<
     TFieldValues extends FieldValues = FieldValues,
     TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
->({ field, disabledDays }: DateTimePickerProps<TFieldValues, TName>) {
+>({field, disabledDays}: DateTimePickerProps<TFieldValues, TName>) {
     const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
 
     return (
-        <div className="grid grid-cols-2 items-center gap-2">
+        <div className="flex items-center gap-2">
             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <PopoverTrigger asChild>
                     <FormControl>
                         <Button
                             variant={"outline"}
                             className={cn(
-                                "w-full justify-start pl-3 text-left font-normal",
+                                "justify-start pl-3 text-left font-normal flex-1 min-w-0",
                                 !field.value && "text-muted-foreground"
                             )}
                         >
-                            <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                            {field.value && !isNaN(new Date(field.value).getTime()) ? (
-                                format(new Date(field.value), "MMM d, yyyy")
-                            ) : (
-                                <span>Pick a date</span>
-                            )}
+                            <CalendarIcon className="mr-2 h-4 w-4 shrink-0 text-muted-foreground"/>
+                            <span>
+                                {field.value && !isNaN(new Date(field.value).getTime()) ? (
+                                    format(new Date(field.value), "MMM d, yyyy")
+                                ) : (
+                                    "Pick a date"
+                                )}
+                            </span>
                         </Button>
                     </FormControl>
                 </PopoverTrigger>
@@ -77,9 +79,9 @@ export function DateTimePicker<
                     />
                 </PopoverContent>
             </Popover>
-            <div className="relative">
+            <div className="relative w-32 shrink-0">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <ClockIcon className="h-4 w-4 text-muted-foreground" />
+                    <ClockIcon className="h-4 w-4 text-muted-foreground"/>
                 </div>
                 <Input
                     type="time"

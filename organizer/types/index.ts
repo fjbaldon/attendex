@@ -23,10 +23,20 @@ export interface DecodedToken {
     exp: number;
 }
 
+export type TimeSlotType = 'CHECK_IN' | 'CHECK_OUT';
+
+export interface TimeSlot {
+    id?: number;
+    startTime: Date;
+    endTime: Date;
+    type: TimeSlotType;
+}
+
 export interface EventRequest {
     eventName: string;
     startDate: Date;
     endDate: Date;
+    timeSlots: TimeSlot[];
 }
 
 export interface EventResponse {
@@ -34,6 +44,7 @@ export interface EventResponse {
     eventName: string;
     startDate: string;
     endDate: string;
+    timeSlots: TimeSlot[];
 }
 
 export interface PaginatedResponse<T> {

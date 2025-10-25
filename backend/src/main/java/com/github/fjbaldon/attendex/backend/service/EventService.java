@@ -1,8 +1,6 @@
 package com.github.fjbaldon.attendex.backend.service;
 
-import com.github.fjbaldon.attendex.backend.dto.AttendeeResponse;
-import com.github.fjbaldon.attendex.backend.dto.EventRequest;
-import com.github.fjbaldon.attendex.backend.dto.EventResponse;
+import com.github.fjbaldon.attendex.backend.dto.*;
 import com.github.fjbaldon.attendex.backend.model.*;
 import com.github.fjbaldon.attendex.backend.repository.AttendeeRepository;
 import com.github.fjbaldon.attendex.backend.repository.EventAttendeeRepository;
@@ -39,6 +37,12 @@ public class EventService {
                 .organizer(organizer)
                 .organization(orgReference)
                 .build();
+
+        List<EventTimeSlot> timeSlots = request.getTimeSlots().stream()
+                .map(ts -> toEventTimeSlot(ts, event))
+                .toList();
+        event.getTimeSlots().addAll(timeSlots);
+
         Event savedEvent = eventRepository.save(event);
         return toEventResponse(savedEvent);
     }
@@ -62,6 +66,13 @@ public class EventService {
         event.setEventName(request.getEventName());
         event.setStartDate(request.getStartDate());
         event.setEndDate(request.getEndDate());
+
+        event.getTimeSlots().clear();
+        List<EventTimeSlot> newTimeSlots = request.getTimeSlots().stream()
+                .map(ts -> toEventTimeSlot(ts, event))
+                .toList();
+        event.getTimeSlots().addAll(newTimeSlots);
+
         Event updatedEvent = eventRepository.save(event);
         return toEventResponse(updatedEvent);
     }
@@ -121,6 +132,7 @@ public class EventService {
                 .eventName(event.getEventName())
                 .startDate(event.getStartDate())
                 .endDate(event.getEndDate())
+                .timeSlots(event.getTimeSlots().stream().map(this::toTimeSlotResponse).collect(Collectors.toList()))
                 .build();
     }
 
@@ -131,6 +143,24 @@ public class EventService {
                 .firstName(attendee.getFirstName())
                 .lastName(attendee.getLastName())
                 .customFields(attendee.getCustomFields())
+                .build();
+    }
+
+    private EventTimeSlot toEventTimeSlot(TimeSlotRequest request, Event event) {
+        return EventTimeSlot.builder()
+                .event(event)
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
+                .type(request.getType())
+                .build();
+    }
+
+    private TimeSlotResponse toTimeSlotResponse(EventTimeSlot timeSlot) {
+        return TimeSlotResponse.builder()
+                .id(timeSlot.getId())
+                .startTime(timeSlot.getStartTime())
+                .endTime(timeSlot.getEndTime())
+                .type(timeSlot.getType())
                 .build();
     }
 }

@@ -15,6 +15,7 @@ import {Checkbox} from "@/components/ui/checkbox";
 import {IconDotsVertical, IconCircleCheckFilled, IconLoader, IconCalendarOff} from "@tabler/icons-react";
 import {Badge} from "@/components/ui/badge";
 import Link from "next/link";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
 
 declare module '@tanstack/react-table' {
     interface TableMeta<TData extends RowData> {
@@ -23,34 +24,68 @@ declare module '@tanstack/react-table' {
     }
 }
 
-const getEventStatus = (startDateStr: string, endDateStr: string): { text: string; icon: React.ReactNode } => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+const getEventStatus = (timeSlots: EventResponse['timeSlots']): { text: string; icon: React.ReactNode } => {
+    const now = new Date();
+    let isUpcoming = true;
+    let isPast = true;
+
+    if (!timeSlots || timeSlots.length === 0) {
+        return {text: "Unscheduled", icon: <IconCalendarOff className="mr-1 h-3.5 w-3.5"/>};
+    }
+
+    for (const slot of timeSlots) {
+        const startTime = new Date(slot.startTime);
+        const endTime = new Date(slot.endTime);
+
+        if (now >= startTime && now <= endTime) {
+            return {
+                text: "Ongoing",
+                icon: <IconCircleCheckFilled
+                    className="mr-1 h-3.5 w-3.5 fill-green-500 text-green-500 dark:fill-green-400 dark:text-green-400"/>
+            };
+        }
+        if (endTime > now) {
+            isPast = false;
+        }
+        if (startTime < now) {
+            isUpcoming = false;
+        }
+    }
+
+    if (isPast) {
+        return {text: "Past", icon: <IconCalendarOff className="mr-1 h-3.5 w-3.5"/>};
+    }
+    if (isUpcoming) {
+        return {text: "Upcoming", icon: <IconLoader className="mr-1 h-3.5 w-3.5 animate-spin"/>};
+    }
+    return {text: "Mixed", icon: <IconCalendarOff className="mr-1 h-3.5 w-3.5"/>};
+};
+
+
+const formatDateRange = (startDateStr: string, endDateStr: string) => {
+    if (!startDateStr || !endDateStr) return "N/A";
     const startDate = new Date(startDateStr);
     const endDate = new Date(endDateStr);
+    const startFormatted = startDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+    const endFormatted = endDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
 
-    if (endDate < today) {
-        return {text: "Past", icon: <IconCalendarOff className="mr-1 h-3.5 w-3.5"/>};
-    } else if (startDate > today) {
-        return {text: "Upcoming", icon: <IconLoader className="mr-1 h-3.5 w-3.5 animate-spin"/>};
-    } else {
-        return {
-            text: "Ongoing",
-            icon: <IconCircleCheckFilled
-                className="mr-1 h-3.5 w-3.5 fill-green-500 text-green-500 dark:fill-green-400 dark:text-green-400"/>
-        };
+    if (startDate.getFullYear() !== endDate.getFullYear()) {
+        return `${startDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        })} - ${endFormatted}`;
     }
+
+    if (startDate.getMonth() === endDate.getMonth() && startDate.getDate() === endDate.getDate()) {
+        return endDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+    }
+
+    return `${startFormatted} - ${endFormatted}`;
 };
 
-const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    });
-};
 
-const formatTime = (dateString: string) => {
+const formatTime = (dateString: string | Date) => {
     return new Date(dateString).toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
@@ -93,7 +128,7 @@ export const columns: ColumnDef<EventResponse>[] = [
         id: "status",
         header: "Status",
         cell: ({row}) => {
-            const status = getEventStatus(row.original.startDate, row.original.endDate);
+            const status = getEventStatus(row.original.timeSlots);
             return (
                 <Badge variant="outline" className="text-muted-foreground">
                     {status.icon}
@@ -103,32 +138,59 @@ export const columns: ColumnDef<EventResponse>[] = [
         },
     },
     {
-        accessorKey: "startDate",
-        header: "Start",
+        id: 'dateRange',
+        header: 'Dates',
         cell: ({row}) => {
-            const date = formatDate(row.original.startDate);
-            const time = formatTime(row.original.startDate);
-            return (
-                <div className="flex flex-col">
-                    <span>{date}</span>
-                    <span className="text-xs text-muted-foreground">{time}</span>
-                </div>
-            );
-        },
+            const {startDate, endDate} = row.original;
+            return <span>{formatDateRange(startDate, endDate)}</span>
+        }
     },
     {
-        accessorKey: "endDate",
-        header: "End",
+        id: 'schedule',
+        header: 'Schedule',
         cell: ({row}) => {
-            const date = formatDate(row.original.endDate);
-            const time = formatTime(row.original.endDate);
+            const {timeSlots} = row.original;
+            if (!timeSlots || timeSlots.length === 0) {
+                return <span className="text-muted-foreground italic text-sm">No schedule</span>;
+            }
+
+            const summary = `${timeSlots.length} time slot(s)`;
+
             return (
-                <div className="flex flex-col">
-                    <span>{date}</span>
-                    <span className="text-xs text-muted-foreground">{time}</span>
-                </div>
-            );
-        },
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="link"
+                                className="p-0 h-auto font-normal text-primary text-sm">{summary}</Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                        <div className="grid gap-4">
+                            <div className="space-y-2">
+                                <h4 className="font-medium leading-none">Schedule Details</h4>
+                                <p className="text-sm text-muted-foreground">
+                                    Defined check-in/out periods for this event.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                {timeSlots.map((slot, index) => (
+                                    <div key={index}
+                                         className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1 text-sm">
+                                        <Badge
+                                            variant={slot.type === 'CHECK_IN' ? 'default' : 'secondary'}
+                                            className="font-normal"
+                                        >
+                                            {slot.type === 'CHECK_IN' ? 'Check-in' : 'Check-out'}
+                                        </Badge>
+                                        <span className="text-muted-foreground">
+                                            {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            )
+        }
     },
     {
         id: "actions",

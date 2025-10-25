@@ -37,15 +37,14 @@ export default function AnalyticsPage() {
         },
     }) satisfies ChartConfig, []);
 
+    const selectedEvent = events.find(e => String(e.id) === selectedEventId);
+
     const handleExport = async () => {
-        if (!analyticsContentRef.current || !selectedEventId || !selectedGroupBy) {
-            return;
-        }
+        if (!analyticsContentRef.current || !selectedEventId || !selectedGroupBy) return;
 
         setIsExporting(true);
-        const selectedEvent = events.find(e => String(e.id) === selectedEventId);
         const eventName = selectedEvent ? selectedEvent.eventName.replace(/ /g, '_') : 'analytics';
-        const fileName = `analytics-${eventName}-by-${selectedGroupBy}.pdf`;
+        const fileName = `analytics-${eventName}-by-${selectedGroupBy}`;
 
         try {
             await exportToPdf(analyticsContentRef.current, fileName);
@@ -54,43 +53,6 @@ export default function AnalyticsPage() {
         } finally {
             setIsExporting(false);
         }
-    };
-
-    const renderChartContent = () => {
-        if (!selectedEventId || !selectedGroupBy) {
-            return (
-                <div className="flex flex-col h-80 items-center justify-center rounded-lg border-2 border-dashed">
-                    <IconChartDonut className="h-16 w-16 text-muted-foreground mb-4"/>
-                    <h2 className="text-xl font-semibold">Select an Event and Field</h2>
-                    <p className="text-muted-foreground mt-2 text-center">Choose an event and a custom field to break
-                        down attendance data.</p>
-                </div>
-            );
-        }
-        if (isLoadingBreakdown) {
-            return <Skeleton className="h-[320px] w-full"/>;
-        }
-        if (breakdown.length === 0) {
-            return (
-                <div className="flex flex-col h-80 items-center justify-center rounded-lg border-2 border-dashed">
-                    <IconChartDonut className="h-16 w-16 text-muted-foreground mb-4"/>
-                    <h2 className="text-xl font-semibold">No Data to Display</h2>
-                    <p className="text-muted-foreground mt-2">No attendance records were found for this combination.</p>
-                </div>
-            );
-        }
-        return (
-            <ChartContainer config={chartConfig} className="h-[320px] w-full">
-                <BarChart accessibilityLayer data={breakdown} margin={{top: 20, right: 20, bottom: 20, left: 20}}>
-                    <CartesianGrid vertical={false}/>
-                    <XAxis dataKey="groupName" tickLine={false} tickMargin={10} axisLine={false} angle={-45}
-                           textAnchor="end" height={60}/>
-                    <YAxis allowDecimals={false}/>
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot"/>}/>
-                    <Bar dataKey="count" fill="var(--color-count)" radius={4}/>
-                </BarChart>
-            </ChartContainer>
-        );
     };
 
     return (
@@ -102,57 +64,94 @@ export default function AnalyticsPage() {
             <SidebarInset>
                 <SiteHeader title="Analytics"/>
                 <main className="flex-1 p-4 lg:p-6">
-                    <div className="w-full max-w-4xl mx-auto space-y-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h1 className="text-lg font-semibold md:text-2xl">Custom Field Analytics</h1>
-                                <p className="text-muted-foreground text-sm">Explore attendance data by breaking it down
-                                    with your custom fields.</p>
-                            </div>
+                    <div className="w-full max-w-6xl mx-auto space-y-6">
+                        {/* Header Section */}
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-start">
+                            {isLoadingEvents ? <Skeleton className="h-9 w-full sm:w-64"/> : (
+                                <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                                    <SelectTrigger className="w-full sm:w-64">
+                                        <SelectValue placeholder="1. Select an Event"/>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {events.map(event => (
+                                            <SelectItem key={event.id}
+                                                        value={String(event.id)}>{event.eventName}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                            {isLoadingCustomFields ? <Skeleton className="h-9 w-full sm:w-64"/> : (
+                                <Select value={selectedGroupBy} onValueChange={setSelectedGroupBy}
+                                        disabled={!customFields.length || !selectedEventId}>
+                                    <SelectTrigger className="w-full sm:w-64">
+                                        <SelectValue placeholder="2. Group By..."/>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {customFields.map(field => (
+                                            <SelectItem key={field} value={field}>{field}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
                             <Button
                                 variant="outline"
                                 onClick={handleExport}
                                 disabled={!breakdown || breakdown.length === 0 || isExporting || isLoadingBreakdown}
                             >
-                                <IconFileDownload className="mr-2 h-4 w-4"/>
+                                <IconFileDownload className="mr-2 h-4 w-4" stroke={1.5}/>
                                 {isExporting ? 'Exporting...' : 'Export PDF'}
                             </Button>
                         </div>
 
-                        <Card ref={analyticsContentRef}>
-                            <CardHeader>
-                                <CardTitle>Attendance Breakdown</CardTitle>
-                                <CardDescription>Select an event and a custom field to see how attendees are
-                                    distributed.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    {isLoadingEvents ? <Skeleton className="h-10 w-full"/> : (
-                                        <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                                            <SelectTrigger><SelectValue
-                                                placeholder="1. Select an Event"/></SelectTrigger>
-                                            <SelectContent>
-                                                {events.map(event => (<SelectItem key={event.id}
-                                                                                  value={String(event.id)}>{event.eventName}</SelectItem>))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                    {isLoadingCustomFields ? <Skeleton className="h-10 w-full"/> : (
-                                        <Select value={selectedGroupBy} onValueChange={setSelectedGroupBy}
-                                                disabled={!customFields.length || !selectedEventId}>
-                                            <SelectTrigger><SelectValue placeholder="2. Group By..."/></SelectTrigger>
-                                            <SelectContent>
-                                                {customFields.map(field => (
-                                                    <SelectItem key={field} value={field}>{field}</SelectItem>))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
+                        {/* Chart / Empty State Section */}
+                        <div className="pt-2">
+                            {selectedEventId && selectedGroupBy ? (
+                                <Card ref={analyticsContentRef}>
+                                    <CardHeader>
+                                        <CardTitle>Attendance Breakdown</CardTitle>
+                                        <CardDescription>
+                                            Visualizing attendee distribution
+                                            for &quot;{selectedEvent?.eventName}&quot; grouped
+                                            by &quot;{selectedGroupBy}&quot;.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {isLoadingBreakdown ? (
+                                            <Skeleton className="h-[350px] w-full"/>
+                                        ) : breakdown.length === 0 ? (
+                                            <div
+                                                className="flex flex-col h-[350px] items-center justify-center rounded-lg">
+                                                <IconChartDonut className="h-16 w-16 text-muted-foreground mb-4"/>
+                                                <h2 className="text-xl font-semibold">No Data to Display</h2>
+                                                <p className="text-muted-foreground mt-2">No attendance records were
+                                                    found for this combination.</p>
+                                            </div>
+                                        ) : (
+                                            <ChartContainer config={chartConfig} className="h-[350px] w-full">
+                                                <BarChart accessibilityLayer data={breakdown}
+                                                          margin={{top: 20, right: 20, bottom: 20, left: 20}}>
+                                                    <CartesianGrid vertical={false}/>
+                                                    <XAxis dataKey="groupName" tickLine={false} tickMargin={10}
+                                                           axisLine={false} angle={-45} textAnchor="end" height={60}/>
+                                                    <YAxis allowDecimals={false}/>
+                                                    <ChartTooltip cursor={false}
+                                                                  content={<ChartTooltipContent indicator="dot"/>}/>
+                                                    <Bar dataKey="count" fill="var(--color-count)" radius={4}/>
+                                                </BarChart>
+                                            </ChartContainer>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <div
+                                    className="flex flex-col h-96 items-center justify-center rounded-lg border-2 border-dashed text-center">
+                                    <IconChartDonut className="h-16 w-16 text-muted-foreground mb-4"/>
+                                    <h2 className="text-xl font-semibold">Select an Event and Field</h2>
+                                    <p className="text-muted-foreground mt-2 text-center">Choose an event and a custom
+                                        field to break down attendance data.</p>
                                 </div>
-                                <div className="pt-4">
-                                    {renderChartContent()}
-                                </div>
-                            </CardContent>
-                        </Card>
+                            )}
+                        </div>
                     </div>
                 </main>
             </SidebarInset>

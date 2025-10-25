@@ -81,49 +81,54 @@ export default function ReportsPage() {
                 <SiteHeader title="Reports"/>
                 <main className="flex-1 p-4 lg:p-6">
                     <div className="w-full max-w-6xl mx-auto space-y-6">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h1 className="text-lg font-semibold md:text-2xl">Attendee Roster Generation</h1>
-                                <p className="text-muted-foreground text-sm">Select an event, apply filters, and print a
-                                    PDF roster.</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {isLoadingEvents ? <Skeleton className="h-9 w-64"/> : (
+                        {/* Header Section */}
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-start">
+                            <div className="flex flex-shrink-0 items-center gap-2">
+                                {isLoadingEvents ? <Skeleton className="h-9 w-full sm:w-64"/> : (
                                     <Select value={selectedEventId ? String(selectedEventId) : ""}
                                             onValueChange={handleEventChange}>
-                                        <SelectTrigger className="w-full sm:w-64"><SelectValue
-                                            placeholder="Select an Event"/></SelectTrigger>
+                                        <SelectTrigger className="w-full sm:w-64">
+                                            <SelectValue placeholder="Select an Event"/>
+                                        </SelectTrigger>
                                         <SelectContent>
-                                            {events.map(event => (<SelectItem key={event.id}
-                                                                              value={String(event.id)}>{event.eventName}</SelectItem>))}
+                                            {events.map(event => (
+                                                <SelectItem key={event.id}
+                                                            value={String(event.id)}>{event.eventName}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 )}
-                                <Button onClick={handleExport} disabled={!selectedEventId || isExporting}>
+                                <Button onClick={handleExport} disabled={!selectedEventId || isExporting}
+                                        variant="outline">
                                     <IconPrinter className="mr-2 h-4 w-4" stroke={1.5}/>
-                                    {isExporting ? 'Exporting...' : 'Print PDF'}
+                                    {isExporting ? 'Exporting...' : 'Export PDF'}
                                 </Button>
                             </div>
                         </div>
 
+                        {/* Filter Section */}
                         {selectedEventId && (
-                            isLoadingCustomFields || isLoadingAttendees ? (
-                                <Skeleton className="h-12 w-full"/>
-                            ) : (
-                                <ReportFilters
-                                    attendees={allAttendees}
-                                    customFields={customFields}
-                                    activeFilters={activeFilters}
-                                    onFilterChange={setActiveFilters}
-                                />
-                            )
+                            <div className="rounded-lg border bg-card p-4">
+                                {isLoadingCustomFields || isLoadingAttendees ? (
+                                    <Skeleton className="h-8 w-full"/>
+                                ) : (
+                                    <ReportFilters
+                                        attendees={allAttendees}
+                                        customFields={customFields}
+                                        activeFilters={activeFilters}
+                                        onFilterChange={setActiveFilters}
+                                    />
+                                )}
+                            </div>
                         )}
 
-                        <div className="pt-4">
+                        {/* Roster / Empty State Section */}
+                        <div className="pt-2">
                             {selectedEventId ? (
                                 isLoadingAttendees ? (
-                                    <div className="flex items-center justify-center h-96"><IconLoader
-                                        className="h-8 w-8 animate-spin" stroke={1.5}/></div>
+                                    <div className="flex items-center justify-center h-96">
+                                        <IconLoader className="h-8 w-8 animate-spin" stroke={1.5}/>
+                                    </div>
                                 ) : (
                                     <AttendeeRoster
                                         ref={rosterRef}
@@ -140,8 +145,9 @@ export default function ReportsPage() {
                                     className="flex flex-col h-96 items-center justify-center rounded-lg border-2 border-dashed text-center">
                                     <IconReportAnalytics className="h-16 w-16 text-muted-foreground mb-4" stroke={1.5}/>
                                     <h2 className="text-xl font-semibold">Select an Event to Begin</h2>
-                                    <p className="text-muted-foreground mt-2">Choose an event from the dropdown above to
-                                        view and filter its attendee roster.</p>
+                                    <p className="text-muted-foreground mt-2">
+                                        Choose an event to view and filter its roster.
+                                    </p>
                                 </div>
                             )}
                         </div>
