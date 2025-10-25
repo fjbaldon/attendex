@@ -14,7 +14,7 @@ export default function RegisterSuccessPage() {
                             className="bg-primary/10 text-primary mb-4 flex size-14 items-center justify-center rounded-full">
                             <MailCheck className="size-8"/>
                         </div>
-                        <h1 className="text-2xl font-bold">Almost there! Check your email.</h1>
+                        <h1 className="text-2xl font-bold">Verify Your Email</h1>
                         <p className="text-muted-foreground mt-2 text-balance">
                             We&#39;ve sent a verification link to your email address. Please click the link to activate
                             your

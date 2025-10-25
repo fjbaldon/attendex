@@ -8,9 +8,7 @@ import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDesc
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
 import {Organization} from "@/types";
-import {useEffect, useState} from "react";
-import {toast} from "sonner";
-import {Separator} from "@/components/ui/separator";
+import {useEffect} from "react";
 
 interface OrganizationSettingsFormProps {
     organization: Organization;
@@ -19,8 +17,6 @@ interface OrganizationSettingsFormProps {
 }
 
 export function OrganizationSettingsForm({organization, onSubmit, isLoading}: OrganizationSettingsFormProps) {
-    const [testIdentifier, setTestIdentifier] = useState("");
-
     const form = useForm<z.infer<typeof organizationSettingsSchema>>({
         resolver: zodResolver(organizationSettingsSchema),
         defaultValues: {
@@ -35,33 +31,6 @@ export function OrganizationSettingsForm({organization, onSubmit, isLoading}: Or
             identifierFormatRegex: organization.identifierFormatRegex || "",
         });
     }, [organization, form]);
-
-    const handleTestPattern = () => {
-        const pattern = form.getValues("identifierFormatRegex");
-        if (!pattern) {
-            toast.info("Pattern is empty", {
-                description: "Enter a pattern above to test it."
-            });
-            return;
-        }
-
-        try {
-            const regex = new RegExp(pattern);
-            if (regex.test(testIdentifier)) {
-                toast.success("Pattern matched!", {
-                    description: `✅ '${testIdentifier}' matches the pattern.`
-                });
-            } else {
-                toast.error("Pattern did not match", {
-                    description: `❌ '${testIdentifier}' does not match the pattern.`
-                });
-            }
-        } catch {
-            toast.error("Invalid Regex Pattern", {
-                description: "The pattern you entered is not a valid regular expression."
-            });
-        }
-    };
 
     return (
         <Form {...form}>
@@ -97,23 +66,6 @@ export function OrganizationSettingsForm({organization, onSubmit, isLoading}: Or
                         </FormItem>
                     )}
                 />
-
-                <Separator/>
-
-                <div className="space-y-3 rounded-lg border bg-muted/50 p-4">
-                    <h3 className="font-medium">Test Your Pattern</h3>
-                    <div className="flex items-center gap-2">
-                        <Input
-                            placeholder="Enter a sample identifier..."
-                            value={testIdentifier}
-                            onChange={(e) => setTestIdentifier(e.target.value)}
-                        />
-                        <Button type="button" variant="secondary" onClick={handleTestPattern}>
-                            Test
-                        </Button>
-                    </div>
-                </div>
-
 
                 <div className="flex justify-end pt-2">
                     <Button type="submit" disabled={isLoading}>

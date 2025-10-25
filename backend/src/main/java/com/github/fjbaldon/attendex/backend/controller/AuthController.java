@@ -45,11 +45,7 @@ public class AuthController {
 
     @GetMapping("/verify")
     public ResponseEntity<String> verifyAccount(@RequestParam("token") String token) {
-        try {
-            authService.verifyUser(token);
-            return ResponseEntity.ok("Account verified successfully! You can now log in.");
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        authService.verifyUser(token);
+        return ResponseEntity.ok("Account verified successfully! You can now log in.");
     }
 }

@@ -52,7 +52,7 @@ function VerificationComponent() {
             description: "No verification token was found in the URL. Please check the link from your email and try again.",
             button: <Button asChild className="mt-6 w-full"><Link href="/login">Return to Login</Link></Button>
         };
-    } else if (isPending) {
+    } else if (isPending || (!isSuccess && !isError)) {
         content = {
             icon: <LoaderCircle className="size-8 animate-spin text-muted-foreground"/>,
             title: "Verifying Your Account...",
@@ -65,9 +65,23 @@ function VerificationComponent() {
             description: data || "Your account has been successfully activated. You can now log in to access your dashboard.",
             button: <Button asChild className="mt-6 w-full"><Link href="/login">Proceed to Login</Link></Button>
         };
+    } else if (error && error.response?.data?.message?.includes("already been verified")) {
+        content = {
+            icon: <CircleCheck className="size-8 text-primary"/>,
+            title: "Account Already Verified",
+            description: "This account has already been verified. Please log in to continue.",
+            button: <Button asChild className="mt-6 w-full"><Link href="/login">Proceed to Login</Link></Button>
+        };
+    } else if (error && error.response?.data?.message?.includes("Invalid verification token")) {
+        content = {
+            icon: <CircleX className="size-8 text-destructive"/>,
+            title: "Link Invalid or Already Used",
+            description: "This verification link is no longer valid. This can happen if it has already been used or has expired. If you've already verified your account, please proceed to login.",
+            button: <Button asChild className="mt-6 w-full"><Link href="/login">Proceed to Login</Link></Button>
+        };
     } else {
         const descriptionMessage = error
-            ? getErrorMessage(error, "This verification link may be invalid or has expired.")
+            ? getErrorMessage(error, "An unexpected error occurred.")
             : "An unexpected error occurred. The link may be invalid or has expired.";
 
         content = {

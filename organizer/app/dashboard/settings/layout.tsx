@@ -9,8 +9,22 @@ import {AppSidebar} from "@/components/layout/app-sidebar";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
 import {Skeleton} from "@/components/ui/skeleton";
 
+const settingsPages = [
+    {
+        path: "/dashboard/settings/organization",
+        title: "Organization Details",
+        description: "Update your organization's name and settings.",
+    },
+    {
+        path: "/dashboard/settings/custom-fields",
+        title: "Manage Custom Fields",
+        description: "Add, edit, or remove custom fields for attendees in your organization.",
+    },
+];
+
 export default function SettingsLayout({children}: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const currentPage = settingsPages.find(p => p.path === pathname);
 
     const [isClient, setIsClient] = React.useState(false);
 
@@ -58,10 +72,16 @@ export default function SettingsLayout({children}: { children: React.ReactNode }
                                     <Link href="/dashboard/settings/custom-fields">Custom Fields</Link>
                                 </TabsTrigger>
                             </TabsList>
-                            <div className="pt-6">
-                                {children}
-                            </div>
                         </Tabs>
+
+                        <div className="space-y-2">
+                            <h1 className="text-2xl font-semibold">{currentPage?.title}</h1>
+                            <p className="text-muted-foreground text-sm">{currentPage?.description}</p>
+                        </div>
+
+                        <div className="pt-4">
+                            {children}
+                        </div>
                     </div>
                 </main>
             </SidebarInset>

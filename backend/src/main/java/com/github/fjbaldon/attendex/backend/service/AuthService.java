@@ -72,6 +72,10 @@ public class AuthService {
         Organizer organizer = organizerRepository.findByVerificationToken(token)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid verification token."));
 
+        if (organizer.isEnabled()) {
+            throw new IllegalStateException("This account has already been verified. Please log in.");
+        }
+
         if (organizer.getTokenExpiryDate().isBefore(Instant.now())) {
             throw new IllegalArgumentException("Verification token has expired.");
         }
