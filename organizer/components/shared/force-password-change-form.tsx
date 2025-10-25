@@ -17,6 +17,7 @@ import {useAuthStore} from "@/store/auth";
 import {Card, CardContent} from "@/components/ui/card";
 import {Ticket} from "lucide-react";
 import Image from "next/image";
+import {ApiErrorResponse} from "@/types";
 
 export function ForcePasswordChangeForm() {
     const {logout} = useAuth();
@@ -31,8 +32,8 @@ export function ForcePasswordChangeForm() {
         },
     });
 
-    const mutation = useMutation({
-        mutationFn: (values: { newPassword: string }) =>
+    const mutation = useMutation<void, AxiosError<ApiErrorResponse>, { newPassword: string }>({
+        mutationFn: (values) =>
             api.post("/api/v1/users/me/change-password", values),
         onSuccess: () => {
             toast.success("Password Updated Successfully!", {
@@ -41,9 +42,9 @@ export function ForcePasswordChangeForm() {
             clearToken();
             router.replace("/login");
         },
-        onError: (error: AxiosError) => {
+        onError: (error) => {
             toast.error("Failed to update password", {
-                description: (error.response?.data as any)?.message || "An unknown error occurred.",
+                description: error.response?.data?.message || "An unknown error occurred.",
             });
         },
     });
