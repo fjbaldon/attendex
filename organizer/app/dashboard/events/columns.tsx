@@ -214,7 +214,7 @@ export const columns: ColumnDef<EventResponse>[] = [
                                 Edit Event
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                                <Link href={`/dashboard/events/${event.id}`}>View Roster</Link>
+                                <Link href={`/dashboard/events/${event.id}`}>View Details</Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator/>
                             <DropdownMenuItem

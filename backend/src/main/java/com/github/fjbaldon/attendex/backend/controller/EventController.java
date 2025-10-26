@@ -58,6 +58,11 @@ public class EventController {
         return ResponseEntity.ok(eventService.getAttendeesForEvent(eventId, user.getOrganizationId()));
     }
 
+    @GetMapping("/{eventId}/checked-in")
+    public ResponseEntity<List<AttendeeResponse>> getCheckedInAttendees(@PathVariable Long eventId, @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(eventService.getCheckedInAttendeesForEvent(eventId, user.getOrganizationId()));
+    }
+
     @PostMapping("/{eventId}/attendees/{attendeeId}")
     public ResponseEntity<Void> addAttendeeToEvent(@PathVariable Long eventId, @PathVariable Long attendeeId, @AuthenticationPrincipal CustomUserDetails user) {
         eventService.addAttendeeToEvent(eventId, attendeeId, user.getOrganizationId());

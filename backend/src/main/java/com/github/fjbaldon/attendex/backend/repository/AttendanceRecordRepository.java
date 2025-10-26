@@ -14,6 +14,8 @@ import java.util.List;
 @Repository
 public interface AttendanceRecordRepository extends JpaRepository<AttendanceRecord, Long> {
 
+    List<AttendanceRecord> findByEventId(Long eventId);
+
     @Query("SELECT COUNT(DISTINCT ar.attendee.id) FROM AttendanceRecord ar WHERE ar.event.id = :eventId")
     long countDistinctAttendeesByEventId(Long eventId);
 

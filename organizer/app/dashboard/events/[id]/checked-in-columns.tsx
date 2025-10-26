@@ -1,25 +1,10 @@
 "use client";
 
-import {ColumnDef, RowData} from "@tanstack/react-table";
+import {ColumnDef} from "@tanstack/react-table";
 import {AttendeeResponse, CustomFieldDefinition} from "@/types";
-import {Button} from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {IconDotsVertical} from "@tabler/icons-react";
 import {Checkbox} from "@/components/ui/checkbox";
 
-declare module '@tanstack/react-table' {
-    interface TableMeta<TData extends RowData> {
-        openDeleteDialog: (attendee: TData) => void;
-    }
-}
-
-export const getColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<AttendeeResponse>[] => {
+export const getCheckedInColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<AttendeeResponse>[] => {
     const standardColumns: ColumnDef<AttendeeResponse>[] = [
         {
             id: "select",
@@ -68,34 +53,12 @@ export const getColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<
         }
     }));
 
-    const actionColumn: ColumnDef<AttendeeResponse> = {
+    const actionColumnPlaceholder: ColumnDef<AttendeeResponse> = {
         id: "actions",
-        cell: ({row, table}) => {
-            const attendee = row.original;
-            return (
-                <div className="flex justify-end">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost"
-                                    className="data-[state=open]:bg-muted text-muted-foreground flex size-8 p-0">
-                                <IconDotsVertical/>
-                                <span className="sr-only">Open menu</span>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem
-                                variant="destructive"
-                                onClick={() => table.options.meta?.openDeleteDialog(attendee)}
-                            >
-                                Remove from Event
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            );
+        cell: () => {
+            return <div className="flex justify-end h-8 w-8 p-0"/>;
         },
     };
 
-    return [...standardColumns, ...customFieldColumns, actionColumn];
+    return [...standardColumns, ...customFieldColumns, actionColumnPlaceholder];
 };

@@ -67,50 +67,61 @@ export default function AnalyticsPage() {
                     <div className="w-full max-w-6xl mx-auto space-y-6">
                         {/* Header Section */}
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-start">
-                            {isLoadingEvents ? <Skeleton className="h-9 w-full sm:w-64"/> : (
-                                <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                                    <SelectTrigger className="w-full sm:w-64">
-                                        <SelectValue placeholder="1. Select an Event"/>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {events.map(event => (
-                                            <SelectItem key={event.id}
-                                                        value={String(event.id)}>{event.eventName}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                            {isLoadingCustomFields ? <Skeleton className="h-9 w-full sm:w-64"/> : (
-                                <Select value={selectedGroupBy} onValueChange={setSelectedGroupBy}
-                                        disabled={!customFields.length || !selectedEventId}>
-                                    <SelectTrigger className="w-full sm:w-64">
-                                        <SelectValue placeholder="2. Group By..."/>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {customFields.map(field => (
-                                            <SelectItem key={field} value={field}>{field}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                            <Button
-                                variant="outline"
-                                onClick={handleExport}
-                                disabled={!breakdown || breakdown.length === 0 || isExporting || isLoadingBreakdown}
-                            >
-                                <IconFileDownload className="mr-2 h-4 w-4" stroke={1.5}/>
-                                {isExporting ? 'Exporting...' : 'Export PDF'}
-                            </Button>
+                            <div className="flex flex-shrink-0 items-center gap-2">
+                                {isLoadingEvents ? <Skeleton className="h-9 w-full sm:w-64"/> : (
+                                    <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                                        <SelectTrigger className="w-full sm:w-64">
+                                            <SelectValue placeholder="Select an Event"/>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {events.map(event => (
+                                                <SelectItem key={event.id}
+                                                            value={String(event.id)}>{event.eventName}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                                <Button
+                                    variant="outline"
+                                    onClick={handleExport}
+                                    disabled={!breakdown || breakdown.length === 0 || isExporting || isLoadingBreakdown}
+                                >
+                                    <IconFileDownload className="mr-2 h-4 w-4" stroke={1.5}/>
+                                    {isExporting ? 'Exporting...' : 'Export PDF'}
+                                </Button>
+                            </div>
                         </div>
+
+                        {/* Breakdown Section */}
+                        {selectedEventId && (
+                            <div className="rounded-lg border bg-card p-4">
+                                <div className="flex items-center gap-4">
+                                    <p className="text-sm font-medium text-muted-foreground">Breakdown by:</p>
+                                    {isLoadingCustomFields ? <Skeleton className="h-9 w-full sm:w-64"/> : (
+                                        <Select value={selectedGroupBy} onValueChange={setSelectedGroupBy}
+                                                disabled={!customFields.length}>
+                                            <SelectTrigger className="w-full sm:w-64">
+                                                <SelectValue placeholder="Select a Field..."/>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {customFields.map(field => (
+                                                    <SelectItem key={field} value={field}>{field}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Chart / Empty State Section */}
                         <div className="pt-2">
                             {selectedEventId && selectedGroupBy ? (
                                 <Card ref={analyticsContentRef}>
                                     <CardHeader>
-                                        <CardTitle>Attendance Breakdown</CardTitle>
+                                        <CardTitle>Checked-in Breakdown</CardTitle>
                                         <CardDescription>
-                                            Visualizing attendee distribution
+                                            Visualizing the distribution of checked-in attendees
                                             for &quot;{selectedEvent?.eventName}&quot; grouped
                                             by &quot;{selectedGroupBy}&quot;.
                                         </CardDescription>
@@ -123,7 +134,7 @@ export default function AnalyticsPage() {
                                                 className="flex flex-col h-[350px] items-center justify-center rounded-lg">
                                                 <IconChartDonut className="h-16 w-16 text-muted-foreground mb-4"/>
                                                 <h2 className="text-xl font-semibold">No Data to Display</h2>
-                                                <p className="text-muted-foreground mt-2">No attendance records were
+                                                <p className="text-muted-foreground mt-2">No checked-in records were
                                                     found for this combination.</p>
                                             </div>
                                         ) : (
@@ -147,8 +158,9 @@ export default function AnalyticsPage() {
                                     className="flex flex-col h-96 items-center justify-center rounded-lg border-2 border-dashed text-center">
                                     <IconChartDonut className="h-16 w-16 text-muted-foreground mb-4"/>
                                     <h2 className="text-xl font-semibold">Select an Event and Field</h2>
-                                    <p className="text-muted-foreground mt-2 text-center">Choose an event and a custom
-                                        field to break down attendance data.</p>
+                                    <p className="text-muted-foreground mt-2 text-center">
+                                        Choose an event and a field to break down your checked-in attendee data.
+                                    </p>
                                 </div>
                             )}
                         </div>

@@ -2,10 +2,7 @@ package com.github.fjbaldon.attendex.backend.service;
 
 import com.github.fjbaldon.attendex.backend.dto.*;
 import com.github.fjbaldon.attendex.backend.model.*;
-import com.github.fjbaldon.attendex.backend.repository.AttendeeRepository;
-import com.github.fjbaldon.attendex.backend.repository.EventAttendeeRepository;
-import com.github.fjbaldon.attendex.backend.repository.EventRepository;
-import com.github.fjbaldon.attendex.backend.repository.OrganizerRepository;
+import com.github.fjbaldon.attendex.backend.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +19,7 @@ public class EventService {
     private final OrganizerRepository organizerRepository;
     private final AttendeeRepository attendeeRepository;
     private final EventAttendeeRepository eventAttendeeRepository;
+    private final AttendanceRecordRepository attendanceRecordRepository;
 
     @Transactional
     public EventResponse createEvent(EventRequest request, String organizerEmail, Long organizationId) {
@@ -109,6 +107,17 @@ public class EventService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<AttendeeResponse> getCheckedInAttendeesForEvent(Long eventId, Long organizationId) {
+        findEventByIdAndOrgId(eventId, organizationId);
+
+        return attendanceRecordRepository.findByEventId(eventId).stream()
+                .map(AttendanceRecord::getAttendee)
+                .distinct()
+                .map(this::toAttendeeResponse)
+                .collect(Collectors.toList());
+    }
+
     private Event findEventByIdAndOrgId(Long eventId, Long organizationId) {
         return eventRepository.findById(eventId)
                 .filter(event -> event.getOrganization().getId().equals(organizationId))
@@ -116,8 +125,7 @@ public class EventService {
     }
 
     private Attendee findAttendeeByIdAndOrgId(Long attendeeId, Long organizationId) {
-        return attendeeRepository.findById(attendeeId)
-                .filter(attendee -> attendee.getOrganization().getId().equals(organizationId))
+        return attendeeRepository.findByIdAndOrganizationId(attendeeId, organizationId)
                 .orElseThrow(() -> new EntityNotFoundException("Attendee with ID " + attendeeId + " not found in your organization"));
     }
 

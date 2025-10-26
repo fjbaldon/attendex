@@ -17,14 +17,28 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator
 } from "@/components/ui/breadcrumb";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import {getCheckedInColumns} from "./checked-in-columns";
+import {CheckedInAttendeesDataTable} from "./checked-in-attendees-data-table";
+import {useCustomFields} from "@/hooks/use-custom-fields";
 
 export default function EventDetailsPage() {
     const params = useParams();
     const eventId = Number(params.id);
 
-    const {event, attendees, isLoadingEvent, isLoadingAttendees} = useEventDetails(eventId);
+    const {
+        event,
+        attendees,
+        checkedInAttendees,
+        isLoadingEvent,
+        isLoadingAttendees,
+        isLoadingCheckedIn
+    } = useEventDetails(eventId);
 
-    const columns = React.useMemo(() => getColumns(), []);
+    const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useCustomFields();
+
+    const rosterColumns = React.useMemo(() => getColumns(customFieldDefinitions), [customFieldDefinitions]);
+    const checkedInColumns = React.useMemo(() => getCheckedInColumns(customFieldDefinitions), [customFieldDefinitions]);
 
     return (
         <SidebarProvider
@@ -56,18 +70,30 @@ export default function EventDetailsPage() {
                         <div>
                             {isLoadingEvent ? <Skeleton className="h-8 w-64"/> :
                                 <h1 className="text-lg font-semibold md:text-2xl">{event?.eventName}</h1>}
-                            <p className="text-muted-foreground text-sm">
-                                Manage the roster of attendees for this event.
-                            </p>
                         </div>
                     </div>
 
-                    <EventAttendeesDataTable
-                        columns={columns}
-                        data={attendees}
-                        isLoading={isLoadingAttendees}
-                        eventId={eventId}
-                    />
+                    <Tabs defaultValue="checked-in">
+                        <TabsList>
+                            <TabsTrigger value="roster">Roster</TabsTrigger>
+                            <TabsTrigger value="checked-in">Checked-in</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="roster">
+                            <EventAttendeesDataTable
+                                columns={rosterColumns}
+                                data={attendees}
+                                isLoading={isLoadingAttendees || isLoadingCustomFields}
+                                eventId={eventId}
+                            />
+                        </TabsContent>
+                        <TabsContent value="checked-in">
+                            <CheckedInAttendeesDataTable
+                                columns={checkedInColumns}
+                                data={checkedInAttendees}
+                                isLoading={isLoadingCheckedIn || isLoadingCustomFields}
+                            />
+                        </TabsContent>
+                    </Tabs>
                 </main>
             </SidebarInset>
         </SidebarProvider>

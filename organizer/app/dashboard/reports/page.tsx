@@ -6,7 +6,6 @@ import {AppSidebar} from "@/components/layout/app-sidebar";
 import {SiteHeader} from "@/components/layout/site-header";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {useEvents} from "@/hooks/use-events";
 import {useEventDetails} from "@/hooks/use-event-details";
 import {Skeleton} from "@/components/ui/skeleton";
 import {IconPrinter, IconReportAnalytics, IconLoader} from "@tabler/icons-react";
@@ -16,6 +15,7 @@ import {ReportFilters} from "./report-filters";
 import {AttendeeRoster} from "./attendee-roster";
 import {useOrganization} from "@/hooks/use-organization";
 import {useCustomFields} from "@/hooks/use-custom-fields";
+import {useEvents} from "@/hooks/use-events";
 
 export default function ReportsPage() {
     const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -25,38 +25,37 @@ export default function ReportsPage() {
     const rosterRef = useRef<HTMLDivElement>(null);
 
     const {events, isLoadingEvents} = useEvents();
-    const {attendees: allAttendees, isLoadingAttendees} = useEventDetails(selectedEventId);
+    const {checkedInAttendees, isLoadingCheckedIn} = useEventDetails(selectedEventId);
     const {organization} = useOrganization();
-
     const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useCustomFields();
 
     const customFields = useMemo(() =>
-            customFieldDefinitions.map(def => def.fieldName),
-        [customFieldDefinitions]
+        customFieldDefinitions.map(def => def.fieldName), [customFieldDefinitions]
     );
 
     const selectedEvent = events.find(e => e.id === selectedEventId);
 
     const filteredAttendees = useMemo(() => {
+        const sourceAttendees = checkedInAttendees;
         const filterKeys = Object.keys(activeFilters).filter(key => activeFilters[key].length > 0);
         if (filterKeys.length === 0) {
-            return allAttendees;
+            return sourceAttendees;
         }
 
-        return allAttendees.filter(attendee => {
+        return sourceAttendees.filter(attendee => {
             return filterKeys.every(field => {
                 const selectedValues = activeFilters[field];
                 const attendeeValue = attendee.customFields?.[field];
                 return selectedValues.includes(String(attendeeValue));
             });
         });
-    }, [allAttendees, activeFilters]);
+    }, [checkedInAttendees, activeFilters]);
 
     const handleExport = async () => {
         if (!rosterRef.current || !selectedEvent) return;
 
         setIsExporting(true);
-        const fileName = `roster-${selectedEvent.eventName.replace(/ /g, '_')}`;
+        const fileName = `checked-in-${selectedEvent.eventName.replace(/ /g, '_')}`;
         try {
             await exportToPdf(rosterRef.current, fileName);
         } catch (error) {
@@ -70,6 +69,8 @@ export default function ReportsPage() {
         setSelectedEventId(Number(value));
         setActiveFilters({});
     };
+
+    const isLoading = isLoadingCheckedIn || isLoadingCustomFields;
 
     return (
         <SidebarProvider style={{
@@ -106,51 +107,53 @@ export default function ReportsPage() {
                             </div>
                         </div>
 
-                        {/* Filter Section */}
+                        {/* Filter & Roster Section */}
                         {selectedEventId && (
-                            <div className="rounded-lg border bg-card p-4">
-                                {isLoadingCustomFields || isLoadingAttendees ? (
-                                    <Skeleton className="h-8 w-full"/>
-                                ) : (
-                                    <ReportFilters
-                                        attendees={allAttendees}
-                                        customFields={customFields}
-                                        activeFilters={activeFilters}
-                                        onFilterChange={setActiveFilters}
-                                    />
-                                )}
+                            <div className="space-y-6">
+                                <div className="rounded-lg border bg-card p-4">
+                                    {isLoading ? (
+                                        <Skeleton className="h-8 w-full"/>
+                                    ) : (
+                                        <ReportFilters
+                                            attendees={checkedInAttendees}
+                                            customFields={customFields}
+                                            activeFilters={activeFilters}
+                                            onFilterChange={setActiveFilters}
+                                        />
+                                    )}
+                                </div>
+                                <div className="pt-2">
+                                    {isLoading ? (
+                                        <div className="flex items-center justify-center h-96">
+                                            <IconLoader className="h-8 w-8 animate-spin" stroke={1.5}/>
+                                        </div>
+                                    ) : (
+                                        <AttendeeRoster
+                                            ref={rosterRef}
+                                            listTitle="Checked-in Attendees"
+                                            eventName={selectedEvent?.eventName ?? '...'}
+                                            organizationName={organization?.name ?? ''}
+                                            totalAttendees={checkedInAttendees.length}
+                                            filteredAttendees={filteredAttendees}
+                                            customFields={customFields}
+                                            activeFilters={activeFilters}
+                                        />
+                                    )}
+                                </div>
                             </div>
                         )}
 
-                        {/* Roster / Empty State Section */}
-                        <div className="pt-2">
-                            {selectedEventId ? (
-                                isLoadingAttendees ? (
-                                    <div className="flex items-center justify-center h-96">
-                                        <IconLoader className="h-8 w-8 animate-spin" stroke={1.5}/>
-                                    </div>
-                                ) : (
-                                    <AttendeeRoster
-                                        ref={rosterRef}
-                                        eventName={selectedEvent?.eventName ?? '...'}
-                                        organizationName={organization?.name ?? ''}
-                                        totalAttendees={allAttendees.length}
-                                        filteredAttendees={filteredAttendees}
-                                        customFields={customFields}
-                                        activeFilters={activeFilters}
-                                    />
-                                )
-                            ) : (
-                                <div
-                                    className="flex flex-col h-96 items-center justify-center rounded-lg border-2 border-dashed text-center">
-                                    <IconReportAnalytics className="h-16 w-16 text-muted-foreground mb-4" stroke={1.5}/>
-                                    <h2 className="text-xl font-semibold">Select an Event to Begin</h2>
-                                    <p className="text-muted-foreground mt-2">
-                                        Choose an event to view and filter its roster.
-                                    </p>
-                                </div>
-                            )}
-                        </div>
+                        {/* Empty State */}
+                        {!selectedEventId && (
+                            <div
+                                className="flex flex-col h-96 items-center justify-center rounded-lg border-2 border-dashed text-center">
+                                <IconReportAnalytics className="h-16 w-16 text-muted-foreground mb-4" stroke={1.5}/>
+                                <h2 className="text-xl font-semibold">Select an Event to Begin</h2>
+                                <p className="text-muted-foreground mt-2">
+                                    Choose an event to view and filter its checked-in attendees.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </main>
             </SidebarInset>

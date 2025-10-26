@@ -8,10 +8,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AttendeeRepository extends JpaRepository<Attendee, Long> {
     Page<Attendee> findAllByOrganizationId(Long organizationId, Pageable pageable);
+
+    Optional<Attendee> findByIdAndOrganizationId(Long id, Long organizationId);
 
     @Query(value = "SELECT DISTINCT key FROM attendee, jsonb_object_keys(custom_fields) as key WHERE organization_id = :organizationId", nativeQuery = true)
     List<String> findDistinctCustomFieldKeysByOrganizationId(Long organizationId);

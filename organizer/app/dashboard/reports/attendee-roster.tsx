@@ -9,6 +9,7 @@ import {Badge} from "@/components/ui/badge";
 interface AttendeeRosterProps {
     eventName: string;
     organizationName: string;
+    listTitle: string;
     totalAttendees: number;
     filteredAttendees: AttendeeResponse[];
     customFields: string[];
@@ -16,7 +17,7 @@ interface AttendeeRosterProps {
 }
 
 export const AttendeeRoster = React.forwardRef<HTMLDivElement, AttendeeRosterProps>(
-    ({eventName, organizationName, totalAttendees, filteredAttendees, customFields, activeFilters}, ref) => {
+    ({eventName, organizationName, listTitle, totalAttendees, filteredAttendees, customFields, activeFilters}, ref) => {
         const generationDate = new Date().toLocaleString();
 
         const activeFilterEntries = Object.entries(activeFilters).filter(([, values]) => values.length > 0);
@@ -26,13 +27,13 @@ export const AttendeeRoster = React.forwardRef<HTMLDivElement, AttendeeRosterPro
                 {/* --- HEADER --- */}
                 <div className="mb-6">
                     <h2 className="text-3xl font-bold">{eventName}</h2>
-                    <p className="text-lg text-muted-foreground">Attendee Roster</p>
+                    <p className="text-lg text-muted-foreground">{listTitle}</p>
                 </div>
 
                 {/* --- REPORT DETAILS --- */}
                 <div className="grid grid-cols-3 gap-4 mb-6 text-sm">
                     <div className="space-y-1">
-                        <p className="font-semibold">Total Registered:</p>
+                        <p className="font-semibold">Total in List:</p>
                         <p className="text-muted-foreground">{totalAttendees}</p>
                     </div>
                     <div className="space-y-1">
