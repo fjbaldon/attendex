@@ -6,5 +6,7 @@ import kotlinx.serialization.Serializable
 data class EventAttendeeSyncResponse(
     val attendeeId: Long,
     val uniqueIdentifier: String,
-    val qrCodeHash: String
+    val qrCodeHash: String,
+    val firstName: String,
+    val lastName: String,
 )

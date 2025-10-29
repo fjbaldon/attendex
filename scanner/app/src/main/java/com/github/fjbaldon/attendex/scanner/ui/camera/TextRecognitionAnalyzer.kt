@@ -10,21 +10,28 @@ class TextRecognitionAnalyzer(
     private val onTextFound: (String) -> Unit
 ) : ImageAnalysis.Analyzer {
 
+    private val numberRegex = "\\d+".toRegex()
+
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image ?: return
+        val mediaImage = imageProxy.image ?: run {
+            imageProxy.close()
+            return
+        }
 
         val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
         recognizer.process(image)
             .addOnSuccessListener { visionText ->
-                val fullText = visionText.text.trim()
-                if (fullText.isNotBlank()) {
-                    onTextFound(fullText)
+                val match = numberRegex.find(visionText.text)
+                match?.value?.let { numericId ->
+                    if (numericId.isNotBlank()) {
+                        onTextFound(numericId)
+                    }
                 }
             }
-            .addOnFailureListener { e ->
+            .addOnFailureListener {
             }
             .addOnCompleteListener {
                 imageProxy.close()

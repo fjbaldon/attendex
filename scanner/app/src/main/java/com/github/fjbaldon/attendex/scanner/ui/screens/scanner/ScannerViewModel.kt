@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.github.fjbaldon.attendex.scanner.data.local.model.AttendeeEntity
 import com.github.fjbaldon.attendex.scanner.data.repository.EventRepository
 import com.github.fjbaldon.attendex.scanner.data.repository.ScanResult
+import com.github.fjbaldon.attendex.scanner.di.TtsService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ data class ScannerUiState(
 @HiltViewModel
 class ScannerViewModel @Inject constructor(
     private val eventRepository: EventRepository,
+    private val ttsService: TtsService,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -49,12 +51,12 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
-    fun processQrCode(qrCodeHash: String) {
+    fun processScannedText(scannedText: String) {
         if (isProcessing) return
 
-        if (_uiState.value.scannedAttendees.any { it.qrCodeHash == qrCodeHash }) {
+        if (_uiState.value.scannedAttendees.any { it.uniqueIdentifier == scannedText }) {
             val alreadyScannedAttendee =
-                _uiState.value.scannedAttendees.first { it.qrCodeHash == qrCodeHash }
+                _uiState.value.scannedAttendees.first { it.uniqueIdentifier == scannedText }
             _uiState.update {
                 it.copy(
                     lastScanResult = ScanUiResult.AlreadyScanned(
@@ -68,28 +70,35 @@ class ScannerViewModel @Inject constructor(
 
         isProcessing = true
         viewModelScope.launch {
-            val result = eventRepository.processScan(eventId, qrCodeHash)
+            val result = eventRepository.processScan(eventId, scannedText)
 
-            val scanUiResult = when (result) {
+            when (result) {
                 is ScanResult.Success -> {
+                    ttsService.speak(result.attendee.lastName)
                     _uiState.update {
-                        it.copy(scannedAttendees = listOf(result.attendee) + it.scannedAttendees)
+                        it.copy(
+                            scannedAttendees = listOf(result.attendee) + it.scannedAttendees,
+                            lastScanResult = ScanUiResult.Success(
+                                "${result.attendee.firstName} ${result.attendee.lastName} (${result.attendee.uniqueIdentifier})"
+                            )
+                        )
                     }
-                    ScanUiResult.Success(result.attendee.uniqueIdentifier)
                 }
 
-                is ScanResult.AttendeeNotFound -> ScanUiResult.Error("Attendee Not Found")
-                is ScanResult.AlreadyScanned -> ScanUiResult.Error("Error: Already in DB but not list")
+                is ScanResult.AttendeeNotFound -> { /* Do nothing */
+                }
+
+                is ScanResult.AlreadyScanned -> { /* This is handled by the local list check */
+                }
             }
 
-            _uiState.update { it.copy(lastScanResult = scanUiResult) }
             resetScanResultAfterDelay()
         }
     }
 
     private fun resetScanResultAfterDelay() {
         viewModelScope.launch {
-            delay(2500)
+            delay(1000)
             _uiState.update { it.copy(lastScanResult = ScanUiResult.Idle) }
             isProcessing = false
         }
@@ -101,5 +110,10 @@ class ScannerViewModel @Inject constructor(
 
     fun onFlashUnitAvailabilityChange(isAvailable: Boolean) {
         _uiState.update { it.copy(hasFlashUnit = isAvailable) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        ttsService.shutdown()
     }
 }

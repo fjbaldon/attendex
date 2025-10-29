@@ -26,6 +26,10 @@ class EventRepository @Inject constructor(
 ) {
     fun getEvents(): Flow<List<EventEntity>> = eventDao.getAllEvents()
 
+    suspend fun getEventNameById(eventId: Long): String? {
+        return eventDao.getEventById(eventId)?.eventName
+    }
+
     suspend fun refreshEvents(): Result<Unit> {
         return try {
             val remoteEvents = apiService.getActiveEvents()
@@ -46,7 +50,9 @@ class EventRepository @Inject constructor(
                     eventId = eventId,
                     attendeeId = it.attendeeId,
                     uniqueIdentifier = it.uniqueIdentifier,
-                    qrCodeHash = it.qrCodeHash
+                    qrCodeHash = it.qrCodeHash,
+                    firstName = it.firstName,
+                    lastName = it.lastName
                 )
             }
             attendeeDao.clearAttendeesForEvent(eventId)
@@ -57,8 +63,8 @@ class EventRepository @Inject constructor(
         }
     }
 
-    suspend fun processScan(eventId: Long, qrCodeHash: String): ScanResult {
-        val attendee = attendeeDao.findAttendeeByQrCode(eventId, qrCodeHash)
+    suspend fun processScan(eventId: Long, identifier: String): ScanResult {
+        val attendee = attendeeDao.findAttendeeByIdentifier(eventId, identifier)
             ?: return ScanResult.AttendeeNotFound
 
         val record = AttendanceRecordEntity(
@@ -89,16 +95,10 @@ class EventRepository @Inject constructor(
             )
 
             apiService.syncAttendance(request)
-
             attendanceRecordDao.markAsSynced(unsyncedRecords.map { it.id })
-
             Result.success(unsyncedRecords.size)
         } catch (e: Exception) {
             Result.failure(e)
         }
-    }
-
-    suspend fun getEventNameById(eventId: Long): String? {
-        return eventDao.getEventById(eventId)?.eventName
     }
 }

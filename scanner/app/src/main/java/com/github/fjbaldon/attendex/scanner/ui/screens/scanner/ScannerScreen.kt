@@ -29,16 +29,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,7 +49,7 @@ import com.github.fjbaldon.attendex.scanner.ui.camera.CameraPreview
 
 sealed class ScanUiResult {
     data object Idle : ScanUiResult()
-    data class Success(val attendeeName: String) : ScanUiResult()
+    data class Success(val attendeeDetails: String) : ScanUiResult()
     data class Error(val message: String) : ScanUiResult()
     data class AlreadyScanned(val identifier: String) : ScanUiResult()
 }
@@ -65,16 +61,7 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
     val scaffoldState = rememberBottomSheetScaffoldState()
-
-    LaunchedEffect(uiState.lastScanResult) {
-        when (val result = uiState.lastScanResult) {
-            is ScanUiResult.Error -> snackbarHostState.showSnackbar("Error: ${result.message}")
-            is ScanUiResult.AlreadyScanned -> snackbarHostState.showSnackbar("Already Scanned: ${result.identifier}")
-            else -> {}
-        }
-    }
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
@@ -90,33 +77,33 @@ fun ScannerScreen(
                 title = { Text(uiState.eventName ?: "Scanner") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            "Back"
+                        )
                     }
                 },
                 actions = {
                     if (uiState.hasFlashUnit) {
                         IconButton(onClick = { viewModel.onTorchToggle(!uiState.isTorchOn) }) {
                             Icon(
-                                imageVector = if (uiState.isTorchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                                contentDescription = "Toggle Flashlight"
+                                if (uiState.isTorchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                                "Toggle Flashlight"
                             )
                         }
                     }
                 }
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)) {
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
                 CameraPreview(
-                    onTextFound = { qrCode -> viewModel.processQrCode(qrCode) },
+                    onTextFound = { text -> viewModel.processScannedText(text) },
                     torchEnabled = uiState.isTorchOn,
                     onTorchToggle = { hasFlash -> viewModel.onFlashUnitAvailabilityChange(hasFlash) }
                 )
@@ -141,7 +128,6 @@ private fun ScannedAttendeesSheetContent(
                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
                 .align(Alignment.CenterHorizontally)
         )
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -151,13 +137,9 @@ private fun ScannedAttendeesSheetContent(
         ) {
             Text("Scanned Attendees", style = MaterialTheme.typography.titleMedium)
             Badge(containerColor = MaterialTheme.colorScheme.primary) {
-                Text(
-                    text = attendees.size.toString(),
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
+                Text(text = attendees.size.toString(), color = MaterialTheme.colorScheme.onPrimary)
             }
         }
-
         if (attendees.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -184,25 +166,23 @@ private fun ScannedAttendeesSheetContent(
 @Composable
 private fun ScannedAttendeeItem(attendee: AttendeeEntity) {
     ListItem(
-        headlineContent = { Text(attendee.uniqueIdentifier, fontWeight = FontWeight.Medium) },
-        supportingContent = { Text("ID: ${attendee.attendeeId}") }
+        headlineContent = {
+            Text(
+                "${attendee.lastName}, ${attendee.firstName}",
+                fontWeight = FontWeight.Medium
+            )
+        },
+        supportingContent = { Text(attendee.uniqueIdentifier) }
     )
 }
-
 
 @Composable
 private fun ScannerOverlay(result: ScanUiResult) {
     val (text, textColor, overlayColor) = when (result) {
         is ScanUiResult.Success -> Triple(
-            "Checked-in: ${result.attendeeName}",
+            "Checked-in: ${result.attendeeDetails}",
             Color(0xFF4CAF50),
             Color(0xFF4CAF50).copy(alpha = 0.5f)
-        )
-
-        is ScanUiResult.Error -> Triple(
-            result.message,
-            Color(0xFFF44336),
-            Color(0xFFF44336).copy(alpha = 0.5f)
         )
 
         is ScanUiResult.AlreadyScanned -> Triple(
@@ -211,19 +191,21 @@ private fun ScannerOverlay(result: ScanUiResult) {
             Color(0xFFFFC107).copy(alpha = 0.5f)
         )
 
-        is ScanUiResult.Idle -> Triple("Point camera at a QR code", Color.White, Color.Transparent)
+        is ScanUiResult.Idle, is ScanUiResult.Error -> Triple(
+            "Point camera at an ID number",
+            Color.White,
+            Color.Transparent
+        )
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(overlayColor)
-    ) {
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(overlayColor)) {
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxWidth(0.8f)
-                .aspectRatio(2f)
+                .aspectRatio(4f)
         ) {
             OutlinedCard(
                 border = BorderStroke(4.dp, Color.White.copy(alpha = 0.7f)),
