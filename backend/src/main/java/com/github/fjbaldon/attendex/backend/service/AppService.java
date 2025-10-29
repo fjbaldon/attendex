@@ -15,7 +15,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset; // Import ZoneOffset
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,9 +33,13 @@ public class AppService {
     @Transactional(readOnly = true)
     public List<ActiveEventResponse> getActiveEvents(String scannerEmail) {
         Scanner scanner = findScannerByEmail(scannerEmail);
-        LocalDate today = LocalDate.now();
 
-        return eventRepository.findActiveEventsByOrganizationIdAndDate(scanner.getOrganization().getId(), today).stream()
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        Instant dayStart = today.atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant dayEnd = today.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).minusNanos(1);
+
+        return eventRepository.findEventsForDay(scanner.getOrganization().getId(), dayStart, dayEnd).stream()
                 .map(event -> new ActiveEventResponse(event.getId(), event.getEventName()))
                 .collect(Collectors.toList());
     }

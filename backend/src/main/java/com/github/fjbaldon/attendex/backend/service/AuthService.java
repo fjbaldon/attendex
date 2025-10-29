@@ -61,7 +61,7 @@ public class AuthService {
         organizerRepository.save(organizer);
 
         try {
-            emailService.sendVerificationEmail(request.getEmail(), token);
+            emailService.sendVerificationEmail(request.getEmail(), request.getOrganizationName(), token);
         } catch (MessagingException e) {
             throw new RuntimeException("Failed to send verification email.", e);
         }

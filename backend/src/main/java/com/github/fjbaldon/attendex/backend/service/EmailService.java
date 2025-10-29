@@ -3,42 +3,51 @@ package com.github.fjbaldon.attendex.backend.service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+
+import java.time.Year;
 
 @Service
 @RequiredArgsConstructor
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final TemplateEngine templateEngine; // Inject Thymeleaf's template engine
 
-    public void sendVerificationEmail(String to, String token) throws MessagingException {
+    // It's best practice to get this from your application.properties
+    @Value("${app.frontend.url:http://localhost:3000}")
+    private String frontendUrl;
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
+
+    // The method now accepts organizationName for better personalization
+    public void sendVerificationEmail(String to, String organizationName, String token) throws MessagingException {
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-        String verificationUrl = "http://localhost:3000/verify?token=" + token; // Frontend URL
+        final String verificationUrl = frontendUrl + "/verify?token=" + token;
 
-        String htmlContent = "<!DOCTYPE html>"
-                + "<html lang='en'>"
-                + "<head><meta charset='UTF-8'><title>AttendEx Account Verification</title></head>"
-                + "<body style='font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;'>"
-                + "  <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; border-radius: 8px; text-align: center;'>"
-                + "    <h2 style='color: #333;'>Welcome to AttendEx!</h2>"
-                + "    <p style='color: #555; font-size: 16px;'>Thank you for registering. Please click the button below to verify your email address and activate your account.</p>"
-                + "    <a href='" + verificationUrl + "' style='background-color: #2563eb; color: #ffffff; padding: 15px 25px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; font-size: 16px; font-weight: bold;'>Verify My Email</a>"
-                + "    <p style='color: #888; font-size: 12px;'>If the button above does not work, copy and paste this link into your browser:</p>"
-                + "    <p style='color: #888; font-size: 12px; word-break: break-all;'>" + verificationUrl + "</p>"
-                + "    <hr style='border: 0; border-top: 1px solid #eee; margin: 20px 0;'>"
-                + "    <p style='color: #aaa; font-size: 12px;'>If you did not register for an account, please ignore this email.</p>"
-                + "  </div>"
-                + "</body>"
-                + "</html>";
+        // 1. Create a Thymeleaf "Context" to hold your variables
+        Context context = new Context();
+        context.setVariable("verificationUrl", verificationUrl);
+        context.setVariable("organizationName", organizationName);
+        context.setVariable("currentYear", Year.now().getValue());
 
-        helper.setFrom("fjbaldon@gmail.com");
+        // 2. Process the HTML template with the variables
+        // "verification-email" is the name of your html file (verification-email.html)
+        String htmlContent = templateEngine.process("verification-email", context);
+
+        // 3. Set the email details and send
+        helper.setFrom(fromEmail);
         helper.setTo(to);
         helper.setSubject("Verify Your AttendEx Account");
-        helper.setText(htmlContent, true);
+        helper.setText(htmlContent, true); // `true` indicates the content is HTML
 
         mailSender.send(message);
     }

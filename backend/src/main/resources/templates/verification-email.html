@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Verify Your Email</title>
+    <!--[if mso]>
+    <style>
+        table {
+            border-collapse: collapse;
+        }
+
+        .mso-font-fix {
+            font-family: Arial, sans-serif;
+        }
+    </style>
+    <![endif]-->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Geist+Sans:wght@400;600;700&display=swap');
+
+        :root {
+            color-scheme: light dark;
+            supported-color-schemes: light dark;
+        }
+
+        .hover-bg-primary-darker:hover {
+            background-color: #1F1F1F !important;
+        }
+
+        @media (max-width: 600px) {
+            .sm-w-full {
+                width: 100% !important;
+            }
+
+            .sm-px-6 {
+                padding-left: 24px !important;
+                padding-right: 24px !important;
+            }
+        }
+    </style>
+</head>
+<body style="margin: 0; width: 100%; padding: 0; word-break: break-word; -webkit-font-smoothing: antialiased; background-color: #F7F7F7;">
+<div role="article" aria-roledescription="email" aria-label="Verify Your Email" lang="en">
+    <table style="width: 100%; font-family: 'Geist', -apple-system, 'Segoe UI', sans-serif;" cellpadding="0"
+           cellspacing="0" role="presentation">
+        <tr>
+            <td align="center" style="padding: 48px 16px;">
+                <table class="sm-w-full" style="width: 600px;" cellpadding="0" cellspacing="0" role="presentation">
+                    <!-- LOGO SECTION HAS BEEN REMOVED -->
+                    <tr>
+                        <td class="sm-px-6"
+                            style="background-color: #ffffff; border-radius: 10px; border: 1px solid #EBEBEB; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);">
+                            <table style="width: 100%;" cellpadding="0" cellspacing="0" role="presentation">
+                                <tr>
+                                    <td style="padding: 40px;">
+                                        <h1 style="margin: 0 0 24px; font-size: 24px; font-weight: 700; color: #2F2F2F;">
+                                            Verify Your Email Address
+                                        </h1>
+                                        <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #5B5B5B;">
+                                            Welcome to AttendEx! Please click the button below to confirm your email
+                                            address and activate your account.
+                                        </p>
+                                        <table cellpadding="0" cellspacing="0" role="presentation">
+                                            <tr>
+                                                <td class="hover-bg-primary-darker"
+                                                    style="background-color: #2F2F2F; border-radius: 10px;">
+                                                    <a th:href="${verificationUrl}" target="_blank"
+                                                       style="display: inline-block; padding: 14px 24px; font-size: 16px; font-weight: 600; line-height: 1; color: #FAFAFA; text-decoration: none;">
+                                                        <span class="mso-font-fix">Verify Account</span>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <p style="margin: 24px 0 0; font-size: 14px; line-height: 22px; color: #5B5B5B;">
+                                            If the button above doesn't work, copy and paste this link into your
+                                            browser:
+                                        </p>
+                                        <a th:href="${verificationUrl}"
+                                           style="font-size: 12px; color: #8E8E8E; text-decoration: underline; word-break: break-all;"
+                                           th:text="${verificationUrl}">
+                                            Verification Link
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="padding-top: 32px; font-size: 12px; color: #8E8E8E;">
+                            <p style="margin: 0;" th:text="'© ' + ${currentYear} + ' AttendEx. All rights reserved.'">
+                                &copy; 2024 AttendEx. All rights reserved.</p>
+                            <p th:if="${organizationName}" style="margin: 4px 0 0;" th:text="${organizationName}">Your
+                                Organization</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</div>
+</body>
+</html>
