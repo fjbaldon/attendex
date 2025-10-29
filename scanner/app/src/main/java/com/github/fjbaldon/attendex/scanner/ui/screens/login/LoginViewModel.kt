@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.scanner.ui.screens.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.fjbaldon.attendex.scanner.data.repository.AuthRepository
+import com.github.fjbaldon.attendex.scanner.data.repository.LoginResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,25 +26,52 @@ class LoginViewModel @Inject constructor(
 
     fun login(email: String, password: String) {
         if (email.isBlank() || password.isBlank()) {
-            _uiState.update {
-                it.copy(error = "Email and password cannot be empty.")
-            }
+            _uiState.update { it.copy(error = "Email and password cannot be empty.") }
             return
         }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            val result = authRepository.login(email, password)
+            when (val result = authRepository.login(email, password)) {
+                is LoginResult.Success -> {
+                    _uiState.update { it.copy(isLoading = false) }
+                }
 
-            result.onSuccess {
-                _uiState.update { it.copy(isLoading = false) }
-            }.onFailure {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = "Invalid email or password."
-                    )
+                is LoginResult.InvalidCredentials -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Invalid email or password."
+                        )
+                    }
+                }
+
+                is LoginResult.NetworkError -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "A network error occurred. Please try again."
+                        )
+                    }
+                }
+
+                is LoginResult.FirstLoginOfflineError -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Please connect to the internet for your first login."
+                        )
+                    }
+                }
+
+                is LoginResult.GenericError -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.message ?: "An unknown error occurred."
+                        )
+                    }
                 }
             }
         }
