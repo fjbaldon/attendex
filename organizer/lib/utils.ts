@@ -7,11 +7,10 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-export const getErrorMessage = (error: AxiosError<ApiErrorResponse>, defaultMessage: string): string => {
-    if (error.response) {
-        const errorData = error.response.data;
-
-        if (errorData) {
+export const getErrorMessage = (error: unknown, defaultMessage: string): string => {
+    if (error instanceof AxiosError) {
+        if (error.response?.data) {
+            const errorData = error.response.data as ApiErrorResponse;
             if (errorData.validationErrors && Object.keys(errorData.validationErrors).length > 0) {
                 return Object.values(errorData.validationErrors)[0];
             }
@@ -19,8 +18,13 @@ export const getErrorMessage = (error: AxiosError<ApiErrorResponse>, defaultMess
                 return errorData.message;
             }
         }
-    } else if (error.request) {
-        return "Cannot connect to the server. Please check your network connection or contact an administrator.";
+        if (error.request) {
+            return "Cannot connect to the server. Please check your network connection.";
+        }
+    }
+
+    if (error instanceof Error) {
+        return error.message;
     }
 
     return defaultMessage;
