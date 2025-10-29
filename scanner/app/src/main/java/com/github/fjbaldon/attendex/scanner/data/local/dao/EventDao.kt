@@ -17,4 +17,7 @@ interface EventDao {
 
     @Query("DELETE FROM events")
     suspend fun clearAll()
+
+    @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
+    suspend fun getEventById(eventId: Long): EventEntity?
 }

@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.scanner.ui.screens.scanner
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.github.fjbaldon.attendex.scanner.data.local.model.AttendeeEntity
 import com.github.fjbaldon.attendex.scanner.data.repository.EventRepository
 import com.github.fjbaldon.attendex.scanner.data.repository.ScanResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +18,7 @@ data class ScannerUiState(
     val eventName: String? = null,
     val isLoading: Boolean = true,
     val lastScanResult: ScanUiResult = ScanUiResult.Idle,
+    val scannedAttendees: List<AttendeeEntity> = emptyList(),
     val hasFlashUnit: Boolean = false,
     val isTorchOn: Boolean = false,
 )
@@ -31,38 +33,36 @@ class ScannerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ScannerUiState())
     val uiState = _uiState.asStateFlow()
     private var isProcessing = false
-    private var lastScannedQrCode: String? = null
-    private var lastScannedIdentifier: String? = null
 
     init {
-        refreshAttendees()
+        loadEventDetails()
     }
 
-    private fun refreshAttendees() {
+    private fun loadEventDetails() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            val eventName = eventRepository.getEventNameById(eventId)
             eventRepository.refreshAttendeesForEvent(eventId).onFailure {
-                _uiState.update { s -> s.copy(lastScanResult = ScanUiResult.Error("Failed to load attendees. Please check connection.")) }
+                _uiState.update { s -> s.copy(lastScanResult = ScanUiResult.Error("Failed to load attendees.")) }
             }
-            _uiState.update { it.copy(isLoading = false) }
+            _uiState.update { it.copy(isLoading = false, eventName = eventName) }
         }
     }
 
     fun processQrCode(qrCodeHash: String) {
         if (isProcessing) return
 
-        if (qrCodeHash == lastScannedQrCode) {
+        if (_uiState.value.scannedAttendees.any { it.qrCodeHash == qrCodeHash }) {
+            val alreadyScannedAttendee =
+                _uiState.value.scannedAttendees.first { it.qrCodeHash == qrCodeHash }
             _uiState.update {
                 it.copy(
                     lastScanResult = ScanUiResult.AlreadyScanned(
-                        lastScannedIdentifier ?: ""
+                        alreadyScannedAttendee.uniqueIdentifier
                     )
                 )
             }
-            viewModelScope.launch {
-                delay(2500)
-                _uiState.update { it.copy(lastScanResult = ScanUiResult.Idle) }
-            }
+            resetScanResultAfterDelay()
             return
         }
 
@@ -72,24 +72,23 @@ class ScannerViewModel @Inject constructor(
 
             val scanUiResult = when (result) {
                 is ScanResult.Success -> {
-                    lastScannedQrCode = qrCodeHash
-                    lastScannedIdentifier = result.attendee.uniqueIdentifier
+                    _uiState.update {
+                        it.copy(scannedAttendees = listOf(result.attendee) + it.scannedAttendees)
+                    }
                     ScanUiResult.Success(result.attendee.uniqueIdentifier)
                 }
 
-                is ScanResult.AttendeeNotFound -> {
-                    lastScannedQrCode = null
-                    lastScannedIdentifier = null
-                    ScanUiResult.Error("Attendee Not Found")
-                }
-
-                is ScanResult.AlreadyScanned -> {
-                    ScanUiResult.AlreadyScanned(lastScannedIdentifier ?: "")
-                }
+                is ScanResult.AttendeeNotFound -> ScanUiResult.Error("Attendee Not Found")
+                is ScanResult.AlreadyScanned -> ScanUiResult.Error("Error: Already in DB but not list")
             }
 
             _uiState.update { it.copy(lastScanResult = scanUiResult) }
+            resetScanResultAfterDelay()
+        }
+    }
 
+    private fun resetScanResultAfterDelay() {
+        viewModelScope.launch {
             delay(2500)
             _uiState.update { it.copy(lastScanResult = ScanUiResult.Idle) }
             isProcessing = false

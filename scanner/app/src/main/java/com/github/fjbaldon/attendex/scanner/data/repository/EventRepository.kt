@@ -97,4 +97,8 @@ class EventRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun getEventNameById(eventId: Long): String? {
+        return eventDao.getEventById(eventId)?.eventName
+    }
 }
