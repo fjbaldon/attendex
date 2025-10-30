@@ -128,7 +128,7 @@ private fun ScannedAttendeesSheetContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Scanned Attendees", style = MaterialTheme.typography.titleMedium)
+            Text("Scanned Log", style = MaterialTheme.typography.titleMedium)
             Badge(containerColor = MaterialTheme.colorScheme.primary) {
                 Text(text = attendees.size.toString(), color = MaterialTheme.colorScheme.onPrimary)
             }
@@ -141,7 +141,7 @@ private fun ScannedAttendeesSheetContent(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "No attendees scanned yet.",
+                    "Scan an ID to begin.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -193,13 +193,13 @@ private fun ScannerOverlay(result: ScanUiResult) {
         )
 
         is ScanUiResult.ScanningInactive -> OverlayState(
-            text = "Scanning is not active",
+            text = "Scanning Inactive",
             textColor = Color(0xFFFFC107),
             overlayColor = Color.Transparent
         )
 
         is ScanUiResult.Idle, is ScanUiResult.Error -> OverlayState(
-            text = "Point camera at an ID number",
+            text = "Point camera at an ID",
             textColor = Color.White,
             overlayColor = Color.Transparent
         )

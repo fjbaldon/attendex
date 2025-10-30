@@ -6,12 +6,7 @@ import com.github.fjbaldon.attendex.scanner.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.scanner.data.repository.AuthRepository
 import com.github.fjbaldon.attendex.scanner.data.repository.EventRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -44,12 +39,12 @@ class EventListViewModel @Inject constructor(
             eventRepository.getEvents(),
             eventRepository.hasUnsyncedRecords
         )
-
         combine(flows) { values ->
             val isLoading = values[0] as Boolean
             val isRefreshing = values[1] as Boolean
             val isSyncing = values[2] as Boolean
             val error = values[3] as String?
+
             @Suppress("UNCHECKED_CAST")
             val events = values[4] as List<EventEntity>
             val needsToSync = values[5] as Boolean
@@ -89,9 +84,14 @@ class EventListViewModel @Inject constructor(
             _isSyncing.value = true
             val result = eventRepository.syncAttendanceRecords()
             result.onSuccess { count ->
-                _syncResult.value = if (count > 0) "$count records synced successfully." else "Already up to date."
+                _syncResult.value = if (count > 0) {
+                    val plural = if (count == 1) "record" else "records"
+                    "$count $plural synced."
+                } else {
+                    "Data is already up to date."
+                }
             }.onFailure {
-                _syncResult.value = "Sync failed: ${it.message}"
+                _syncResult.value = "Sync failed. Please try again."
             }
             _isSyncing.value = false
         }
