@@ -35,9 +35,15 @@ class ScannerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ScannerUiState())
     val uiState = _uiState.asStateFlow()
     private var isProcessing = false
+    private val _scanMode = MutableStateFlow("CHECK_IN")
+    val scanMode = _scanMode.asStateFlow()
 
     init {
         loadEventDetails()
+    }
+
+    fun setScanMode(mode: String) {
+        _scanMode.value = mode
     }
 
     private fun loadEventDetails() {
@@ -70,7 +76,7 @@ class ScannerViewModel @Inject constructor(
 
         isProcessing = true
         viewModelScope.launch {
-            val result = eventRepository.processScan(eventId, scannedText)
+            val result = eventRepository.processScan(eventId, scannedText, _scanMode.value)
 
             when (result) {
                 is ScanResult.Success -> {

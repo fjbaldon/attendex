@@ -19,7 +19,7 @@ import com.github.fjbaldon.attendex.scanner.data.local.model.UserCredentialsEnti
         AttendanceRecordEntity::class,
         UserCredentialsEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

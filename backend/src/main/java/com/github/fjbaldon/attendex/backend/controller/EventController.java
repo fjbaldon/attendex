@@ -61,7 +61,12 @@ public class EventController {
 
     @GetMapping("/{eventId}/checked-in")
     public ResponseEntity<List<CheckedInAttendeeResponse>> getCheckedInAttendees(@PathVariable Long eventId, @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(eventService.getCheckedInAttendeesForEvent(eventId, user.getOrganizationId()));
+        return ResponseEntity.ok(eventService.getCheckedInAttendees(eventId, user.getOrganizationId()));
+    }
+
+    @GetMapping("/{eventId}/checked-out")
+    public ResponseEntity<List<CheckedInAttendeeResponse>> getCheckedOutAttendees(@PathVariable Long eventId, @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(eventService.getCheckedOutAttendees(eventId, user.getOrganizationId()));
     }
 
     @PostMapping("/{eventId}/attendees/{attendeeId}")

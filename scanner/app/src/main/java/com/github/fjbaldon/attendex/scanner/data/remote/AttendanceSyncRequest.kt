@@ -10,6 +10,7 @@ data class AttendanceSyncRequest(
     data class Record(
         val eventId: Long,
         val attendeeId: Long,
-        val checkInTimestamp: String
+        val checkInTimestamp: String,
+        val type: String
     )
 }

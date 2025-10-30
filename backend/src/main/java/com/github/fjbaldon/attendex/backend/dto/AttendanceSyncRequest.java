@@ -1,5 +1,6 @@
 package com.github.fjbaldon.attendex.backend.dto;
 
+import com.github.fjbaldon.attendex.backend.model.TimeSlotType;
 import lombok.Data;
 
 import java.time.Instant;
@@ -15,5 +16,6 @@ public class AttendanceSyncRequest {
         private Long eventId;
         private Long attendeeId;
         private Instant checkInTimestamp;
+        private TimeSlotType type;
     }
 }

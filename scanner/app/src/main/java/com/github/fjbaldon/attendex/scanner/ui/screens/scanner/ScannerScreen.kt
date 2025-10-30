@@ -29,6 +29,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -61,6 +63,7 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scanMode by viewModel.scanMode.collectAsState()
     val scaffoldState = rememberBottomSheetScaffoldState()
 
     BottomSheetScaffold(
@@ -84,6 +87,18 @@ fun ScannerScreen(
                     }
                 },
                 actions = {
+                    SingleChoiceSegmentedButtonRow {
+                        SegmentedButton(
+                            selected = scanMode == "CHECK_IN",
+                            onClick = { viewModel.setScanMode("CHECK_IN") },
+                            shape = MaterialTheme.shapes.small
+                        ) { Text("In") }
+                        SegmentedButton(
+                            selected = scanMode == "CHECK_OUT",
+                            onClick = { viewModel.setScanMode("CHECK_OUT") },
+                            shape = MaterialTheme.shapes.small
+                        ) { Text("Out") }
+                    }
                     if (uiState.hasFlashUnit) {
                         IconButton(onClick = { viewModel.onTorchToggle(!uiState.isTorchOn) }) {
                             Icon(
@@ -96,9 +111,11 @@ fun ScannerScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
@@ -198,9 +215,11 @@ private fun ScannerOverlay(result: ScanUiResult) {
         )
     }
 
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(overlayColor)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(overlayColor)
+    ) {
         Box(
             modifier = Modifier
                 .align(Alignment.Center)

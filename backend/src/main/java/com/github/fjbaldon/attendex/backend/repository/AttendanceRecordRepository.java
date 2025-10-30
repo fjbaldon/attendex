@@ -4,6 +4,7 @@ package com.github.fjbaldon.attendex.backend.repository;
 import com.github.fjbaldon.attendex.backend.dto.AnalyticsBreakdownDto;
 import com.github.fjbaldon.attendex.backend.dto.DailyActivityDto;
 import com.github.fjbaldon.attendex.backend.model.AttendanceRecord;
+import com.github.fjbaldon.attendex.backend.model.TimeSlotType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -17,6 +18,10 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     List<AttendanceRecord> findByEventId(Long eventId);
 
     boolean existsByEventIdAndAttendeeId(Long eventId, Long attendeeId);
+
+    boolean existsByEventIdAndAttendeeIdAndType(Long eventId, Long attendeeId, TimeSlotType type);
+
+    List<AttendanceRecord> findByEventIdAndType(Long eventId, TimeSlotType type);
 
     @Query("SELECT COUNT(DISTINCT ar.attendee.id) FROM AttendanceRecord ar WHERE ar.event.id = :eventId")
     long countDistinctAttendeesByEventId(Long eventId);

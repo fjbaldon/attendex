@@ -17,7 +17,7 @@ import java.time.Instant;
         @Index(name = "idx_record_event_id", columnList = "event_id"),
         @Index(name = "idx_record_attendee_id", columnList = "attendee_id")
 }, uniqueConstraints = {
-        @UniqueConstraint(name = "uk_attendee_per_event", columnNames = {"event_id", "attendee_id"})
+        @UniqueConstraint(name = "uk_attendee_per_event_per_type", columnNames = {"event_id", "attendee_id", "type"})
 })
 public class AttendanceRecord {
 
@@ -37,6 +37,10 @@ public class AttendanceRecord {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scanner_id", nullable = false)
     private Scanner scanner;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TimeSlotType type;
 
     @Column(nullable = false)
     private Instant checkInTimestamp;

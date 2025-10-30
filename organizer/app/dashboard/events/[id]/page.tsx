@@ -7,7 +7,7 @@ import {SiteHeader} from "@/components/layout/site-header";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
 import {useEventDetails} from "@/hooks/use-event-details";
 import {EventAttendeesDataTable} from "./event-attendees-data-table";
-import {getColumns} from "./columns";
+import {getColumns as getRosterColumns} from "./columns";
 import {Skeleton} from "@/components/ui/skeleton";
 import {
     Breadcrumb,
@@ -21,6 +21,8 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {getCheckedInColumns} from "./checked-in-columns";
 import {CheckedInAttendeesDataTable} from "./checked-in-attendees-data-table";
 import {useCustomFields} from "@/hooks/use-custom-fields";
+import {getCheckedOutColumns} from "./checked-out-columns";
+import {CheckedOutAttendeesDataTable} from "./checked-out-attendees-data-table";
 
 export default function EventDetailsPage() {
     const params = useParams();
@@ -30,24 +32,27 @@ export default function EventDetailsPage() {
         event,
         attendees,
         checkedInAttendees,
+        checkedOutAttendees,
         isLoadingEvent,
         isLoadingAttendees,
-        isLoadingCheckedIn
+        isLoadingCheckedIn,
+        isLoadingCheckedOut
     } = useEventDetails(eventId);
 
     const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useCustomFields();
 
-    const rosterColumns = React.useMemo(() => getColumns(customFieldDefinitions), [customFieldDefinitions]);
+    const rosterColumns = React.useMemo(() => getRosterColumns(customFieldDefinitions), [customFieldDefinitions]);
+
     const checkedInColumns = React.useMemo(() => getCheckedInColumns(customFieldDefinitions), [customFieldDefinitions]);
+
+    const checkedOutColumns = React.useMemo(() => getCheckedOutColumns(customFieldDefinitions), [customFieldDefinitions]);
 
     return (
         <SidebarProvider
-            style={
-                {
-                    "--sidebar-width": "calc(var(--spacing) * 72)",
-                    "--header-height": "calc(var(--spacing) * 12)",
-                } as React.CSSProperties
-            }
+            style={{
+                "--sidebar-width": "calc(var(--spacing) * 72)",
+                "--header-height": "calc(var(--spacing) * 12)",
+            } as React.CSSProperties}
         >
             <AppSidebar variant="inset"/>
             <SidebarInset>
@@ -77,7 +82,9 @@ export default function EventDetailsPage() {
                         <TabsList>
                             <TabsTrigger value="roster">Roster</TabsTrigger>
                             <TabsTrigger value="checked-in">Checked-in</TabsTrigger>
+                            <TabsTrigger value="checked-out">Checked-out</TabsTrigger>
                         </TabsList>
+
                         <TabsContent value="roster">
                             <EventAttendeesDataTable
                                 columns={rosterColumns}
@@ -86,11 +93,20 @@ export default function EventDetailsPage() {
                                 eventId={eventId}
                             />
                         </TabsContent>
+
                         <TabsContent value="checked-in">
                             <CheckedInAttendeesDataTable
                                 columns={checkedInColumns}
                                 data={checkedInAttendees}
                                 isLoading={isLoadingCheckedIn || isLoadingCustomFields}
+                            />
+                        </TabsContent>
+
+                        <TabsContent value="checked-out">
+                            <CheckedOutAttendeesDataTable
+                                columns={checkedOutColumns}
+                                data={checkedOutAttendees}
+                                isLoading={isLoadingCheckedOut || isLoadingCustomFields}
                             />
                         </TabsContent>
                     </Tabs>

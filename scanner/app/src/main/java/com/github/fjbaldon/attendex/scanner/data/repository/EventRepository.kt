@@ -63,7 +63,7 @@ class EventRepository @Inject constructor(
         }
     }
 
-    suspend fun processScan(eventId: Long, identifier: String): ScanResult {
+    suspend fun processScan(eventId: Long, identifier: String, scanType: String): ScanResult {
         val attendee = attendeeDao.findAttendeeByIdentifier(eventId, identifier)
             ?: return ScanResult.AttendeeNotFound
 
@@ -71,7 +71,8 @@ class EventRepository @Inject constructor(
             eventId = eventId,
             attendeeId = attendee.attendeeId,
             checkInTimestamp = Instant.now(),
-            isSynced = false
+            isSynced = false,
+            type = scanType
         )
         attendanceRecordDao.insert(record)
         return ScanResult.Success(attendee)
@@ -80,20 +81,18 @@ class EventRepository @Inject constructor(
     suspend fun syncAttendanceRecords(): Result<Int> {
         return try {
             val unsyncedRecords = attendanceRecordDao.getUnsyncedRecords()
-            if (unsyncedRecords.isEmpty()) {
-                return Result.success(0)
-            }
+            if (unsyncedRecords.isEmpty()) return Result.success(0)
 
             val request = AttendanceSyncRequest(
                 records = unsyncedRecords.map {
                     AttendanceSyncRequest.Record(
                         eventId = it.eventId,
                         attendeeId = it.attendeeId,
-                        checkInTimestamp = it.checkInTimestamp.toString()
+                        checkInTimestamp = it.checkInTimestamp.toString(),
+                        type = it.type
                     )
                 }
             )
-
             apiService.syncAttendance(request)
             attendanceRecordDao.markAsSynced(unsyncedRecords.map { it.id })
             Result.success(unsyncedRecords.size)

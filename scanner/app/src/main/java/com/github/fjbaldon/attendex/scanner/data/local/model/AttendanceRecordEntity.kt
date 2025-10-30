@@ -10,5 +10,6 @@ data class AttendanceRecordEntity(
     val eventId: Long,
     val attendeeId: Long,
     val checkInTimestamp: Instant,
-    var isSynced: Boolean = false
+    var isSynced: Boolean = false,
+    val type: String
 )

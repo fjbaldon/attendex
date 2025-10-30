@@ -10,20 +10,20 @@ import {
     getPaginationRowModel,
     getSortedRowModel,
     SortingState,
-    useReactTable,
+    useReactTable
 } from "@tanstack/react-table";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {CheckedInAttendeeResponse} from "@/types";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {Input} from "@/components/ui/input";
 
-interface CheckedInAttendeesDataTableProps {
+interface CheckedOutAttendeesDataTableProps {
     columns: ColumnDef<CheckedInAttendeeResponse>[];
     data: CheckedInAttendeeResponse[];
     isLoading: boolean;
 }
 
-export function CheckedInAttendeesDataTable({columns, data, isLoading}: CheckedInAttendeesDataTableProps) {
+export function CheckedOutAttendeesDataTable({columns, data, isLoading}: CheckedOutAttendeesDataTableProps) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [rowSelection, setRowSelection] = React.useState({});
@@ -67,9 +67,8 @@ export function CheckedInAttendeesDataTable({columns, data, isLoading}: CheckedI
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    Loading checked-in attendees...
-                                </TableCell>
+                                <TableCell colSpan={columns.length} className="h-24 text-center">Loading checked-out
+                                    attendees...</TableCell>
                             </TableRow>
                         ) : table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
@@ -82,9 +81,8 @@ export function CheckedInAttendeesDataTable({columns, data, isLoading}: CheckedI
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    No attendees have been checked in for this event yet.
-                                </TableCell>
+                                <TableCell colSpan={columns.length} className="h-24 text-center">No attendees have been
+                                    checked out for this event yet.</TableCell>
                             </TableRow>
                         )}
                     </TableBody>

@@ -38,6 +38,16 @@ export const useEventDetails = (eventId: number | null) => {
         enabled: !!eventId,
     });
 
+    const {data: checkedOutAttendees, isLoading: isLoadingCheckedOut} = useQuery<CheckedInAttendeeResponse[]>({
+        queryKey: ["eventDetails", eventId, "checkedOut"],
+        queryFn: async () => {
+            if (!eventId) return [];
+            const response = await api.get(`/api/v1/events/${eventId}/checked-out`);
+            return response.data;
+        },
+        enabled: !!eventId,
+    });
+
     const addAttendeeMutation = useMutation<void, AxiosError<ApiErrorResponse>, {
         eventId: number;
         attendeeId: number;
@@ -69,6 +79,8 @@ export const useEventDetails = (eventId: number | null) => {
         isLoadingAttendees,
         checkedInAttendees: checkedInAttendees || [],
         isLoadingCheckedIn,
+        checkedOutAttendees: checkedOutAttendees || [],
+        isLoadingCheckedOut,
         addAttendee: addAttendeeMutation.mutate,
         isAddingAttendee: addAttendeeMutation.isPending,
         removeAttendee: removeAttendeeMutation.mutate,

@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -113,18 +112,19 @@ public class EventService {
     public List<CheckedInAttendeeResponse> getCheckedInAttendeesForEvent(Long eventId, Long organizationId) {
         findEventByIdAndOrgId(eventId, organizationId);
 
-        List<AttendanceRecord> attendanceRecords = attendanceRecordRepository.findByEventId(eventId);
-
-        Map<Attendee, Instant> firstCheckInMap = attendanceRecords.stream()
-                .collect(Collectors.toMap(
-                        AttendanceRecord::getAttendee,
-                        AttendanceRecord::getCheckInTimestamp,
-                        (existingTimestamp, newTimestamp) -> existingTimestamp
-                ));
-
-        return firstCheckInMap.entrySet().stream()
-                .map(entry -> toCheckedInAttendeeResponse(entry.getKey(), entry.getValue()))
+        return attendanceRecordRepository.findByEventId(eventId).stream()
+                .map(record -> toCheckedInAttendeeResponse(record.getAttendee(), record.getCheckInTimestamp()))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CheckedInAttendeeResponse> getCheckedInAttendees(Long eventId, Long organizationId) {
+        return getAttendeesByType(eventId, organizationId, TimeSlotType.CHECK_IN);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CheckedInAttendeeResponse> getCheckedOutAttendees(Long eventId, Long organizationId) {
+        return getAttendeesByType(eventId, organizationId, TimeSlotType.CHECK_OUT);
     }
 
     private CheckedInAttendeeResponse toCheckedInAttendeeResponse(Attendee attendee, Instant checkInTimestamp) {
@@ -152,6 +152,13 @@ public class EventService {
     private Organizer findOrganizerByEmail(String email) {
         return organizerRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Organizer not found"));
+    }
+
+    private List<CheckedInAttendeeResponse> getAttendeesByType(Long eventId, Long organizationId, TimeSlotType type) {
+        findEventByIdAndOrgId(eventId, organizationId);
+        return attendanceRecordRepository.findByEventIdAndType(eventId, type).stream()
+                .map(record -> toCheckedInAttendeeResponse(record.getAttendee(), record.getCheckInTimestamp()))
+                .collect(Collectors.toList());
     }
 
     private EventResponse toEventResponse(Event event) {

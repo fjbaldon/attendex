@@ -68,7 +68,9 @@ public class AppService {
         Long scannerOrganizationId = scanner.getOrganization().getId();
 
         List<AttendanceRecord> newRecordsToSave = request.getRecords().stream()
-                .filter(recordDto -> !attendanceRecordRepository.existsByEventIdAndAttendeeId(recordDto.getEventId(), recordDto.getAttendeeId()))
+                .filter(recordDto -> !attendanceRecordRepository.existsByEventIdAndAttendeeIdAndType(
+                        recordDto.getEventId(), recordDto.getAttendeeId(), recordDto.getType()
+                ))
                 .map(recordDto -> {
                     Event event = findEventById(recordDto.getEventId());
 
@@ -81,6 +83,7 @@ public class AppService {
                             .attendee(attendeeRepository.getReferenceById(recordDto.getAttendeeId()))
                             .scanner(scanner)
                             .checkInTimestamp(recordDto.getCheckInTimestamp())
+                            .type(recordDto.getType())
                             .build();
                 }).collect(Collectors.toList());
 
