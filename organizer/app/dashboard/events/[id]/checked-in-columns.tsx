@@ -1,11 +1,12 @@
 "use client";
 
 import {ColumnDef} from "@tanstack/react-table";
-import {AttendeeResponse, CustomFieldDefinition} from "@/types";
+import {CheckedInAttendeeResponse, CustomFieldDefinition} from "@/types";
 import {Checkbox} from "@/components/ui/checkbox";
+import {format} from 'date-fns';
 
-export const getCheckedInColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<AttendeeResponse>[] => {
-    const standardColumns: ColumnDef<AttendeeResponse>[] = [
+export const getCheckedInColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<CheckedInAttendeeResponse>[] => {
+    const standardColumns: ColumnDef<CheckedInAttendeeResponse>[] = [
         {
             id: "select",
             header: ({table}) => (
@@ -39,9 +40,28 @@ export const getCheckedInColumns = (customFieldDefs: CustomFieldDefinition[]): C
             header: "First Name",
             cell: ({row}) => <div className="font-medium">{row.original.firstName}</div>,
         },
+        {
+            accessorKey: "checkInTimestamp",
+            header: "Checked-in Time",
+            cell: ({row}) => {
+                const timestamp = row.original.checkInTimestamp;
+
+                if (!timestamp) {
+                    return <div className="text-sm text-muted-foreground italic">N/A</div>;
+                }
+
+                try {
+                    const formattedTime = format(new Date(timestamp), "h:mm:ss a");
+                    return <div className="text-sm text-muted-foreground">{formattedTime}</div>;
+                } catch (error) {
+                    console.error("Failed to format date:", timestamp, error);
+                    return <div className="text-sm text-destructive">Invalid Date</div>;
+                }
+            },
+        },
     ];
 
-    const customFieldColumns: ColumnDef<AttendeeResponse>[] = customFieldDefs.map(def => ({
+    const customFieldColumns: ColumnDef<CheckedInAttendeeResponse>[] = customFieldDefs.map(def => ({
         accessorKey: `customFields.${def.fieldName}`,
         header: def.fieldName,
         cell: ({getValue}) => {
@@ -53,7 +73,7 @@ export const getCheckedInColumns = (customFieldDefs: CustomFieldDefinition[]): C
         }
     }));
 
-    const actionColumnPlaceholder: ColumnDef<AttendeeResponse> = {
+    const actionColumnPlaceholder: ColumnDef<CheckedInAttendeeResponse> = {
         id: "actions",
         cell: () => {
             return <div className="flex justify-end h-8 w-8 p-0"/>;

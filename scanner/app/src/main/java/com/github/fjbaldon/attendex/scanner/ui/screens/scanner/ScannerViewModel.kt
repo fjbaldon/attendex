@@ -98,7 +98,7 @@ class ScannerViewModel @Inject constructor(
 
     private fun resetScanResultAfterDelay() {
         viewModelScope.launch {
-            delay(1000)
+            delay(200)
             _uiState.update { it.copy(lastScanResult = ScanUiResult.Idle) }
             isProcessing = false
         }

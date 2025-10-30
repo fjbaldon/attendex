@@ -3,5 +3,6 @@
     <domain-config cleartextTrafficPermitted="true">
         <!-- 10.0.2.2 is the special IP for the host machine's localhost from the Android emulator -->
         <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">192.168.193.180</domain>
     </domain-config>
 </network-security-config>

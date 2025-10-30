@@ -11,4 +11,6 @@ public class EventAttendeeSyncResponse {
     private Long attendeeId;
     private String uniqueIdentifier;
     private String qrCodeHash;
+    private String firstName;
+    private String lastName;
 }

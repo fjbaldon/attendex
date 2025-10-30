@@ -155,3 +155,7 @@ export interface Organization {
     name: string;
     identifierFormatRegex: string | null;
 }
+
+export interface CheckedInAttendeeResponse extends AttendeeResponse {
+    checkInTimestamp: string;
+}

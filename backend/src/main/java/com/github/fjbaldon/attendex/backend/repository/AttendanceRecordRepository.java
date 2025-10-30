@@ -16,6 +16,8 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
 
     List<AttendanceRecord> findByEventId(Long eventId);
 
+    boolean existsByEventIdAndAttendeeId(Long eventId, Long attendeeId);
+
     @Query("SELECT COUNT(DISTINCT ar.attendee.id) FROM AttendanceRecord ar WHERE ar.event.id = :eventId")
     long countDistinctAttendeesByEventId(Long eventId);
 

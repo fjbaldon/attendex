@@ -10,7 +10,7 @@ import java.util.Set;
 @Getter
 @Setter
 @ToString(exclude = {"events", "organization"})
-@EqualsAndHashCode(exclude = {"events", "organization"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,6 +22,7 @@ public class Organizer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(nullable = false)

@@ -1,6 +1,6 @@
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import api from "@/lib/api";
-import {ApiErrorResponse, AttendeeResponse, EventResponse} from "@/types";
+import {ApiErrorResponse, AttendeeResponse, CheckedInAttendeeResponse, EventResponse} from "@/types";
 import {toast} from "sonner";
 import {getErrorMessage} from "@/lib/utils";
 import {AxiosError} from "axios";
@@ -28,7 +28,7 @@ export const useEventDetails = (eventId: number | null) => {
         enabled: !!eventId,
     });
 
-    const {data: checkedInAttendees, isLoading: isLoadingCheckedIn} = useQuery<AttendeeResponse[]>({
+    const {data: checkedInAttendees, isLoading: isLoadingCheckedIn} = useQuery<CheckedInAttendeeResponse[]>({
         queryKey: ["eventDetails", eventId, "checkedIn"],
         queryFn: async () => {
             if (!eventId) return [];

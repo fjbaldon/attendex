@@ -8,7 +8,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @ToString(exclude = {"organization"})
-@EqualsAndHashCode(exclude = {"organization"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -20,6 +20,7 @@ public class Scanner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(nullable = false)

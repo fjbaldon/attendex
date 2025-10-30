@@ -8,7 +8,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @ToString(exclude = {"event", "attendee", "scanner"})
-@EqualsAndHashCode(exclude = {"event", "attendee", "scanner"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,11 +16,14 @@ import java.time.Instant;
 @Table(name = "attendance_record", indexes = {
         @Index(name = "idx_record_event_id", columnList = "event_id"),
         @Index(name = "idx_record_attendee_id", columnList = "attendee_id")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_attendee_per_event", columnNames = {"event_id", "attendee_id"})
 })
 public class AttendanceRecord {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

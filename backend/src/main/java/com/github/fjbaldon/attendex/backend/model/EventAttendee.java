@@ -8,7 +8,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @ToString(exclude = {"event", "attendee"})
-@EqualsAndHashCode(exclude = {"event", "attendee"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -18,6 +18,7 @@ public class EventAttendee {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

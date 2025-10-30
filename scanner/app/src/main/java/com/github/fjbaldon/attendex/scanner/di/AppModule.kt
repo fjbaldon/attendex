@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.github.fjbaldon.attendex.scanner.data.auth.AuthInterceptor
 import com.github.fjbaldon.attendex.scanner.data.auth.SessionManager
+import com.github.fjbaldon.attendex.scanner.data.auth.UnauthorizedInterceptor
 import com.github.fjbaldon.attendex.scanner.data.local.AppDatabase
 import com.github.fjbaldon.attendex.scanner.data.local.dao.AttendanceRecordDao
 import com.github.fjbaldon.attendex.scanner.data.local.dao.AttendeeDao
@@ -29,7 +30,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    private const val BASE_URL = "http://10.0.2.2:8080/"
+    private const val BASE_URL = "http://192.168.193.180:8080/"
 
     @Provides
     @Singleton
@@ -58,8 +59,7 @@ object AppModule {
     @Suppress("unused")
     @Provides
     @Singleton
-    fun provideUserCredentialsDao(appDatabase: AppDatabase) =
-        appDatabase.userCredentialsDao()
+    fun provideUserCredentialsDao(appDatabase: AppDatabase) = appDatabase.userCredentialsDao()
 
     @Provides
     @Singleton
@@ -70,9 +70,13 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
+    fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        unauthorizedInterceptor: UnauthorizedInterceptor
+    ): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
+            .addInterceptor(unauthorizedInterceptor)
             .addInterceptor(HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.BODY
             })

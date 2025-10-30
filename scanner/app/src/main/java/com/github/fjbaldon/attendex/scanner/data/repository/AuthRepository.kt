@@ -7,6 +7,7 @@ import com.github.fjbaldon.attendex.scanner.data.local.model.UserCredentialsEnti
 import com.github.fjbaldon.attendex.scanner.data.remote.ApiService
 import com.github.fjbaldon.attendex.scanner.data.remote.AuthRequest
 import com.github.fjbaldon.attendex.scanner.di.NetworkConnectivityService
+import kotlinx.coroutines.flow.StateFlow
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
@@ -26,6 +27,8 @@ class AuthRepository @Inject constructor(
     private val passwordHasher: PasswordHasher,
     private val networkConnectivityService: NetworkConnectivityService
 ) {
+    val isLoggedInFlow: StateFlow<Boolean> = sessionManager.isLoggedInFlow
+
     fun isLoggedIn(): Boolean =
         sessionManager.authToken != null || sessionManager.currentUserEmail != null
 

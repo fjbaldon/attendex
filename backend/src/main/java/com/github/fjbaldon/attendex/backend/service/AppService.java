@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset; // Import ZoneOffset
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,9 +33,7 @@ public class AppService {
     @Transactional(readOnly = true)
     public List<ActiveEventResponse> getActiveEvents(String scannerEmail) {
         Scanner scanner = findScannerByEmail(scannerEmail);
-
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
-
         Instant dayStart = today.atStartOfDay().toInstant(ZoneOffset.UTC);
         Instant dayEnd = today.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).minusNanos(1);
 
@@ -57,7 +55,9 @@ public class AppService {
                 .map(eventAttendee -> new EventAttendeeSyncResponse(
                         eventAttendee.getAttendee().getId(),
                         eventAttendee.getAttendee().getUniqueIdentifier(),
-                        eventAttendee.getQrCodeHash()
+                        eventAttendee.getQrCodeHash(),
+                        eventAttendee.getAttendee().getFirstName(),
+                        eventAttendee.getAttendee().getLastName()
                 ))
                 .collect(Collectors.toList());
     }
@@ -67,22 +67,26 @@ public class AppService {
         Scanner scanner = findScannerByEmail(scannerEmail);
         Long scannerOrganizationId = scanner.getOrganization().getId();
 
-        List<AttendanceRecord> recordsToSave = request.getRecords().stream().map(recordDto -> {
-            Event event = findEventById(recordDto.getEventId());
+        List<AttendanceRecord> newRecordsToSave = request.getRecords().stream()
+                .filter(recordDto -> !attendanceRecordRepository.existsByEventIdAndAttendeeId(recordDto.getEventId(), recordDto.getAttendeeId()))
+                .map(recordDto -> {
+                    Event event = findEventById(recordDto.getEventId());
 
-            if (!event.getOrganization().getId().equals(scannerOrganizationId)) {
-                throw new EntityNotFoundException("Event with ID " + event.getId() + " not found in your organization");
-            }
+                    if (!event.getOrganization().getId().equals(scannerOrganizationId)) {
+                        throw new EntityNotFoundException("Event with ID " + event.getId() + " not found in your organization");
+                    }
 
-            return AttendanceRecord.builder()
-                    .event(event)
-                    .attendee(attendeeRepository.getReferenceById(recordDto.getAttendeeId()))
-                    .scanner(scanner)
-                    .checkInTimestamp(recordDto.getCheckInTimestamp())
-                    .build();
-        }).collect(Collectors.toList());
+                    return AttendanceRecord.builder()
+                            .event(event)
+                            .attendee(attendeeRepository.getReferenceById(recordDto.getAttendeeId()))
+                            .scanner(scanner)
+                            .checkInTimestamp(recordDto.getCheckInTimestamp())
+                            .build();
+                }).collect(Collectors.toList());
 
-        attendanceRecordRepository.saveAll(recordsToSave);
+        if (!newRecordsToSave.isEmpty()) {
+            attendanceRecordRepository.saveAll(newRecordsToSave);
+        }
     }
 
     private Scanner findScannerByEmail(String email) {

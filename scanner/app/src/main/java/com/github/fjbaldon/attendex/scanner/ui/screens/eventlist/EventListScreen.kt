@@ -52,10 +52,8 @@ fun EventListScreen(
     onLogout: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
     val syncResultState: State<String?> = viewModel.syncResult.collectAsState()
     val syncMessage = syncResultState.value
-
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -72,7 +70,7 @@ fun EventListScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Select Event") },
+                title = { Text("Events") },
                 actions = {
                     IconButton(onClick = {
                         viewModel.logout()
@@ -94,7 +92,7 @@ fun EventListScreen(
         }
     ) { paddingValues ->
         PullToRefreshBox(
-            isRefreshing = uiState.isRefreshing,
+            isRefreshing = uiState.isRefreshing || uiState.isLoading,
             onRefresh = { viewModel.refreshEvents() },
             modifier = Modifier.padding(paddingValues)
         ) {
@@ -102,20 +100,26 @@ fun EventListScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                when {
-                    uiState.isLoading -> CircularProgressIndicator()
-                    uiState.error != null -> ErrorState(
+                if (uiState.isLoading && !uiState.isRefreshing) {
+                    CircularProgressIndicator()
+                }
+                else if (uiState.error != null) {
+                    ErrorState(
                         message = uiState.error!!,
                         onRetry = { viewModel.refreshEvents() }
                     )
-
-                    uiState.events.isEmpty() -> EmptyState()
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
+                }
+                else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = if (uiState.events.isEmpty()) Arrangement.Center else Arrangement.spacedBy(
+                            12.dp
+                        )
+                    ) {
+                        if (uiState.events.isEmpty()) {
+                            item { EmptyState() }
+                        } else {
                             items(uiState.events, key = { it.id }) { event ->
                                 EventCard(
                                     eventName = event.eventName,
@@ -129,9 +133,6 @@ fun EventListScreen(
         }
     }
 }
-
-
-// --- Helper Composables (No changes needed below this line) ---
 
 @Composable
 private fun EventCard(eventName: String, onClick: () -> Unit) {
@@ -150,13 +151,26 @@ private fun EventCard(eventName: String, onClick: () -> Unit) {
 
 @Composable
 private fun EmptyState() {
-    Text(
-        text = "No active events found.\nPull down to refresh.",
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.padding(16.dp)
-    )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "No active events found",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "Pull down to refresh",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+    }
 }
 
 @Composable

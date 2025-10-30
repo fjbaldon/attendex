@@ -1,6 +1,7 @@
 package com.github.fjbaldon.attendex.backend.controller;
 
 import com.github.fjbaldon.attendex.backend.dto.AttendeeResponse;
+import com.github.fjbaldon.attendex.backend.dto.CheckedInAttendeeResponse;
 import com.github.fjbaldon.attendex.backend.dto.EventRequest;
 import com.github.fjbaldon.attendex.backend.dto.EventResponse;
 import com.github.fjbaldon.attendex.backend.security.CustomUserDetails;
@@ -59,7 +60,7 @@ public class EventController {
     }
 
     @GetMapping("/{eventId}/checked-in")
-    public ResponseEntity<List<AttendeeResponse>> getCheckedInAttendees(@PathVariable Long eventId, @AuthenticationPrincipal CustomUserDetails user) {
+    public ResponseEntity<List<CheckedInAttendeeResponse>> getCheckedInAttendees(@PathVariable Long eventId, @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(eventService.getCheckedInAttendeesForEvent(eventId, user.getOrganizationId()));
     }
 

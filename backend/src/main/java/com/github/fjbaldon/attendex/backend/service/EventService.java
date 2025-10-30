@@ -8,7 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -108,14 +110,32 @@ public class EventService {
     }
 
     @Transactional(readOnly = true)
-    public List<AttendeeResponse> getCheckedInAttendeesForEvent(Long eventId, Long organizationId) {
+    public List<CheckedInAttendeeResponse> getCheckedInAttendeesForEvent(Long eventId, Long organizationId) {
         findEventByIdAndOrgId(eventId, organizationId);
 
-        return attendanceRecordRepository.findByEventId(eventId).stream()
-                .map(AttendanceRecord::getAttendee)
-                .distinct()
-                .map(this::toAttendeeResponse)
+        List<AttendanceRecord> attendanceRecords = attendanceRecordRepository.findByEventId(eventId);
+
+        Map<Attendee, Instant> firstCheckInMap = attendanceRecords.stream()
+                .collect(Collectors.toMap(
+                        AttendanceRecord::getAttendee,
+                        AttendanceRecord::getCheckInTimestamp,
+                        (existingTimestamp, newTimestamp) -> existingTimestamp
+                ));
+
+        return firstCheckInMap.entrySet().stream()
+                .map(entry -> toCheckedInAttendeeResponse(entry.getKey(), entry.getValue()))
                 .collect(Collectors.toList());
+    }
+
+    private CheckedInAttendeeResponse toCheckedInAttendeeResponse(Attendee attendee, Instant checkInTimestamp) {
+        return CheckedInAttendeeResponse.builder()
+                .id(attendee.getId())
+                .uniqueIdentifier(attendee.getUniqueIdentifier())
+                .firstName(attendee.getFirstName())
+                .lastName(attendee.getLastName())
+                .customFields(attendee.getCustomFields())
+                .checkInTimestamp(checkInTimestamp)
+                .build();
     }
 
     private Event findEventByIdAndOrgId(Long eventId, Long organizationId) {
