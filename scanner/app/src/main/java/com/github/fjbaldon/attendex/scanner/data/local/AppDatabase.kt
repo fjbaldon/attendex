@@ -19,10 +19,10 @@ import com.github.fjbaldon.attendex.scanner.data.local.model.UserCredentialsEnti
         AttendanceRecordEntity::class,
         UserCredentialsEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
-@TypeConverters(Converters::class)
+@TypeConverters(Converters::class, TimeSlotListConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
     abstract fun attendeeDao(): AttendeeDao

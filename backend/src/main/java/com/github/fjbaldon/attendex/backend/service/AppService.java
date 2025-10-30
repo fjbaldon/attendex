@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.backend.service;
 import com.github.fjbaldon.attendex.backend.dto.ActiveEventResponse;
 import com.github.fjbaldon.attendex.backend.dto.AttendanceSyncRequest;
 import com.github.fjbaldon.attendex.backend.dto.EventAttendeeSyncResponse;
+import com.github.fjbaldon.attendex.backend.dto.TimeSlotResponse;
 import com.github.fjbaldon.attendex.backend.model.AttendanceRecord;
 import com.github.fjbaldon.attendex.backend.model.Event;
 import com.github.fjbaldon.attendex.backend.model.Scanner;
@@ -38,7 +39,17 @@ public class AppService {
         Instant dayEnd = today.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).minusNanos(1);
 
         return eventRepository.findEventsForDay(scanner.getOrganization().getId(), dayStart, dayEnd).stream()
-                .map(event -> new ActiveEventResponse(event.getId(), event.getEventName()))
+                .map(event -> new ActiveEventResponse(
+                        event.getId(),
+                        event.getEventName(),
+                        event.getTimeSlots().stream()
+                                .map(ts -> TimeSlotResponse.builder()
+                                        .startTime(ts.getStartTime())
+                                        .endTime(ts.getEndTime())
+                                        .type(ts.getType())
+                                        .build())
+                                .collect(Collectors.toList())
+                ))
                 .collect(Collectors.toList());
     }
 

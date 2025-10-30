@@ -109,15 +109,6 @@ public class EventService {
     }
 
     @Transactional(readOnly = true)
-    public List<CheckedInAttendeeResponse> getCheckedInAttendeesForEvent(Long eventId, Long organizationId) {
-        findEventByIdAndOrgId(eventId, organizationId);
-
-        return attendanceRecordRepository.findByEventId(eventId).stream()
-                .map(record -> toCheckedInAttendeeResponse(record.getAttendee(), record.getCheckInTimestamp()))
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
     public List<CheckedInAttendeeResponse> getCheckedInAttendees(Long eventId, Long organizationId) {
         return getAttendeesByType(eventId, organizationId, TimeSlotType.CHECK_IN);
     }
@@ -192,7 +183,6 @@ public class EventService {
 
     private TimeSlotResponse toTimeSlotResponse(EventTimeSlot timeSlot) {
         return TimeSlotResponse.builder()
-                .id(timeSlot.getId())
                 .startTime(timeSlot.getStartTime())
                 .endTime(timeSlot.getEndTime())
                 .type(timeSlot.getType())

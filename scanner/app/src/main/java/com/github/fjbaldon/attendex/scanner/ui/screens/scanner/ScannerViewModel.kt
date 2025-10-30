@@ -15,6 +15,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+sealed class ScanUiResult {
+    data object Idle : ScanUiResult()
+    data class Success(val attendeeDetails: String, val type: String) : ScanUiResult()
+    data class Error(val message: String) : ScanUiResult()
+    data class AlreadyScanned(val identifier: String) : ScanUiResult()
+    data object ScanningInactive : ScanUiResult()
+}
+
 data class ScannerUiState(
     val eventName: String? = null,
     val isLoading: Boolean = true,
@@ -35,15 +43,9 @@ class ScannerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ScannerUiState())
     val uiState = _uiState.asStateFlow()
     private var isProcessing = false
-    private val _scanMode = MutableStateFlow("CHECK_IN")
-    val scanMode = _scanMode.asStateFlow()
 
     init {
         loadEventDetails()
-    }
-
-    fun setScanMode(mode: String) {
-        _scanMode.value = mode
     }
 
     private fun loadEventDetails() {
@@ -59,42 +61,57 @@ class ScannerViewModel @Inject constructor(
 
     fun processScannedText(scannedText: String) {
         if (isProcessing) return
-
-        if (_uiState.value.scannedAttendees.any { it.uniqueIdentifier == scannedText }) {
-            val alreadyScannedAttendee =
-                _uiState.value.scannedAttendees.first { it.uniqueIdentifier == scannedText }
-            _uiState.update {
-                it.copy(
-                    lastScanResult = ScanUiResult.AlreadyScanned(
-                        alreadyScannedAttendee.uniqueIdentifier
-                    )
-                )
-            }
-            resetScanResultAfterDelay()
-            return
-        }
-
         isProcessing = true
+
         viewModelScope.launch {
-            val result = eventRepository.processScan(eventId, scannedText, _scanMode.value)
+            val scanType = eventRepository.determineScanType(eventId)
+
+            if (scanType == null) {
+                _uiState.update { it.copy(lastScanResult = ScanUiResult.ScanningInactive) }
+                resetScanResultAfterDelay()
+                return@launch
+            }
+
+            if (_uiState.value.scannedAttendees.any { it.uniqueIdentifier == scannedText }) {
+                val alreadyScannedAttendee =
+                    _uiState.value.scannedAttendees.first { it.uniqueIdentifier == scannedText }
+                _uiState.update {
+                    it.copy(
+                        lastScanResult = ScanUiResult.AlreadyScanned(
+                            alreadyScannedAttendee.uniqueIdentifier
+                        )
+                    )
+                }
+                resetScanResultAfterDelay()
+                return@launch
+            }
+
+            val result = eventRepository.processScan(eventId, scannedText, scanType)
 
             when (result) {
                 is ScanResult.Success -> {
                     ttsService.speak(result.attendee.lastName)
+
                     _uiState.update {
                         it.copy(
                             scannedAttendees = listOf(result.attendee) + it.scannedAttendees,
                             lastScanResult = ScanUiResult.Success(
-                                "${result.attendee.firstName} ${result.attendee.lastName} (${result.attendee.uniqueIdentifier})"
+                                attendeeDetails = "${result.attendee.firstName} ${result.attendee.lastName} (${result.attendee.uniqueIdentifier})",
+                                type = scanType
                             )
                         )
                     }
                 }
-
                 is ScanResult.AttendeeNotFound -> { /* Do nothing */
                 }
-
-                is ScanResult.AlreadyScanned -> { /* This is handled by the local list check */
+                is ScanResult.AlreadyScanned -> {
+                    _uiState.update {
+                        it.copy(
+                            lastScanResult = ScanUiResult.AlreadyScanned(
+                                scannedText
+                            )
+                        )
+                    }
                 }
             }
 
@@ -104,7 +121,7 @@ class ScannerViewModel @Inject constructor(
 
     private fun resetScanResultAfterDelay() {
         viewModelScope.launch {
-            delay(200)
+            delay(1200)
             _uiState.update { it.copy(lastScanResult = ScanUiResult.Idle) }
             isProcessing = false
         }

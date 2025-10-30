@@ -9,6 +9,7 @@ import com.github.fjbaldon.attendex.scanner.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.scanner.data.remote.ApiService
 import com.github.fjbaldon.attendex.scanner.data.remote.AttendanceSyncRequest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.time.Instant
 import javax.inject.Inject
 
@@ -24,6 +25,9 @@ class EventRepository @Inject constructor(
     private val attendeeDao: AttendeeDao,
     private val attendanceRecordDao: AttendanceRecordDao
 ) {
+    val hasUnsyncedRecords: Flow<Boolean> = attendanceRecordDao.getUnsyncedRecordCount()
+        .map { count -> count > 0 }
+
     fun getEvents(): Flow<List<EventEntity>> = eventDao.getAllEvents()
 
     suspend fun getEventNameById(eventId: Long): String? {
@@ -33,7 +37,7 @@ class EventRepository @Inject constructor(
     suspend fun refreshEvents(): Result<Unit> {
         return try {
             val remoteEvents = apiService.getActiveEvents()
-            val eventEntities = remoteEvents.map { EventEntity(it.id, it.eventName) }
+            val eventEntities = remoteEvents.map { EventEntity(it.id, it.eventName, it.timeSlots) }
             eventDao.clearAll()
             eventDao.insertAll(eventEntities)
             Result.success(Unit)
@@ -99,5 +103,17 @@ class EventRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun determineScanType(eventId: Long): String? {
+        val event = eventDao.getEventById(eventId) ?: return null
+        val now = Instant.now()
+
+        val activeSlot = event.timeSlots.find { slot ->
+            val startTime = Instant.parse(slot.startTime)
+            val endTime = Instant.parse(slot.endTime)
+            now.isAfter(startTime) && now.isBefore(endTime)
+        }
+        return activeSlot?.type
     }
 }

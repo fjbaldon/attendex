@@ -20,7 +20,8 @@ data class EventListUiState(
     val isRefreshing: Boolean = false,
     val isSyncing: Boolean = false,
     val events: List<EventEntity> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val needsToSync: Boolean = false
 )
 
 @HiltViewModel
@@ -34,25 +35,32 @@ class EventListViewModel @Inject constructor(
     private val _isSyncing = MutableStateFlow(false)
     private val _error = MutableStateFlow<String?>(null)
 
-    val uiState: StateFlow<EventListUiState> = combine(
-        _isLoading,
-        _isRefreshing,
-        _isSyncing,
-        _error,
-        eventRepository.getEvents()
-    ) { isLoading, isRefreshing, isSyncing, error, events ->
-        EventListUiState(
-            isLoading = isLoading,
-            isRefreshing = isRefreshing,
-            isSyncing = isSyncing,
-            events = events,
-            error = error
+    val uiState: StateFlow<EventListUiState> = run {
+        val flows = listOf(
+            _isLoading,
+            _isRefreshing,
+            _isSyncing,
+            _error,
+            eventRepository.getEvents(),
+            eventRepository.hasUnsyncedRecords
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = EventListUiState()
-    )
+
+        combine(flows) { values ->
+            val isLoading = values[0] as Boolean
+            val isRefreshing = values[1] as Boolean
+            val isSyncing = values[2] as Boolean
+            val error = values[3] as String?
+            @Suppress("UNCHECKED_CAST")
+            val events = values[4] as List<EventEntity>
+            val needsToSync = values[5] as Boolean
+
+            EventListUiState(isLoading, isRefreshing, isSyncing, events, error, needsToSync)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = EventListUiState()
+        )
+    }
 
     private val _syncResult = MutableStateFlow<String?>(null)
     val syncResult = _syncResult.asStateFlow()
@@ -67,22 +75,12 @@ class EventListViewModel @Inject constructor(
 
     private fun loadEvents(isInitialLoad: Boolean) {
         viewModelScope.launch {
-            if (isInitialLoad) {
-                _isLoading.value = true
-            } else {
-                _isRefreshing.value = true
-            }
+            if (isInitialLoad) _isLoading.value = true else _isRefreshing.value = true
             _error.value = null
-
             eventRepository.refreshEvents().onFailure {
                 _error.value = "Failed to fetch events. Check connection."
             }
-
-            if (isInitialLoad) {
-                _isLoading.value = false
-            } else {
-                _isRefreshing.value = false
-            }
+            if (isInitialLoad) _isLoading.value = false else _isRefreshing.value = false
         }
     }
 
@@ -91,8 +89,7 @@ class EventListViewModel @Inject constructor(
             _isSyncing.value = true
             val result = eventRepository.syncAttendanceRecords()
             result.onSuccess { count ->
-                _syncResult.value =
-                    if (count > 0) "$count records synced successfully." else "No new records to sync."
+                _syncResult.value = if (count > 0) "$count records synced successfully." else "Already up to date."
             }.onFailure {
                 _syncResult.value = "Sync failed: ${it.message}"
             }

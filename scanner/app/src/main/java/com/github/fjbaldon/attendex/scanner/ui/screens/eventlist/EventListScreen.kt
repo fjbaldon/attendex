@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,13 +38,11 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,14 +55,11 @@ fun EventListScreen(
     val syncResultState: State<String?> = viewModel.syncResult.collectAsState()
     val syncMessage = syncResultState.value
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(syncMessage) {
-        if (syncMessage != null) {
-            scope.launch {
-                snackbarHostState.showSnackbar(syncMessage)
-                viewModel.onSyncMessageShown()
-            }
+        syncMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.onSyncMessageShown()
         }
     }
 
@@ -82,11 +79,19 @@ fun EventListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.syncAttendance() }) {
-                if (uiState.isSyncing) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                } else {
-                    Icon(Icons.Default.Sync, contentDescription = "Sync Data")
+            BadgedBox(
+                badge = {
+                    if (uiState.needsToSync) {
+                        Badge()
+                    }
+                }
+            ) {
+                FloatingActionButton(onClick = { viewModel.syncAttendance() }) {
+                    if (uiState.isSyncing) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    } else {
+                        Icon(Icons.Default.Sync, contentDescription = "Sync Data")
+                    }
                 }
             }
         }
@@ -102,14 +107,12 @@ fun EventListScreen(
             ) {
                 if (uiState.isLoading && !uiState.isRefreshing) {
                     CircularProgressIndicator()
-                }
-                else if (uiState.error != null) {
+                } else if (uiState.error != null) {
                     ErrorState(
                         message = uiState.error!!,
                         onRetry = { viewModel.refreshEvents() }
                     )
-                }
-                else {
+                } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),

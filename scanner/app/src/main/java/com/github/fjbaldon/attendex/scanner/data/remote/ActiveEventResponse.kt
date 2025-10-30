@@ -5,5 +5,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ActiveEventResponse(
     val id: Long,
-    val eventName: String
+    val eventName: String,
+    val timeSlots: List<TimeSlotResponse>
 )

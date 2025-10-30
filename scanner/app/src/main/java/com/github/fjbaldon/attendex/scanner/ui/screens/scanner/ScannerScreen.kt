@@ -6,12 +6,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material3.Badge
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,8 +32,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -39,7 +40,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,13 +49,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.github.fjbaldon.attendex.scanner.data.local.model.AttendeeEntity
 import com.github.fjbaldon.attendex.scanner.ui.camera.CameraPreview
 
-sealed class ScanUiResult {
-    data object Idle : ScanUiResult()
-    data class Success(val attendeeDetails: String) : ScanUiResult()
-    data class Error(val message: String) : ScanUiResult()
-    data class AlreadyScanned(val identifier: String) : ScanUiResult()
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScannerScreen(
@@ -63,18 +56,23 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val scanMode by viewModel.scanMode.collectAsState()
     val scaffoldState = rememberBottomSheetScaffoldState()
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
         sheetContent = {
-            ScannedAttendeesSheetContent(
-                attendees = uiState.scannedAttendees,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .fillMaxWidth()
+            ) {
+                ScannedAttendeesSheetContent(
+                    attendees = uiState.scannedAttendees
+                )
+            }
         },
         sheetPeekHeight = 64.dp,
+        sheetDragHandle = { BottomSheetDefaults.DragHandle() },
         topBar = {
             TopAppBar(
                 title = { Text(uiState.eventName ?: "Scanner") },
@@ -87,18 +85,6 @@ fun ScannerScreen(
                     }
                 },
                 actions = {
-                    SingleChoiceSegmentedButtonRow {
-                        SegmentedButton(
-                            selected = scanMode == "CHECK_IN",
-                            onClick = { viewModel.setScanMode("CHECK_IN") },
-                            shape = MaterialTheme.shapes.small
-                        ) { Text("In") }
-                        SegmentedButton(
-                            selected = scanMode == "CHECK_OUT",
-                            onClick = { viewModel.setScanMode("CHECK_OUT") },
-                            shape = MaterialTheme.shapes.small
-                        ) { Text("Out") }
-                    }
                     if (uiState.hasFlashUnit) {
                         IconButton(onClick = { viewModel.onTorchToggle(!uiState.isTorchOn) }) {
                             Icon(
@@ -110,11 +96,11 @@ fun ScannerScreen(
                 }
             )
         }
-    ) { padding ->
+    ) { contentPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(contentPadding)
         ) {
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -133,18 +119,8 @@ fun ScannerScreen(
 @Composable
 private fun ScannedAttendeesSheetContent(
     attendees: List<AttendeeEntity>,
-    modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.padding(horizontal = 16.dp)) {
-        Box(
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .width(40.dp)
-                .height(4.dp)
-                .clip(MaterialTheme.shapes.extraLarge)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-                .align(Alignment.CenterHorizontally)
-        )
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -161,7 +137,7 @@ private fun ScannedAttendeesSheetContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
+                    .heightIn(min = 200.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -193,32 +169,46 @@ private fun ScannedAttendeeItem(attendee: AttendeeEntity) {
     )
 }
 
+private data class OverlayState(
+    val text: String,
+    val textColor: Color,
+    val overlayColor: Color,
+    val scanType: String? = null
+)
+
 @Composable
 private fun ScannerOverlay(result: ScanUiResult) {
-    val (text, textColor, overlayColor) = when (result) {
-        is ScanUiResult.Success -> Triple(
-            "Checked-in: ${result.attendeeDetails}",
-            Color(0xFF4CAF50),
-            Color(0xFF4CAF50).copy(alpha = 0.5f)
+    val overlayState = when (result) {
+        is ScanUiResult.Success -> OverlayState(
+            text = result.attendeeDetails,
+            textColor = Color(0xFF4CAF50),
+            overlayColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+            scanType = result.type.replace("_", " ").replaceFirstChar { it.uppercase() }
         )
 
-        is ScanUiResult.AlreadyScanned -> Triple(
-            "Already Scanned: ${result.identifier}",
-            Color(0xFFFFC107),
-            Color(0xFFFFC107).copy(alpha = 0.5f)
+        is ScanUiResult.AlreadyScanned -> OverlayState(
+            text = "Already Scanned: ${result.identifier}",
+            textColor = Color(0xFFFFC107),
+            overlayColor = Color(0xFFFFC107).copy(alpha = 0.5f)
         )
 
-        is ScanUiResult.Idle, is ScanUiResult.Error -> Triple(
-            "Point camera at an ID number",
-            Color.White,
-            Color.Transparent
+        is ScanUiResult.ScanningInactive -> OverlayState(
+            text = "Scanning is not active",
+            textColor = Color(0xFFFFC107),
+            overlayColor = Color.Transparent
+        )
+
+        is ScanUiResult.Idle, is ScanUiResult.Error -> OverlayState(
+            text = "Point camera at an ID number",
+            textColor = Color.White,
+            overlayColor = Color.Transparent
         )
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(overlayColor)
+            .background(overlayState.overlayColor)
     ) {
         Box(
             modifier = Modifier
@@ -241,9 +231,18 @@ private fun ScannerOverlay(result: ScanUiResult) {
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                if (overlayState.scanType != null) {
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ) {
+                        Text(overlayState.scanType, modifier = Modifier.padding(horizontal = 4.dp))
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 Text(
-                    text = text,
-                    color = textColor,
+                    text = overlayState.text,
+                    color = overlayState.textColor,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
