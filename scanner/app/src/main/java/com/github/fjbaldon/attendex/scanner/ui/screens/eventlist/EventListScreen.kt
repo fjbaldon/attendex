@@ -27,6 +27,34 @@ fun EventListScreen(
     val syncMessage by viewModel.syncResult.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Confirm Logout") },
+            text = { Text("Are you sure you want to log out? An internet connection will be required to sign back in.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        viewModel.logout()
+                        onLogout()
+                    }
+                ) {
+                    Text("Log Out")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showLogoutDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     LaunchedEffect(syncMessage) {
         syncMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -40,10 +68,7 @@ fun EventListScreen(
             TopAppBar(
                 title = { Text("Events") },
                 actions = {
-                    IconButton(onClick = {
-                        viewModel.logout()
-                        onLogout()
-                    }) {
+                    IconButton(onClick = { showLogoutDialog = true }) {
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
                     }
                 }
@@ -67,18 +92,20 @@ fun EventListScreen(
             }
         }
     ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = uiState.isRefreshing || uiState.isLoading,
-            onRefresh = { viewModel.refreshEvents() },
-            modifier = Modifier.padding(paddingValues)
-        ) {
+        if (uiState.isLoading) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                if (uiState.isLoading && !uiState.isRefreshing) {
-                    CircularProgressIndicator()
-                } else if (uiState.error != null) {
+                CircularProgressIndicator()
+            }
+        } else {
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = { viewModel.refreshEvents() },
+                modifier = Modifier.padding(paddingValues)
+            ) {
+                if (uiState.error != null) {
                     ErrorState(
                         message = uiState.error!!,
                         onRetry = { viewModel.refreshEvents() }
@@ -141,7 +168,7 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier.fillMaxSize().padding(16.dp)
     ) {
         Text(
             text = message,

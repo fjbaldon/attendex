@@ -9,7 +9,6 @@ import com.github.fjbaldon.attendex.scanner.data.local.AppDatabase
 import com.github.fjbaldon.attendex.scanner.data.local.dao.AttendanceRecordDao
 import com.github.fjbaldon.attendex.scanner.data.local.dao.AttendeeDao
 import com.github.fjbaldon.attendex.scanner.data.local.dao.EventDao
-import com.github.fjbaldon.attendex.scanner.data.local.dao.UserCredentialsDao
 import com.github.fjbaldon.attendex.scanner.data.remote.ApiService
 import com.github.fjbaldon.attendex.scanner.data.repository.AuthRepository
 import com.github.fjbaldon.attendex.scanner.data.repository.EventRepository
@@ -30,7 +29,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    private const val BASE_URL = "http://192.168.193.180:8080/"
+    private const val BASE_URL = "http://10.0.2.2:8080/"
 
     @Provides
     @Singleton
@@ -56,11 +55,6 @@ object AppModule {
     @Singleton
     fun provideAttendanceRecordDao(appDatabase: AppDatabase) = appDatabase.attendanceRecordDao()
 
-    @Suppress("unused")
-    @Provides
-    @Singleton
-    fun provideUserCredentialsDao(appDatabase: AppDatabase) = appDatabase.userCredentialsDao()
-
     @Provides
     @Singleton
     fun provideJson(): Json = Json {
@@ -77,9 +71,7 @@ object AppModule {
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(unauthorizedInterceptor)
-            .addInterceptor(HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
-            })
+            .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
             .build()
     }
 
@@ -103,18 +95,9 @@ object AppModule {
     @Singleton
     fun provideAuthRepository(
         apiService: ApiService,
-        sessionManager: SessionManager,
-        userCredentialsDao: UserCredentialsDao,
-        passwordHasher: com.github.fjbaldon.attendex.scanner.data.auth.PasswordHasher,
-        networkConnectivityService: NetworkConnectivityService
+        sessionManager: SessionManager
     ): AuthRepository {
-        return AuthRepository(
-            apiService,
-            sessionManager,
-            userCredentialsDao,
-            passwordHasher,
-            networkConnectivityService
-        )
+        return AuthRepository(apiService, sessionManager)
     }
 
     @Provides

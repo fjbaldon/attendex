@@ -6,6 +6,9 @@ import com.github.fjbaldon.attendex.scanner.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.scanner.data.repository.AuthRepository
 import com.github.fjbaldon.attendex.scanner.data.repository.EventRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -72,10 +75,24 @@ class EventListViewModel @Inject constructor(
         viewModelScope.launch {
             if (isInitialLoad) _isLoading.value = true else _isRefreshing.value = true
             _error.value = null
-            eventRepository.refreshEvents().onFailure {
+
+            try {
+                coroutineScope {
+                    val refreshJob = async { eventRepository.refreshEvents() }
+                    val delayJob = async { delay(500) }
+
+                    val refreshResult = refreshJob.await()
+                    delayJob.await()
+
+                    refreshResult.onFailure {
+                        throw it
+                    }
+                }
+            } catch (_: Exception) {
                 _error.value = "Failed to fetch events. Check connection."
+            } finally {
+                if (isInitialLoad) _isLoading.value = false else _isRefreshing.value = false
             }
-            if (isInitialLoad) _isLoading.value = false else _isRefreshing.value = false
         }
     }
 

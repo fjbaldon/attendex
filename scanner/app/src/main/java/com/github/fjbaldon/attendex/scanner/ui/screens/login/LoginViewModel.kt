@@ -18,7 +18,7 @@ data class LoginUiState(
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    val authRepository: AuthRepository
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -30,37 +30,25 @@ class LoginViewModel @Inject constructor(
             return
         }
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+        _uiState.update { it.copy(isLoading = true, error = null) }
 
-            when (val result = authRepository.login(email, password)) {
+        viewModelScope.launch {
+            val result = authRepository.login(email, password)
+
+            when (result) {
                 is LoginResult.Success -> {
                     _uiState.update { it.copy(isLoading = false) }
                 }
 
                 is LoginResult.InvalidCredentials -> {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Invalid email or password."
-                        )
-                    }
+                    _uiState.update { it.copy(isLoading = false, error = "Invalid email or password.") }
                 }
 
                 is LoginResult.NetworkError -> {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = "A network error occurred. Please try again."
-                        )
-                    }
-                }
-
-                is LoginResult.FirstLoginOfflineError -> {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Please connect to the internet for your first login."
+                            error = "Cannot connect to server. Please ensure your device has network access."
                         )
                     }
                 }

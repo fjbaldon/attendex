@@ -21,13 +21,19 @@ fun AppNavigation(
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val navController = rememberNavController()
-
     val isLoggedIn by authViewModel.isLoggedInFlow.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    LaunchedEffect(isLoggedIn) {
-        if (!isLoggedIn && currentRoute != Screen.Login.route) {
+    LaunchedEffect(isLoggedIn, currentRoute) {
+        if (isLoggedIn && currentRoute == Screen.Login.route) {
+            navController.navigate(Screen.EventList.route) {
+                popUpTo(Screen.Login.route) { inclusive = true }
+            }
+        }
+
+        val publicRoutes = listOf(Screen.Splash.route, Screen.Login.route)
+        if (!isLoggedIn && currentRoute !in publicRoutes) {
             navController.navigate(Screen.Login.route) {
                 popUpTo(0)
             }
@@ -38,8 +44,7 @@ fun AppNavigation(
         composable(Screen.Splash.route) {
             SplashScreen(
                 onAuthChecked = { isAuthenticated ->
-                    val destination =
-                        if (isAuthenticated) Screen.EventList.route else Screen.Login.route
+                    val destination = if (isAuthenticated) Screen.EventList.route else Screen.Login.route
                     navController.navigate(destination) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
@@ -47,13 +52,7 @@ fun AppNavigation(
             )
         }
         composable(Screen.Login.route) {
-            LoginScreen(
-                navToEventList = {
-                    navController.navigate(Screen.EventList.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
-                }
-            )
+            LoginScreen()
         }
         composable(Screen.EventList.route) {
             EventListScreen(

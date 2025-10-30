@@ -12,6 +12,9 @@ interface AttendanceRecordDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(record: AttendanceRecordEntity)
 
+    @Query("SELECT * FROM attendance_records WHERE eventId = :eventId AND type = :type ORDER BY checkInTimestamp DESC")
+    fun getRecordsForEventStream(eventId: Long, type: String): Flow<List<AttendanceRecordEntity>>
+
     @Query("SELECT * FROM attendance_records WHERE isSynced = 0")
     suspend fun getUnsyncedRecords(): List<AttendanceRecordEntity>
 

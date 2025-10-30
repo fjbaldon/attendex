@@ -1,5 +1,6 @@
 package com.github.fjbaldon.attendex.scanner.data.repository
 
+import android.util.Log
 import com.github.fjbaldon.attendex.scanner.data.local.dao.AttendanceRecordDao
 import com.github.fjbaldon.attendex.scanner.data.local.dao.AttendeeDao
 import com.github.fjbaldon.attendex.scanner.data.local.dao.EventDao
@@ -8,8 +9,14 @@ import com.github.fjbaldon.attendex.scanner.data.local.model.AttendeeEntity
 import com.github.fjbaldon.attendex.scanner.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.scanner.data.remote.ApiService
 import com.github.fjbaldon.attendex.scanner.data.remote.AttendanceSyncRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import javax.inject.Inject
 
@@ -34,14 +41,21 @@ class EventRepository @Inject constructor(
         return eventDao.getEventById(eventId)?.eventName
     }
 
-    suspend fun refreshEvents(): Result<Unit> {
-        return try {
+    suspend fun refreshEvents(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
             val remoteEvents = apiService.getActiveEvents()
             val eventEntities = remoteEvents.map { EventEntity(it.id, it.eventName, it.timeSlots) }
+
             eventDao.clearAll()
             eventDao.insertAll(eventEntities)
+
+            remoteEvents.map { event ->
+                async { refreshAttendeesForEvent(event.id) }
+            }.awaitAll()
+
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.e("EventRepository", "Failed to refresh events and rosters", e)
             Result.failure(e)
         }
     }
@@ -115,5 +129,17 @@ class EventRepository @Inject constructor(
             now.isAfter(startTime) && now.isBefore(endTime)
         }
         return activeSlot?.type
+    }
+
+    fun getScannedAttendeesStream(eventId: Long, type: String): Flow<List<AttendeeEntity>> {
+        return attendanceRecordDao.getRecordsForEventStream(eventId, type)
+            .flatMapLatest { records ->
+                val attendeeIds = records.map { it.attendeeId }
+                if (attendeeIds.isEmpty()) {
+                    flowOf(emptyList())
+                } else {
+                    attendeeDao.getAttendeesByIds(attendeeIds)
+                }
+            }
     }
 }
