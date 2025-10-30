@@ -12,10 +12,11 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {Checkbox} from "@/components/ui/checkbox";
-import {IconDotsVertical, IconCircleCheckFilled, IconLoader, IconCalendarOff} from "@tabler/icons-react";
+import {IconCalendarOff, IconCircleCheckFilled, IconDotsVertical, IconLoader} from "@tabler/icons-react";
 import {Badge} from "@/components/ui/badge";
 import Link from "next/link";
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
+import {endOfDay, startOfDay} from "date-fns";
 
 declare module '@tanstack/react-table' {
     interface TableMeta<TData extends RowData> {
@@ -24,43 +25,37 @@ declare module '@tanstack/react-table' {
     }
 }
 
-const getEventStatus = (timeSlots: EventResponse['timeSlots']): { text: string; icon: React.ReactNode } => {
+const getEventStatus = (event: EventResponse): { text: string; icon: React.ReactNode } => {
     const now = new Date();
-    let isUpcoming = true;
-    let isPast = true;
+    const eventStart = startOfDay(new Date(event.startDate));
+    const eventEnd = endOfDay(new Date(event.endDate));
 
-    if (!timeSlots || timeSlots.length === 0) {
-        return {text: "Unscheduled", icon: <IconCalendarOff className="mr-1 h-3.5 w-3.5"/>};
-    }
-
-    for (const slot of timeSlots) {
-        const startTime = new Date(slot.startTime);
-        const endTime = new Date(slot.endTime);
-
-        if (now >= startTime && now <= endTime) {
+    if (now >= eventStart && now <= eventEnd) {
+        const isActiveSlot = event.timeSlots?.some(slot => {
+            const startTime = new Date(slot.startTime);
+            const endTime = new Date(slot.endTime);
+            return now >= startTime && now <= endTime;
+        });
+        if (isActiveSlot) {
             return {
-                text: "Ongoing",
+                text: "Active Now",
                 icon: <IconCircleCheckFilled
                     className="mr-1 h-3.5 w-3.5 fill-green-500 text-green-500 dark:fill-green-400 dark:text-green-400"/>
             };
         }
-        if (endTime > now) {
-            isPast = false;
-        }
-        if (startTime < now) {
-            isUpcoming = false;
-        }
+        return {text: "Ongoing", icon: <IconLoader className="mr-1 h-3.5 w-3.5 animate-spin"/>};
     }
 
-    if (isPast) {
+    if (now > eventEnd) {
         return {text: "Past", icon: <IconCalendarOff className="mr-1 h-3.5 w-3.5"/>};
     }
-    if (isUpcoming) {
-        return {text: "Upcoming", icon: <IconLoader className="mr-1 h-3.5 w-3.5 animate-spin"/>};
-    }
-    return {text: "Mixed", icon: <IconCalendarOff className="mr-1 h-3.5 w-3.5"/>};
-};
 
+    if (now < eventStart) {
+        return {text: "Upcoming", icon: <IconLoader className="mr-1 h-3.5 w-3.5"/>};
+    }
+
+    return {text: "Scheduled", icon: <IconCalendarOff className="mr-1 h-3.5 w-3.5"/>};
+};
 
 const formatDateRange = (startDateStr: string, endDateStr: string) => {
     if (!startDateStr || !endDateStr) return "N/A";
@@ -128,7 +123,7 @@ export const columns: ColumnDef<EventResponse>[] = [
         id: "status",
         header: "Status",
         cell: ({row}) => {
-            const status = getEventStatus(row.original.timeSlots);
+            const status = getEventStatus(row.original);
             return (
                 <Badge variant="outline" className="text-muted-foreground">
                     {status.icon}

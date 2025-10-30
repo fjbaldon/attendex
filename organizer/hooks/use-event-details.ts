@@ -5,6 +5,8 @@ import {toast} from "sonner";
 import {getErrorMessage} from "@/lib/utils";
 import {AxiosError} from "axios";
 
+const REFETCH_INTERVAL_MS = 20000;
+
 export const useEventDetails = (eventId: number | null) => {
     const queryClient = useQueryClient();
 
@@ -36,6 +38,8 @@ export const useEventDetails = (eventId: number | null) => {
             return response.data;
         },
         enabled: !!eventId,
+        refetchInterval: REFETCH_INTERVAL_MS,
+        refetchIntervalInBackground: false,
     });
 
     const {data: checkedOutAttendees, isLoading: isLoadingCheckedOut} = useQuery<CheckedInAttendeeResponse[]>({
@@ -46,6 +50,8 @@ export const useEventDetails = (eventId: number | null) => {
             return response.data;
         },
         enabled: !!eventId,
+        refetchInterval: REFETCH_INTERVAL_MS,
+        refetchIntervalInBackground: false,
     });
 
     const addAttendeeMutation = useMutation<void, AxiosError<ApiErrorResponse>, {
