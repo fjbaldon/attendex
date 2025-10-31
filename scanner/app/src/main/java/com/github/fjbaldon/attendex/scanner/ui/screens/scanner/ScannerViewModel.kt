@@ -8,6 +8,7 @@ import com.github.fjbaldon.attendex.scanner.data.repository.EventRepository
 import com.github.fjbaldon.attendex.scanner.data.repository.ScanResult
 import com.github.fjbaldon.attendex.scanner.di.TtsService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -43,9 +44,17 @@ class ScannerViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     private val _torchState = MutableStateFlow(Pair(false, false))
     private val _eventName = MutableStateFlow<String?>(null)
+    private val _activeScanType = MutableStateFlow<String?>(null)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private val scannedAttendeesFlow: Flow<List<AttendeeEntity>> =
-        eventRepository.getScannedAttendeesStream(eventId, "CHECK_IN")
+        _activeScanType.flatMapLatest { scanType ->
+            if (scanType != null) {
+                eventRepository.getScannedAttendeesStream(eventId, scanType)
+            } else {
+                flowOf(emptyList())
+            }
+        }
 
     val uiState: StateFlow<ScannerUiState> = combine(
         _isLoading,
@@ -72,6 +81,12 @@ class ScannerViewModel @Inject constructor(
 
     init {
         loadEventDetails()
+        viewModelScope.launch {
+            while (true) {
+                _activeScanType.value = eventRepository.determineScanType(eventId)
+                delay(5000)
+            }
+        }
     }
 
     private fun loadEventDetails() {
@@ -87,7 +102,7 @@ class ScannerViewModel @Inject constructor(
         isProcessing = true
 
         viewModelScope.launch {
-            val scanType = eventRepository.determineScanType(eventId)
+            val scanType = _activeScanType.value
             if (scanType == null) {
                 _lastScanResult.value = ScanUiResult.ScanningInactive
                 resetScanResultAfterDelay()
@@ -109,7 +124,7 @@ class ScannerViewModel @Inject constructor(
                     )
                 }
 
-                is ScanResult.AttendeeNotFound -> { /* Do nothing for silent failure */
+                is ScanResult.AttendeeNotFound -> {
                 }
 
                 is ScanResult.AlreadyScanned -> {
