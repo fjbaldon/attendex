@@ -1,12 +1,12 @@
 import {useQuery} from "@tanstack/react-query";
 import api from "@/lib/api";
-import {DashboardStats, DailyActivity} from "@/types";
+import {DailyActivity, DashboardData} from "@/types";
 
 export const useDashboard = (timeRange: string) => {
-    const {data: stats, isLoading: isLoadingStats} = useQuery<DashboardStats>({
-        queryKey: ["dashboardStats"],
+    const {data: dashboardData, isLoading: isLoadingDashboardData} = useQuery<DashboardData>({
+        queryKey: ["dashboardAll"],
         queryFn: async () => {
-            const response = await api.get("/api/v1/dashboard/stats");
+            const response = await api.get("/api/v1/dashboard/all");
             return response.data;
         },
     });
@@ -22,9 +22,8 @@ export const useDashboard = (timeRange: string) => {
     });
 
     return {
-        stats,
-        isLoadingStats,
+        dashboardData,
+        isLoading: isLoadingDashboardData || isLoadingActivity,
         activity: activity || [],
-        isLoadingActivity,
     };
 };

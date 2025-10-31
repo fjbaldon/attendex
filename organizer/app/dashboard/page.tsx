@@ -8,11 +8,13 @@ import {SiteHeader} from "@/components/layout/site-header";
 import {SidebarInset, SidebarProvider,} from "@/components/ui/sidebar";
 import {useDashboard} from "@/hooks/use-dashboard";
 import {useIsMobile} from "@/hooks/use-mobile";
+import {UpcomingEvents} from "@/components/layout/upcoming-events";
+import {RecentEventsStats} from "@/components/layout/recent-events-stats";
 
 export default function DashboardPage() {
     const isMobile = useIsMobile();
     const [timeRange, setTimeRange] = React.useState("90d");
-    const {stats, isLoadingStats, activity, isLoadingActivity} = useDashboard(timeRange);
+    const {dashboardData, isLoading, activity} = useDashboard(timeRange);
 
     React.useEffect(() => {
         if (isMobile) {
@@ -32,21 +34,36 @@ export default function DashboardPage() {
             <AppSidebar variant="inset"/>
             <SidebarInset>
                 <SiteHeader title="Dashboard"/>
-                <div className="flex flex-1 flex-col">
-                    <div className="@container/main flex flex-1 flex-col gap-2">
-                        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                            <SectionCards stats={stats} isLoading={isLoadingStats}/>
-                            <div className="px-4 lg:px-6">
+                {/*
+                  THE FIX IS HERE: Added `@container/main` to the <main> element.
+                  This "names" the container, allowing the container queries in SectionCards to work.
+                */}
+                <main className="@container/main flex-1 overflow-y-auto p-4 lg:p-6">
+                    <div className="flex flex-col gap-6">
+                        {/* Section 1: KPIs */}
+                        <SectionCards stats={dashboardData?.stats} isLoading={isLoading}/>
+
+                        {/* Section 2: Main Charts & Lists */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-2">
                                 <ChartAreaInteractive
                                     data={activity}
-                                    isLoading={isLoadingActivity}
+                                    isLoading={isLoading}
                                     timeRange={timeRange}
                                     setTimeRange={setTimeRange}
                                 />
                             </div>
+                            <div>
+                                <UpcomingEvents events={dashboardData?.upcomingEvents} isLoading={isLoading}/>
+                            </div>
+                        </div>
+
+                        {/* Section 3: Additional Stats */}
+                        <div>
+                            <RecentEventsStats events={dashboardData?.recentEventStats} isLoading={isLoading}/>
                         </div>
                     </div>
-                </div>
+                </main>
             </SidebarInset>
         </SidebarProvider>
     );

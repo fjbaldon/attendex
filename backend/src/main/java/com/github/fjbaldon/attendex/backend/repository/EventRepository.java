@@ -1,6 +1,7 @@
 package com.github.fjbaldon.attendex.backend.repository;
 
 import com.github.fjbaldon.attendex.backend.model.Event;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,6 +23,10 @@ public interface EventRepository extends JpaRepository<Event, Long> {
 
     @Query("SELECT e FROM Event e LEFT JOIN FETCH e.timeSlots WHERE e.organization.id = :organizationId")
     List<Event> findAllByOrganizationIdWithTimeSlots(@Param("organizationId") Long organizationId);
+
+    List<Event> findByOrganizationIdAndStartDateAfterOrderByStartDateAsc(Long organizationId, Instant date, Pageable pageable);
+
+    List<Event> findByOrganizationIdAndEndDateBeforeOrderByEndDateDesc(Long organizationId, Instant date, Pageable pageable);
 
     boolean existsByOrganizerId(Long organizerId);
 

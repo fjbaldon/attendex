@@ -1,10 +1,4 @@
-import {
-    Card,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import {Card, CardContent, CardFooter, CardHeader, CardTitle,} from "@/components/ui/card";
 import {DashboardStats} from "@/types";
 import {Skeleton} from "@/components/ui/skeleton";
 
@@ -23,21 +17,27 @@ export function SectionCards({stats, isLoading}: SectionCardsProps) {
 
     return (
         <div
-            className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+            className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
             {cardData.map((card, index) => (
                 <Card key={index}>
-                    <CardHeader>
-                        <CardDescription>{card.title}</CardDescription>
-                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            {card.title}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold">
                             {isLoading ? (
-                                <Skeleton className="h-8 w-24 mt-1"/>
+                                <Skeleton className="h-8 w-20 mt-1"/>
                             ) : (
                                 card.value?.toLocaleString() ?? 0
                             )}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardFooter className="text-sm">
-                        <div className="text-muted-foreground">{card.description}</div>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="pt-0">
+                        <p className="text-xs text-muted-foreground">
+                            {card.description}
+                        </p>
                     </CardFooter>
                 </Card>
             ))}

@@ -159,3 +159,22 @@ export interface Organization {
 export interface CheckedInAttendeeResponse extends AttendeeResponse {
     checkInTimestamp: string;
 }
+
+export interface UpcomingEvent {
+    id: number;
+    eventName: string;
+    startDate: string;
+}
+
+export interface RecentEventStats {
+    id: number;
+    eventName: string;
+    totalRegistered: number;
+    totalCheckedIn: number;
+}
+
+export interface DashboardData {
+    stats: DashboardStats;
+    upcomingEvents: UpcomingEvent[];
+    recentEventStats: RecentEventStats[];
+}

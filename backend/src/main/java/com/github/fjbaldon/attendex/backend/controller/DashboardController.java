@@ -1,6 +1,7 @@
 package com.github.fjbaldon.attendex.backend.controller;
 
 import com.github.fjbaldon.attendex.backend.dto.DailyActivityDto;
+import com.github.fjbaldon.attendex.backend.dto.DashboardDto;
 import com.github.fjbaldon.attendex.backend.dto.DashboardStatsDto;
 import com.github.fjbaldon.attendex.backend.security.CustomUserDetails;
 import com.github.fjbaldon.attendex.backend.service.DashboardService;
@@ -24,6 +25,11 @@ import java.util.List;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+
+    @GetMapping("/all")
+    public ResponseEntity<DashboardDto> getFullDashboard(@AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(dashboardService.getFullDashboardData(user.getOrganizationId()));
+    }
 
     @GetMapping("/stats")
     public ResponseEntity<DashboardStatsDto> getStats(@AuthenticationPrincipal CustomUserDetails user) {
