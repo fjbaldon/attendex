@@ -48,7 +48,7 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<EventResponse> getAllEventsByOrganization(Long organizationId) {
-        return eventRepository.findAllByOrganizationId(organizationId).stream()
+        return eventRepository.findAllByOrganizationIdWithTimeSlots(organizationId).stream()
                 .map(this::toEventResponse)
                 .collect(Collectors.toList());
     }

@@ -6,12 +6,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.Instant; // Import Instant
+import java.time.Instant;
 import java.util.List;
 
 @Repository
 public interface EventRepository extends JpaRepository<Event, Long> {
-    
+
     @Query("SELECT DISTINCT e FROM Event e JOIN e.timeSlots ts WHERE e.organization.id = :organizationId AND " +
             "(ts.startTime <= :dayEnd AND ts.endTime >= :dayStart)")
     List<Event> findEventsForDay(
@@ -19,6 +19,9 @@ public interface EventRepository extends JpaRepository<Event, Long> {
             @Param("dayStart") Instant dayStart,
             @Param("dayEnd") Instant dayEnd
     );
+
+    @Query("SELECT e FROM Event e LEFT JOIN FETCH e.timeSlots WHERE e.organization.id = :organizationId")
+    List<Event> findAllByOrganizationIdWithTimeSlots(@Param("organizationId") Long organizationId);
 
     List<Event> findAllByOrganizationId(Long organizationId);
 
