@@ -12,7 +12,7 @@ export const useAnalytics = (eventId: string, groupBy: string) => {
         },
     });
 
-    const {data: breakdown, isLoading: isLoadingBreakdown} = useQuery<AnalyticsBreakdownDto[]>({
+    const {data: breakdownData, isLoading: isLoadingBreakdown} = useQuery<AnalyticsBreakdownDto>({
         queryKey: ['analyticsBreakdown', eventId, groupBy],
         queryFn: async () => {
             const response = await api.get(`/api/v1/analytics/events/${eventId}/breakdown`, {
@@ -26,7 +26,8 @@ export const useAnalytics = (eventId: string, groupBy: string) => {
     return {
         customFields: customFields || [],
         isLoadingCustomFields,
-        breakdown: breakdown || [],
+        breakdown: breakdownData?.breakdown || [],
+        totalCheckedIn: breakdownData?.totalCheckedIn || 0,
         isLoadingBreakdown,
     };
 };

@@ -1,6 +1,6 @@
 package com.github.fjbaldon.attendex.backend.service;
 
-import com.github.fjbaldon.attendex.backend.dto.AttendeeImportResponse;
+import com.github.fjbaldon.attendex.backend.dto.AttendeeImportAnalysisDto;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeRequest;
 import com.github.fjbaldon.attendex.backend.dto.AttendeeResponse;
 import com.github.fjbaldon.attendex.backend.dto.PaginatedResponseDto;
@@ -10,6 +10,7 @@ import com.github.fjbaldon.attendex.backend.model.CustomFieldDefinition;
 import com.github.fjbaldon.attendex.backend.model.Organization;
 import com.github.fjbaldon.attendex.backend.repository.AttendeeRepository;
 import com.github.fjbaldon.attendex.backend.repository.CustomFieldDefinitionRepository;
+import com.github.fjbaldon.attendex.backend.repository.OrganizationRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.csv.CSVFormat;
@@ -38,14 +39,17 @@ public class AttendeeService {
 
     private final AttendeeRepository attendeeRepository;
     private final CustomFieldDefinitionRepository customFieldDefinitionRepository;
+    private final OrganizationRepository organizationRepository;
 
     @Transactional
     public AttendeeResponse createAttendee(AttendeeRequest request, Long organizationId) {
-        Organization orgReference = new Organization();
-        orgReference.setId(organizationId);
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+
+        validateIdentifier(request.getUniqueIdentifier(), organization);
 
         Attendee attendee = new Attendee();
-        attendee.setOrganization(orgReference);
+        attendee.setOrganization(organization);
         attendee.setUniqueIdentifier(request.getUniqueIdentifier());
         attendee.setFirstName(request.getFirstName());
         attendee.setLastName(request.getLastName());
@@ -66,6 +70,8 @@ public class AttendeeService {
     public AttendeeResponse updateAttendee(Long attendeeId, AttendeeRequest request, Long organizationId) {
         Attendee attendee = findAttendeeByIdAndOrgId(attendeeId, organizationId);
 
+        validateIdentifier(request.getUniqueIdentifier(), attendee.getOrganization());
+
         attendee.setUniqueIdentifier(request.getUniqueIdentifier());
         attendee.setFirstName(request.getFirstName());
         attendee.setLastName(request.getLastName());
@@ -82,10 +88,41 @@ public class AttendeeService {
     }
 
     @Transactional
-    public AttendeeImportResponse importAttendeesFromCsv(MultipartFile file, Long organizationId) {
+    public void commitAttendees(List<AttendeeRequest> attendees, Long organizationId) {
+        if (attendees == null || attendees.isEmpty()) {
+            return;
+        }
+
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+
+        List<Attendee> attendeesToSave = attendees.stream()
+                .map(dto -> {
+                    Attendee attendee = new Attendee();
+                    attendee.setOrganization(organization);
+                    attendee.setUniqueIdentifier(dto.getUniqueIdentifier());
+                    attendee.setFirstName(dto.getFirstName());
+                    attendee.setLastName(dto.getLastName());
+                    attendee.setCustomFields(dto.getCustomFields());
+                    return attendee;
+                })
+                .toList();
+
+        attendeeRepository.saveAll(attendeesToSave);
+    }
+
+    @Transactional(readOnly = true)
+    public AttendeeImportAnalysisDto analyzeAttendeesFromCsv(MultipartFile file, Long organizationId) {
+        return parseAndValidateCsv(file, organizationId);
+    }
+
+    private AttendeeImportAnalysisDto parseAndValidateCsv(MultipartFile file, Long organizationId) {
         if (file.isEmpty()) {
             throw new CsvValidationException("Cannot import an empty file.");
         }
+
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
 
         List<CustomFieldDefinition> customFieldDefinitions = customFieldDefinitionRepository.findByOrganizationId(organizationId);
         Map<String, CustomFieldDefinition> headerToDefMap = customFieldDefinitions.stream()
@@ -97,14 +134,8 @@ public class AttendeeService {
                 .collect(Collectors.toSet());
 
         Set<String> identifiersInThisFile = new HashSet<>();
-
-        List<Attendee> attendeesToSave = new ArrayList<>();
-        List<String> errors = new ArrayList<>();
-        int successfulImports = 0;
-        int failedImports = 0;
-
-        Organization orgReference = new Organization();
-        orgReference.setId(organizationId);
+        List<AttendeeRequest> validAttendees = new ArrayList<>();
+        List<AttendeeImportAnalysisDto.InvalidRowDto> invalidRows = new ArrayList<>();
 
         try (BufferedReader fileReader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setTrim(true).get();
@@ -118,17 +149,21 @@ public class AttendeeService {
             for (CSVRecord csvRecord : csvParser) {
                 try {
                     String uniqueIdentifier = csvRecord.get(uniqueIdentifierHeader);
+                    if (!StringUtils.hasText(uniqueIdentifier)) {
+                        throw new IllegalStateException("Missing required value for 'uniqueIdentifier'.");
+                    }
+
+                    validateIdentifier(uniqueIdentifier, organization);
+
                     if (existingIdentifiers.contains(uniqueIdentifier) || identifiersInThisFile.contains(uniqueIdentifier)) {
                         throw new IllegalStateException("Duplicate identifier '" + uniqueIdentifier + "' found.");
                     }
                     identifiersInThisFile.add(uniqueIdentifier);
 
-                    Attendee attendee = Attendee.builder()
-                            .organization(orgReference)
-                            .uniqueIdentifier(uniqueIdentifier)
-                            .firstName(csvRecord.get(firstNameHeader))
-                            .lastName(csvRecord.get(lastNameHeader))
-                            .build();
+                    AttendeeRequest attendeeRequest = new AttendeeRequest();
+                    attendeeRequest.setUniqueIdentifier(uniqueIdentifier);
+                    attendeeRequest.setFirstName(csvRecord.get(firstNameHeader));
+                    attendeeRequest.setLastName(csvRecord.get(lastNameHeader));
 
                     Map<String, Object> customFields = new HashMap<>();
                     for (String header : headers) {
@@ -140,9 +175,12 @@ public class AttendeeService {
 
                             switch (fieldDef.getFieldType()) {
                                 case SELECT:
-                                    if (fieldDef.getOptions() == null || !fieldDef.getOptions().contains(value)) {
-                                        assert fieldDef.getOptions() != null;
-                                        throw new IllegalStateException("Invalid value '" + value + "' for field '" + fieldName + "'. Allowed values are: " + String.join(", ", fieldDef.getOptions()));
+                                    List<String> options = fieldDef.getOptions();
+                                    if (options == null || options.isEmpty()) {
+                                        throw new IllegalStateException("Field '" + fieldName + "' is a SELECT type but has no options configured.");
+                                    }
+                                    if (!options.contains(value)) {
+                                        throw new IllegalStateException("Invalid value '" + value + "' for field '" + fieldName + "'. Allowed values are: " + String.join(", ", options));
                                     }
                                     customFields.put(fieldName, value);
                                     break;
@@ -167,30 +205,34 @@ public class AttendeeService {
                             }
                         }
                     }
-                    attendee.setCustomFields(customFields);
+                    attendeeRequest.setCustomFields(customFields);
 
-                    attendeesToSave.add(attendee);
-                    successfulImports++;
+                    validAttendees.add(attendeeRequest);
                 } catch (Exception e) {
-                    failedImports++;
-                    errors.add("Row " + csvRecord.getRecordNumber() + ": " + e.getMessage());
+                    invalidRows.add(AttendeeImportAnalysisDto.InvalidRowDto.builder()
+                            .rowNumber(csvRecord.getRecordNumber() + 1) // +1 to account for header
+                            .rowData(csvRecord.toMap())
+                            .error(e.getMessage())
+                            .build());
                 }
             }
-
-            if (!attendeesToSave.isEmpty()) {
-                attendeeRepository.saveAll(attendeesToSave);
-            }
-
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse CSV file: " + e.getMessage());
         }
 
-        return AttendeeImportResponse.builder()
-                .message("CSV processing complete.")
-                .successfulImports(successfulImports)
-                .failedImports(failedImports)
-                .errors(errors)
+        return AttendeeImportAnalysisDto.builder()
+                .validAttendees(validAttendees)
+                .invalidRows(invalidRows)
                 .build();
+    }
+
+    private void validateIdentifier(String identifier, Organization organization) {
+        String regex = organization.getIdentifierFormatRegex();
+        if (StringUtils.hasText(regex)) {
+            if (!identifier.matches(regex)) {
+                throw new IllegalArgumentException("Identifier '" + identifier + "' does not match the required format for this organization.");
+            }
+        }
     }
 
     private Attendee findAttendeeByIdAndOrgId(Long attendeeId, Long organizationId) {

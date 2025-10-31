@@ -25,11 +25,17 @@ public class AnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public List<AnalyticsBreakdownDto> getCustomFieldBreakdown(Long eventId, String customFieldKey, Long organizationId) {
+    public AnalyticsBreakdownDto getCustomFieldBreakdown(Long eventId, String customFieldKey, Long organizationId) {
         Event event = eventRepository.findById(eventId)
                 .filter(e -> e.getOrganization().getId().equals(organizationId))
                 .orElseThrow(() -> new EntityNotFoundException("Event not found in your organization."));
 
-        return attendanceRecordRepository.countAttendeesByCustomField(event.getId(), customFieldKey);
+        List<AnalyticsBreakdownDto.BreakdownItem> breakdownItems = attendanceRecordRepository.countAttendeesByCustomField(event.getId(), customFieldKey);
+        long totalCheckedIn = attendanceRecordRepository.countDistinctAttendeesByEventId(event.getId());
+
+        return AnalyticsBreakdownDto.builder()
+                .breakdown(breakdownItems)
+                .totalCheckedIn(totalCheckedIn)
+                .build();
     }
 }

@@ -26,11 +26,11 @@ public class AnalyticsController {
     }
 
     @GetMapping("/events/{eventId}/breakdown")
-    public ResponseEntity<List<AnalyticsBreakdownDto>> getCustomFieldBreakdown(
+    public ResponseEntity<AnalyticsBreakdownDto> getCustomFieldBreakdown(
             @PathVariable Long eventId,
             @RequestParam @NotBlank String groupBy,
             @AuthenticationPrincipal CustomUserDetails user) {
-        List<AnalyticsBreakdownDto> breakdown = analyticsService.getCustomFieldBreakdown(eventId, groupBy, user.getOrganizationId());
+        AnalyticsBreakdownDto breakdown = analyticsService.getCustomFieldBreakdown(eventId, groupBy, user.getOrganizationId());
         return ResponseEntity.ok(breakdown);
     }
 }

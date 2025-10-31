@@ -124,9 +124,14 @@ export interface CustomFieldDefinitionRequest {
     options?: string[];
 }
 
-export interface AnalyticsBreakdownDto {
+export interface AnalyticsBreakdownItem {
     groupName: string;
     count: number;
+}
+
+export interface AnalyticsBreakdownDto {
+    breakdown: AnalyticsBreakdownItem[];
+    totalCheckedIn: number;
 }
 
 export interface EventAnalyticsResponse {
@@ -177,4 +182,15 @@ export interface DashboardData {
     stats: DashboardStats;
     upcomingEvents: UpcomingEvent[];
     recentEventStats: RecentEventStats[];
+}
+
+export interface InvalidRow {
+    rowNumber: number;
+    rowData: Record<string, string>;
+    error: string;
+}
+
+export interface AttendeeImportAnalysis {
+    validAttendees: AttendeeRequest[];
+    invalidRows: InvalidRow[];
 }

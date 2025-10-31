@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import {useRef} from "react";
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -22,7 +21,7 @@ import {ConfirmDialog} from "@/components/shared/confirm-dialog";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {Input} from "@/components/ui/input";
 import {AttendeeDialog} from "./attendee-dialog";
-import {toast} from "sonner";
+import {AttendeeImportDialog} from "@/components/attendees/attendee-import-dialog";
 
 interface AttendeesDataTableProps {
     columns: ColumnDef<AttendeeResponse>[];
@@ -41,14 +40,14 @@ export function AttendeesDataTable({
                                        pagination,
                                        setPagination
                                    }: AttendeesDataTableProps) {
-    const {deleteAttendee, isDeletingAttendee, importAttendees, isImportingAttendees} = useAttendees();
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const {deleteAttendee, isDeletingAttendee} = useAttendees();
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [rowSelection, setRowSelection] = React.useState({});
     const [isFormDialogOpen, setIsFormDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
+    const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
     const [selectedAttendee, setSelectedAttendee] = React.useState<AttendeeResponse | null>(null);
 
     const table = useReactTable({
@@ -96,32 +95,16 @@ export function AttendeesDataTable({
         }
     };
 
-    const handleImportClick = () => {
-        fileInputRef.current?.click();
-    };
-
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            if (file.type !== "text/csv") {
-                toast.error("Invalid File Type", {
-                    description: "Please upload a valid .csv file.",
-                });
-                return;
-            }
-            importAttendees(file);
-        }
-        if (event.target) {
-            event.target.value = "";
-        }
-    };
-
     return (
         <>
             <AttendeeDialog
                 open={isFormDialogOpen}
                 onOpenChange={setIsFormDialogOpen}
                 attendee={selectedAttendee}
+            />
+            <AttendeeImportDialog
+                open={isImportDialogOpen}
+                onOpenChange={setIsImportDialogOpen}
             />
             <ConfirmDialog
                 open={isConfirmDialogOpen}
@@ -142,17 +125,9 @@ export function AttendeesDataTable({
                         className="h-9 max-w-sm"
                     />
                     <div className="flex items-center gap-2">
-                        <Input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                            accept=".csv"
-                        />
-                        <Button size="sm" variant="outline" className="h-9" onClick={handleImportClick}
-                                disabled={isImportingAttendees}>
+                        <Button size="sm" variant="outline" className="h-9" onClick={() => setIsImportDialogOpen(true)}>
                             <IconUpload className="mr-2 h-4 w-4"/>
-                            {isImportingAttendees ? "Importing..." : "Import CSV"}
+                            Import CSV
                         </Button>
                         <Button size="sm" className="h-9" onClick={handleOpenCreateDialog}>
                             <IconPlus className="mr-2 h-4 w-4"/>

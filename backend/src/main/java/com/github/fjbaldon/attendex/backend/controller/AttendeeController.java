@@ -48,9 +48,15 @@ public class AttendeeController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/import")
-    public ResponseEntity<AttendeeImportResponse> importAttendees(@RequestParam("file") MultipartFile file, @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(attendeeService.importAttendeesFromCsv(file, user.getOrganizationId()));
+    @PostMapping("/import/analyze")
+    public ResponseEntity<AttendeeImportAnalysisDto> analyzeAttendees(@RequestParam("file") MultipartFile file, @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(attendeeService.analyzeAttendeesFromCsv(file, user.getOrganizationId()));
+    }
+
+    @PostMapping("/import/commit")
+    public ResponseEntity<Void> commitAttendees(@Valid @RequestBody AttendeeImportCommitRequest request, @AuthenticationPrincipal CustomUserDetails user) {
+        attendeeService.commitAttendees(request.getAttendees(), user.getOrganizationId());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @GetMapping("/import-template")

@@ -45,7 +45,7 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
                     "ORDER BY " +
                     "    count DESC, groupName ASC",
             nativeQuery = true)
-    List<AnalyticsBreakdownDto> countAttendeesByCustomField(Long eventId, String customFieldKey);
+    List<AnalyticsBreakdownDto.BreakdownItem> countAttendeesByCustomField(Long eventId, String customFieldKey);
 
     @Query("SELECT COUNT(ar) FROM AttendanceRecord ar JOIN ar.event e WHERE e.organization.id = :organizationId AND ar.checkInTimestamp > :timestamp")
     long countByOrganizationIdAndCheckInTimestampAfter(Long organizationId, Instant timestamp);

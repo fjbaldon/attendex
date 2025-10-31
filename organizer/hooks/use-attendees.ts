@@ -1,12 +1,6 @@
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import api from "@/lib/api";
-import {
-    ApiErrorResponse,
-    AttendeeImportResponse,
-    AttendeeRequest,
-    AttendeeResponse,
-    PaginatedResponse
-} from "@/types";
+import {ApiErrorResponse, AttendeeImportAnalysis, AttendeeRequest, AttendeeResponse, PaginatedResponse} from "@/types";
 import {toast} from "sonner";
 import {AxiosError} from "axios";
 import {getErrorMessage} from "@/lib/utils";
@@ -76,39 +70,42 @@ export const useAttendees = (page = 0, size = 10) => {
         },
     });
 
-    const importAttendeesMutation = useMutation<
-        AttendeeImportResponse,
+    const analyzeAttendeesMutation = useMutation<
+        AttendeeImportAnalysis,
         AxiosError<ApiErrorResponse>,
         File
     >({
         mutationFn: (file) => {
             const formData = new FormData();
             formData.append("file", file);
-            return api.post("/api/v1/attendees/import", formData, {
-                headers: {
-                    "Content-Type": "multipart/form-data",
-                },
+            return api.post("/api/v1/attendees/import/analyze", formData, {
+                headers: {"Content-Type": "multipart/form-data"},
             }).then(res => res.data);
         },
-        onSuccess: async (data) => {
-            toast.success("CSV Import Finished", {
-                description: `${data.successfulImports} successful, ${data.failedImports} failed.`,
-            });
-            if (data.errors && data.errors.length > 0) {
-                const errorsToShow = data.errors.slice(0, 3).join("\n");
-                toast.warning("Some rows had issues:", {
-                    description: errorsToShow + (data.errors.length > 3 ? "\n..." : ""),
-                });
-            }
-            await queryClient.invalidateQueries({queryKey: ["attendees"]});
-        },
         onError: (error) => {
-            const errorMessage = getErrorMessage(error, "An unknown error occurred during import.");
-            toast.error("Failed to import CSV", {
+            const errorMessage = getErrorMessage(error, "An unknown error occurred during analysis.");
+            toast.error("Failed to Analyze CSV", {
                 description: errorMessage,
             });
         },
     });
+
+    const commitAttendeesMutation = useMutation<
+        void,
+        AxiosError<ApiErrorResponse>,
+        { attendees: AttendeeRequest[] }
+    >({
+        mutationFn: (data) => api.post("/api/v1/attendees/import/commit", data),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({queryKey: ["attendees"]});
+        },
+        onError: (error) => {
+            toast.error("Import Failed", {
+                description: getErrorMessage(error, "An unexpected error occurred while saving the attendees."),
+            });
+        },
+    });
+
 
     return {
         attendees: data?.content || [],
@@ -125,7 +122,10 @@ export const useAttendees = (page = 0, size = 10) => {
         deleteAttendee: deleteAttendeeMutation.mutate,
         isDeletingAttendee: deleteAttendeeMutation.isPending,
 
-        importAttendees: importAttendeesMutation.mutate,
-        isImportingAttendees: importAttendeesMutation.isPending,
+        analyzeAttendees: analyzeAttendeesMutation.mutateAsync,
+        isAnalyzingAttendees: analyzeAttendeesMutation.isPending,
+
+        commitAttendees: commitAttendeesMutation.mutateAsync,
+        isCommittingAttendees: commitAttendeesMutation.isPending,
     };
 };
