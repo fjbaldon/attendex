@@ -10,6 +10,7 @@ import com.github.fjbaldon.attendex.scanner.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.scanner.data.remote.ApiService
 import com.github.fjbaldon.attendex.scanner.data.remote.AttendanceSyncRequest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
@@ -124,13 +125,19 @@ class EventRepository @Inject constructor(
         val now = Instant.now()
 
         val activeSlot = event.timeSlots.find { slot ->
-            val startTime = Instant.parse(slot.startTime)
-            val endTime = Instant.parse(slot.endTime)
-            now.isAfter(startTime) && now.isBefore(endTime)
+            try {
+                val startTime = Instant.parse(slot.startTime)
+                val endTime = Instant.parse(slot.endTime)
+                now.isAfter(startTime) && now.isBefore(endTime)
+            } catch (e: Exception) {
+                Log.e("EventRepository", "Failed to parse time slot dates", e)
+                false
+            }
         }
         return activeSlot?.type
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getScannedAttendeesStream(eventId: Long, type: String): Flow<List<AttendeeEntity>> {
         return attendanceRecordDao.getRecordsForEventStream(eventId, type)
             .flatMapLatest { records ->
