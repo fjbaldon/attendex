@@ -23,8 +23,6 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     @Query("SELECT e FROM Event e LEFT JOIN FETCH e.timeSlots WHERE e.organization.id = :organizationId")
     List<Event> findAllByOrganizationIdWithTimeSlots(@Param("organizationId") Long organizationId);
 
-    List<Event> findAllByOrganizationId(Long organizationId);
-
     boolean existsByOrganizerId(Long organizerId);
 
     long countByOrganizationId(Long organizationId);
