@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,6 +30,28 @@ fun EventListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    var isIndicatorVisible by remember { mutableStateOf(false) }
+    var refreshStartTime by remember { mutableLongStateOf(0L) }
+    val minDisplayTime = 500L
+
+    LaunchedEffect(uiState.isRefreshing) {
+        if (uiState.isRefreshing) {
+            refreshStartTime = System.currentTimeMillis()
+            isIndicatorVisible = true
+        } else {
+            val elapsedTime = System.currentTimeMillis() - refreshStartTime
+            if (elapsedTime < minDisplayTime) {
+                scope.launch {
+                    delay(minDisplayTime - elapsedTime)
+                    isIndicatorVisible = false
+                }
+            } else {
+                isIndicatorVisible = false
+            }
+        }
+    }
 
     if (showLogoutDialog) {
         AlertDialog(
@@ -101,7 +125,7 @@ fun EventListScreen(
             }
         } else {
             PullToRefreshBox(
-                isRefreshing = uiState.isRefreshing,
+                isRefreshing = isIndicatorVisible,
                 onRefresh = { viewModel.refreshEvents() },
                 modifier = Modifier.padding(paddingValues)
             ) {
