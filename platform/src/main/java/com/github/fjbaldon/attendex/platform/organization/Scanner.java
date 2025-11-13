@@ -6,13 +6,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.util.Assert;
 
-import java.time.Instant;
-
 @Entity
-@Table(name = "organization_organizer")
+@Table(name = "organization_scanner")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-class Organizer {
+class Scanner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,14 +24,11 @@ class Organizer {
 
     private boolean enabled;
 
-    private String verificationToken;
-    private Instant tokenExpiryDate;
-
     @ManyToOne
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
-    private Organizer(String email, String password, Organization organization, String verificationToken, Instant tokenExpiryDate) {
+    private Scanner(String email, String password, Organization organization) {
         Assert.hasText(email, "Email must not be blank");
         Assert.hasText(password, "Password must not be blank");
         Assert.notNull(organization, "Organization must not be null");
@@ -41,23 +36,11 @@ class Organizer {
         this.email = email;
         this.password = password;
         this.organization = organization;
-        this.verificationToken = verificationToken;
-        this.tokenExpiryDate = tokenExpiryDate;
-        this.forcePasswordChange = false;
-        this.enabled = (verificationToken == null);
-    }
-
-    static Organizer create(String email, String encodedPassword, Organization organization, String token, Instant expiry) {
-        return new Organizer(email, encodedPassword, organization, token, expiry);
-    }
-
-    void verify() {
-        this.enabled = true;
-        this.verificationToken = null;
-        this.tokenExpiryDate = null;
-    }
-
-    void requirePasswordChange() {
         this.forcePasswordChange = true;
+        this.enabled = true;
+    }
+
+    static Scanner create(String email, String encodedPassword, Organization organization) {
+        return new Scanner(email, encodedPassword, organization);
     }
 }

@@ -4,7 +4,6 @@ import com.github.fjbaldon.attendex.platform.admin.AdminFacade;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -23,24 +22,26 @@ class AppUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         Optional<com.github.fjbaldon.attendex.platform.admin.dto.UserAuthDto> stewardAuth = adminFacade.findStewardAuthByEmail(email);
-
         if (stewardAuth.isPresent()) {
             var authDto = stewardAuth.get();
-            return new User(
+            return new CustomUserDetails(
                     authDto.email(),
                     authDto.password(),
-                    Collections.singletonList(new SimpleGrantedAuthority(authDto.role()))
+                    Collections.singletonList(new SimpleGrantedAuthority(authDto.role())),
+                    null,
+                    true
             );
         }
 
-        Optional<com.github.fjbaldon.attendex.platform.organization.dto.UserAuthDto> organizerAuth = organizationFacade.findOrganizerAuthByEmail(email);
-
-        if (organizerAuth.isPresent()) {
-            var authDto = organizerAuth.get();
-            return new User(
+        Optional<com.github.fjbaldon.attendex.platform.organization.dto.UserAuthDto> userAuth = organizationFacade.findUserAuthByEmail(email);
+        if (userAuth.isPresent()) {
+            var authDto = userAuth.get();
+            return new CustomUserDetails(
                     authDto.email(),
                     authDto.password(),
-                    Collections.singletonList(new SimpleGrantedAuthority(authDto.role()))
+                    Collections.singletonList(new SimpleGrantedAuthority(authDto.role())),
+                    authDto.organizationId(),
+                    authDto.enabled()
             );
         }
 

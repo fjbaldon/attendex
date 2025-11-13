@@ -38,6 +38,17 @@ class Organization {
         return new Organization(name);
     }
 
+    void updateLifecycle(String newLifecycle) {
+        Assert.hasText(newLifecycle, "Lifecycle cannot be blank");
+        this.lifecycle = newLifecycle;
+    }
+
+    void updateSubscription(String newSubscriptionType, Instant newExpiresAt) {
+        Assert.hasText(newSubscriptionType, "Subscription type cannot be blank");
+        this.subscriptionType = newSubscriptionType;
+        this.subscriptionExpiresAt = newExpiresAt;
+    }
+
     OrganizationDto toDto() {
         return new OrganizationDto(
                 this.id,

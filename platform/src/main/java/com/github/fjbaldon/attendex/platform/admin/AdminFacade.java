@@ -1,11 +1,14 @@
 package com.github.fjbaldon.attendex.platform.admin;
 
-import com.github.fjbaldon.attendex.platform.admin.dto.StewardDto;
-import com.github.fjbaldon.attendex.platform.admin.dto.UserAuthDto;
+import com.github.fjbaldon.attendex.platform.admin.dto.*;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
+import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.Assert;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +20,37 @@ public class AdminFacade {
 
     private final StewardRepository stewardRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OrganizationFacade organizationFacade;
+
+    @Transactional
+    public StewardDto createSteward(CreateStewardRequestDto request) {
+        Assert.isTrue(!stewardRepository.existsByEmail(request.email()), "A steward with this email already exists.");
+        String encodedPassword = passwordEncoder.encode(request.password());
+        Steward steward = Steward.create(request.email(), encodedPassword);
+        Steward saved = stewardRepository.save(steward);
+        return new StewardDto(saved.getId(), saved.getEmail(), saved.getCreatedAt());
+    }
+
+    @Transactional
+    public void deleteSteward(Long stewardId, String currentStewardEmail) {
+        Steward stewardToDelete = stewardRepository.findById(stewardId)
+                .orElseThrow(() -> new UsernameNotFoundException("Steward not found with ID: " + stewardId));
+
+        Assert.isTrue(!stewardToDelete.getEmail().equals(currentStewardEmail), "You cannot delete your own account.");
+        Assert.isTrue(stewardRepository.count() > 1, "Cannot delete the last steward.");
+
+        stewardRepository.delete(stewardToDelete);
+    }
+
+    @Transactional
+    public OrganizationDto updateOrganizationLifecycle(Long organizationId, UpdateOrganizationLifecycleDto dto) {
+        return organizationFacade.updateLifecycle(organizationId, dto.lifecycle());
+    }
+
+    @Transactional
+    public OrganizationDto updateOrganizationSubscription(Long organizationId, UpdateSubscriptionDto dto) {
+        return organizationFacade.updateSubscription(organizationId, dto.subscriptionType(), dto.expiresAt());
+    }
 
     public void createDefaultStewardIfNeeded() {
         if (stewardRepository.count() == 0) {
