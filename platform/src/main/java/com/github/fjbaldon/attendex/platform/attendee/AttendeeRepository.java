@@ -10,4 +10,6 @@ interface AttendeeRepository extends PagingAndSortingRepository<Attendee, Long>,
     Page<Attendee> findAllByOrganizationId(Long organizationId, Pageable pageable);
 
     boolean existsByOrganizationIdAndIdentity(Long organizationId, String identity);
+
+    long countByOrganizationId(Long organizationId);
 }

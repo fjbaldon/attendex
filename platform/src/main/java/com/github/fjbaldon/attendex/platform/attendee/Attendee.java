@@ -56,4 +56,12 @@ class Attendee {
     static Attendee create(Long organizationId, String identity, String firstName, String lastName, Map<String, Object> attributes) {
         return new Attendee(organizationId, identity, firstName, lastName, attributes);
     }
+
+    void update(String newFirstName, String newLastName, Map<String, Object> newAttributes) {
+        Assert.hasText(newFirstName, "First name must not be blank");
+        Assert.hasText(newLastName, "Last name must not be blank");
+        this.firstName = newFirstName;
+        this.lastName = newLastName;
+        this.attributes = newAttributes;
+    }
 }

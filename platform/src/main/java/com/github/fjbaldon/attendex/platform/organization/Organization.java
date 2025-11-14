@@ -34,10 +34,6 @@ class Organization {
         this.subscriptionExpiresAt = Instant.now().plus(30, ChronoUnit.DAYS);
     }
 
-    static Organization register(String name) {
-        return new Organization(name);
-    }
-
     void updateLifecycle(String newLifecycle) {
         Assert.hasText(newLifecycle, "Lifecycle cannot be blank");
         this.lifecycle = newLifecycle;
@@ -47,6 +43,16 @@ class Organization {
         Assert.hasText(newSubscriptionType, "Subscription type cannot be blank");
         this.subscriptionType = newSubscriptionType;
         this.subscriptionExpiresAt = newExpiresAt;
+    }
+
+    void updateDetails(String newName, String newIdentityFormatRegex) {
+        Assert.hasText(newName, "Organization name must not be blank");
+        this.name = newName;
+        this.identityFormatRegex = newIdentityFormatRegex;
+    }
+
+    static Organization register(String name) {
+        return new Organization(name);
     }
 
     OrganizationDto toDto() {

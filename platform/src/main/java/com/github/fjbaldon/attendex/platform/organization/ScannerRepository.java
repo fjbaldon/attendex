@@ -10,4 +10,6 @@ interface ScannerRepository extends PagingAndSortingRepository<Scanner, Long>, C
     Optional<Scanner> findByEmail(String email);
 
     boolean existsByEmailAndOrganizationId(String email, Long organizationId);
+
+    long countByOrganizationId(Long organizationId);
 }

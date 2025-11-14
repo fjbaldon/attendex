@@ -43,4 +43,13 @@ class Scanner {
     static Scanner create(String email, String encodedPassword, Organization organization) {
         return new Scanner(email, encodedPassword, organization);
     }
+
+    void changePassword(String newEncodedPassword) {
+        this.password = newEncodedPassword;
+        this.forcePasswordChange = false;
+    }
+
+    void requirePasswordChange() {
+        this.forcePasswordChange = true;
+    }
 }

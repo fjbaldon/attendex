@@ -3,13 +3,15 @@ package com.github.fjbaldon.attendex.platform.identity;
 import com.github.fjbaldon.attendex.platform.admin.AdminFacade;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -24,24 +26,36 @@ class AppUserDetailsService implements UserDetailsService {
         Optional<com.github.fjbaldon.attendex.platform.admin.dto.UserAuthDto> stewardAuth = adminFacade.findStewardAuthByEmail(email);
         if (stewardAuth.isPresent()) {
             var authDto = stewardAuth.get();
+            List<GrantedAuthority> authorities = new ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority(authDto.role()));
+            if (authDto.forcePasswordChange()) {
+                authorities.add(new SimpleGrantedAuthority("FORCE_PASSWORD_CHANGE"));
+            }
             return new CustomUserDetails(
                     authDto.email(),
                     authDto.password(),
-                    Collections.singletonList(new SimpleGrantedAuthority(authDto.role())),
+                    authorities,
                     null,
-                    true
+                    true,
+                    authDto.forcePasswordChange()
             );
         }
 
         Optional<com.github.fjbaldon.attendex.platform.organization.dto.UserAuthDto> userAuth = organizationFacade.findUserAuthByEmail(email);
         if (userAuth.isPresent()) {
             var authDto = userAuth.get();
+            List<GrantedAuthority> authorities = new ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority(authDto.role()));
+            if (authDto.forcePasswordChange()) {
+                authorities.add(new SimpleGrantedAuthority("FORCE_PASSWORD_CHANGE"));
+            }
             return new CustomUserDetails(
                     authDto.email(),
                     authDto.password(),
-                    Collections.singletonList(new SimpleGrantedAuthority(authDto.role())),
+                    authorities,
                     authDto.organizationId(),
-                    authDto.enabled()
+                    authDto.enabled(),
+                    authDto.forcePasswordChange()
             );
         }
 

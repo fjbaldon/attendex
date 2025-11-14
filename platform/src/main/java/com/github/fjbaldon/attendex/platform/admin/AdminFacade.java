@@ -73,6 +73,23 @@ public class AdminFacade {
     @Transactional(readOnly = true)
     public Optional<UserAuthDto> findStewardAuthByEmail(String email) {
         return stewardRepository.findByEmail(email)
-                .map(steward -> new UserAuthDto(steward.getEmail(), steward.getPassword(), "ROLE_STEWARD"));
+                .map(steward -> new UserAuthDto(
+                        steward.getEmail(),
+                        steward.getPassword(),
+                        "ROLE_STEWARD",
+                        steward.isForcePasswordChange()
+                ));
+    }
+
+    @Transactional
+    public void changeStewardPassword(String email, String newPassword) {
+        Assert.hasText(email, "Email cannot be blank");
+        Assert.hasText(newPassword, "New password cannot be blank");
+
+        Steward steward = stewardRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Steward not found with email: " + email));
+
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        steward.changePassword(encodedPassword);
     }
 }

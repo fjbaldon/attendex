@@ -5,6 +5,7 @@ public record UserAuthDto(
         String password,
         String role,
         Long organizationId,
-        boolean enabled
+        boolean enabled,
+        boolean forcePasswordChange
 ) {
 }

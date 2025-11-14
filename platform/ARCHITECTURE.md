@@ -120,7 +120,11 @@ The database is a single schema, logically partitioned to reflect module boundar
 
 ## 5. Architectural Enforcement
 
-Architectural integrity is maintained through automated checks.
+Architectural integrity is maintained through automated checks and discipline.
 
 1.  **Java Access Modifiers (Compiler-Enforced):** By defaulting implementation classes to `package-private`, the Java compiler provides the primary line of defense against illegal dependencies.
-2.  **ArchUnit (Automated Guardrails):** The `ArchitectureTest.java` suite runs on every build, automatically verifying that the "Public Facade" pattern and other conventions are being followed.
+2.  **ArchUnit (Automated Guardrails):** The `ArchitectureTest.java` suite runs on every build, automatically verifying key rules such as:
+    *   Only Facades, DTOs, and Events are `public`.
+    *   Controllers, Entities, and Repositories are `package-private`.
+    *   Controllers do not directly access Repositories or Entities.
+    *   Database tables follow the `module_entity` naming convention.

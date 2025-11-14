@@ -86,8 +86,6 @@ public class OrganizationFacade {
         String encodedPassword = passwordEncoder.encode(request.password());
         Organizer organizer = Organizer.create(request.email(), encodedPassword, organization, null, null);
 
-        organizer.requirePasswordChange();
-
         Organizer saved = organizerRepository.save(organizer);
         return toOrganizerDto(saved);
     }
@@ -145,7 +143,8 @@ public class OrganizationFacade {
                     organizer.getPassword(),
                     "ROLE_ORGANIZER",
                     organizer.getOrganization().getId(),
-                    organizer.isEnabled()
+                    organizer.isEnabled(),
+                    organizer.isForcePasswordChange()
             ));
         }
 
@@ -157,11 +156,73 @@ public class OrganizationFacade {
                     scanner.getPassword(),
                     "ROLE_SCANNER",
                     scanner.getOrganization().getId(),
-                    scanner.isEnabled()
+                    scanner.isEnabled(),
+                    scanner.isForcePasswordChange()
             ));
         }
 
         return Optional.empty();
+    }
+
+    @Transactional
+    public void resetUserPassword(Long organizationId, Long userId, String newPassword) {
+        String encodedPassword = passwordEncoder.encode(newPassword);
+
+        organizerRepository.findById(userId)
+                .filter(user -> user.getOrganization().getId().equals(organizationId))
+                .ifPresentOrElse(
+                        organizer -> organizer.changePassword(encodedPassword),
+                        () -> {
+                            Scanner scanner = scannerRepository.findById(userId)
+                                    .filter(user -> user.getOrganization().getId().equals(organizationId))
+                                    .orElseThrow(() -> new EntityNotFoundException("User not found in this organization"));
+                            scanner.changePassword(encodedPassword);
+                            scanner.requirePasswordChange();
+                        }
+                );
+    }
+
+    @Transactional
+    public OrganizationDto updateOrganizationDetails(Long organizationId, UpdateOrganizationDetailsDto dto) {
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+        organization.updateDetails(dto.name(), dto.identityFormatRegex());
+        return organization.toDto();
+    }
+
+    @Transactional(readOnly = true)
+    public OrganizationDto findOrganizationById(Long organizationId) {
+        return organizationRepository.findById(organizationId)
+                .map(Organization::toDto)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<ScannerAuthDto> findScannerAuthByEmail(String email) {
+        return scannerRepository.findByEmail(email)
+                .map(scanner -> new ScannerAuthDto(scanner.getId(), scanner.getOrganization().getId()));
+    }
+
+    @Transactional(readOnly = true)
+    public long countScanners(Long organizationId) {
+        return scannerRepository.countByOrganizationId(organizationId);
+    }
+
+    @Transactional
+    public void changeUserPassword(String email, String newPassword) {
+        Assert.hasText(email, "Email cannot be blank");
+        Assert.hasText(newPassword, "New password cannot be blank");
+
+        String encodedPassword = passwordEncoder.encode(newPassword);
+
+        organizerRepository.findByEmail(email).ifPresentOrElse(
+                organizer -> organizer.changePassword(encodedPassword),
+                () -> {
+                    Scanner scanner = scannerRepository.findByEmail(email)
+                            .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
+                    scanner.changePassword(encodedPassword);
+                }
+        );
     }
 
     private void assertEmailIsUniqueInOrganization(String email, Long organizationId) {

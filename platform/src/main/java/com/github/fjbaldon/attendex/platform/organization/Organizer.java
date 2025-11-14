@@ -43,8 +43,8 @@ class Organizer {
         this.organization = organization;
         this.verificationToken = verificationToken;
         this.tokenExpiryDate = tokenExpiryDate;
-        this.forcePasswordChange = false;
         this.enabled = (verificationToken == null);
+        this.forcePasswordChange = (verificationToken == null);
     }
 
     static Organizer create(String email, String encodedPassword, Organization organization, String token, Instant expiry) {
@@ -57,7 +57,8 @@ class Organizer {
         this.tokenExpiryDate = null;
     }
 
-    void requirePasswordChange() {
-        this.forcePasswordChange = true;
+    void changePassword(String newEncodedPassword) {
+        this.password = newEncodedPassword;
+        this.forcePasswordChange = false;
     }
 }
