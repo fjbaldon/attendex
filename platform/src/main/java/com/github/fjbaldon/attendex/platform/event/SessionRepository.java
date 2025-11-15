@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 interface SessionRepository extends CrudRepository<Session, Long> {
-    @Query("SELECT s FROM Session s WHERE s.id IN :sessionIds")
+
+    @Query("SELECT s FROM Session s JOIN FETCH s.event WHERE s.id IN :sessionIds")
     List<Session> findSessionsWithEventByIdIn(Set<Long> sessionIds);
 }

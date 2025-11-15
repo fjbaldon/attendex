@@ -10,7 +10,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/organizations")
+@RequestMapping("/api/v1/organization")
 @RequiredArgsConstructor
 class OrganizationController {
 
@@ -23,7 +23,6 @@ class OrganizationController {
 
     @GetMapping
     public OrganizationDto getOrganization(@AuthenticationPrincipal CustomUserDetails user) {
-        // This will require adding a findById method to the facade
         return organizationFacade.findOrganizationById(user.getOrganizationId());
     }
 
