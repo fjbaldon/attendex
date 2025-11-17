@@ -17,6 +17,11 @@ import java.util.concurrent.atomic.AtomicLong;
 class InMemoryScannerRepository implements ScannerRepository {
     private final Map<Long, Scanner> db = new ConcurrentHashMap<>();
     private final AtomicLong sequence = new AtomicLong(0);
+    private final InMemoryOrganizationRepository organizationRepository;
+
+    InMemoryScannerRepository(InMemoryOrganizationRepository organizationRepository) {
+        this.organizationRepository = organizationRepository;
+    }
 
     @Override
     @NonNull
@@ -30,8 +35,76 @@ class InMemoryScannerRepository implements ScannerRepository {
 
     @Override
     @NonNull
+    public <S extends Scanner> Iterable<S> saveAll(@NonNull Iterable<S> entities) {
+        entities.forEach(this::save);
+        return entities;
+    }
+
+    @Override
+    @NonNull
     public Optional<Scanner> findById(@NonNull Long id) {
         return Optional.ofNullable(db.get(id));
+    }
+
+    @Override
+    public boolean existsById(@NonNull Long id) {
+        return db.containsKey(id);
+    }
+
+    @Override
+    @NonNull
+    public Iterable<Scanner> findAll() {
+        return new ArrayList<>(db.values());
+    }
+
+    @Override
+    @NonNull
+    public Iterable<Scanner> findAllById(@NonNull Iterable<Long> ids) {
+        List<Scanner> results = new ArrayList<>();
+        ids.forEach(id -> findById(id).ifPresent(results::add));
+        return results;
+    }
+
+    @Override
+    public long count() {
+        return db.size();
+    }
+
+    @Override
+    public void deleteById(@NonNull Long id) {
+        db.remove(id);
+    }
+
+    @Override
+    public void delete(@NonNull Scanner entity) {
+        db.remove(entity.getId());
+    }
+
+    @Override
+    public void deleteAllById(@NonNull Iterable<? extends Long> ids) {
+        ids.forEach(this::deleteById);
+    }
+
+    @Override
+    public void deleteAll(@NonNull Iterable<? extends Scanner> entities) {
+        entities.forEach(this::delete);
+    }
+
+    @Override
+    public void deleteAll() {
+        db.clear();
+    }
+
+    @Override
+    @NonNull
+    public Iterable<Scanner> findAll(@NonNull Sort sort) {
+        return findAll();
+    }
+
+    @Override
+    @NonNull
+    public Page<Scanner> findAll(@NonNull Pageable pageable) {
+        return new PageImpl<>(new ArrayList<>(db.values()), pageable, db.size());
     }
 
     @Override
@@ -52,74 +125,6 @@ class InMemoryScannerRepository implements ScannerRepository {
         return db.values().stream()
                 .filter(s -> s.getOrganization().getId().equals(organizationId))
                 .count();
-    }
-
-    @Override
-    @NonNull
-    public Page<Scanner> findAll(@NonNull Pageable pageable) {
-        return new PageImpl<>(new ArrayList<>(db.values()), pageable, db.size());
-    }
-
-    @Override
-    public long count() {
-        return db.size();
-    }
-
-    @Override
-    public void delete(@NonNull Scanner entity) {
-        db.remove(entity.getId());
-    }
-
-    @Override
-    public void deleteAll(@NonNull Iterable<? extends Scanner> entities) {
-        entities.forEach(this::delete);
-    }
-
-    @Override
-    public void deleteAll() {
-        db.clear();
-    }
-
-    @Override
-    @NonNull
-    public <S extends Scanner> Iterable<S> saveAll(@NonNull Iterable<S> entities) {
-        entities.forEach(this::save);
-        return entities;
-    }
-
-    @Override
-    public boolean existsById(@NonNull Long aLong) {
-        return db.containsKey(aLong);
-    }
-
-    @Override
-    @NonNull
-    public Iterable<Scanner> findAll() {
-        return new ArrayList<>(db.values());
-    }
-
-    @Override
-    @NonNull
-    public Iterable<Scanner> findAllById(@NonNull Iterable<Long> longs) {
-        List<Scanner> results = new ArrayList<>();
-        longs.forEach(id -> findById(id).ifPresent(results::add));
-        return results;
-    }
-
-    @Override
-    public void deleteById(@NonNull Long aLong) {
-        db.remove(aLong);
-    }
-
-    @Override
-    public void deleteAllById(@NonNull Iterable<? extends Long> ids) {
-        ids.forEach(this::deleteById);
-    }
-
-    @Override
-    @NonNull
-    public Iterable<Scanner> findAll(@NonNull Sort sort) {
-        return findAll();
     }
 
     private void setId(Object entity, Long id) {

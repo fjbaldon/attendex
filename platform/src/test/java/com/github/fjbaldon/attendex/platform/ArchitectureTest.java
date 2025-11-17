@@ -23,16 +23,17 @@ public class ArchitectureTest {
     private static final String BASE_PACKAGE = "com.github.fjbaldon.attendex.platform";
 
     @ArchTest
-    public static final ArchRule public_classes_must_be_facades_dtos_or_events =
+    public static final ArchRule public_classes_must_be_in_api_or_common_packages =
             classes()
                     .that().resideInAPackage(BASE_PACKAGE + ".(*)..")
                     .and().arePublic()
+                    .and().resideOutsideOfPackage("..common..") // Exclude common packages from this rule
                     .should().haveSimpleNameEndingWith("Facade")
                     .orShould().resideInAPackage("..dto..")
                     .orShould().resideInAPackage("..events..")
                     .orShould().beAssignableTo(CustomUserDetails.class)
                     .orShould().haveSimpleNameEndingWith("Scheduler")
-                    .because("Modules should only expose their Facade, DTOs, or Events as their public API. Schedulers and CustomUserDetails are allowed exceptions for framework integration.");
+                    .because("Classes in feature modules should only expose their Facade, DTOs, or Events as their public API. Use a 'common' package for shared public components.");
 
     @ArchTest
     public static final ArchRule dtos_and_events_must_be_public =

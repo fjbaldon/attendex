@@ -4,6 +4,7 @@ import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.attendee.dto.AttendeeDto;
 import com.github.fjbaldon.attendex.platform.capture.CaptureFacade;
 import com.github.fjbaldon.attendex.platform.capture.dto.EntryDetailsDto;
+import com.github.fjbaldon.attendex.platform.capture.dto.EventSyncDto;
 import com.github.fjbaldon.attendex.platform.event.dto.*;
 import com.github.fjbaldon.attendex.platform.event.events.EventCreatedEvent;
 import com.github.fjbaldon.attendex.platform.event.events.RosterEntryAddedEvent;
@@ -140,6 +141,12 @@ public class EventFacade {
     }
 
     @Transactional(readOnly = true)
+    public List<EventSyncDto> getEventsForSync(Long organizationId) {
+        List<EventForSyncDto> events = findActiveEventsForSync(organizationId);
+        return events.stream().map(this::toEventSyncDto).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public List<SessionEventDto> findEventsForSessionIds(Set<Long> sessionIds) {
         return sessionRepository.findSessionsWithEventByIdIn(sessionIds).stream()
                 .map(session -> new SessionEventDto(session.getId(), session.getEvent().getId()))
@@ -189,5 +196,26 @@ public class EventFacade {
                 .toList();
 
         return new EventForSyncDto(event.getId(), event.getOrganizationId(), event.getName(), sessions, roster);
+    }
+
+    private EventSyncDto toEventSyncDto(EventForSyncDto event) {
+        var sessions = event.sessions().stream()
+                .map(s -> new EventSyncDto.SessionSyncDto(s.id(), s.activityName(), s.targetTime(), s.intent()))
+                .toList();
+
+        var roster = event.rosterEntries().stream()
+                .map(re -> {
+                    var attendee = attendeeFacade.findAttendeeById(re.attendeeId(), event.organizationId()).orElse(null);
+                    return new EventSyncDto.RosterSyncDto(
+                            re.attendeeId(),
+                            attendee != null ? attendee.identity() : "N/A",
+                            attendee != null ? attendee.firstName() : "N/A",
+                            attendee != null ? attendee.lastName() : "N/A",
+                            re.qrCodeHash()
+                    );
+                })
+                .toList();
+
+        return new EventSyncDto(event.id(), event.name(), sessions, roster);
     }
 }
