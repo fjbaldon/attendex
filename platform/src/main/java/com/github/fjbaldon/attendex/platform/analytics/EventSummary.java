@@ -15,13 +15,23 @@ class EventSummary {
     @Id
     private Long eventId;
     private Long organizationId;
+    private String eventName;
     private long rosterCount;
     private long entryCount;
 
-    EventSummary(Long eventId, Long organizationId) {
+    EventSummary(Long eventId, Long organizationId, String eventName) {
         this.eventId = eventId;
         this.organizationId = organizationId;
+        this.eventName = eventName;
         this.rosterCount = 0;
         this.entryCount = 0;
+    }
+
+    void incrementRosterCount() {
+        this.rosterCount++;
+    }
+
+    void incrementEntryCount() {
+        this.entryCount++;
     }
 }

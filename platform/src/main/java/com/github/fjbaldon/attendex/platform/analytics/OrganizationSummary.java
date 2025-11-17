@@ -24,4 +24,8 @@ class OrganizationSummary {
         this.totalAttendees = 0;
         this.totalScanners = 0;
     }
+
+    void incrementEventCount() {
+        this.totalEvents++;
+    }
 }

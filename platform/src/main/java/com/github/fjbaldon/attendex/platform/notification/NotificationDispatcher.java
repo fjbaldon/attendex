@@ -3,11 +3,9 @@ package com.github.fjbaldon.attendex.platform.notification;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fjbaldon.attendex.platform.organization.events.OrganizationRegisteredEvent;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 
-@Service
 @RequiredArgsConstructor
 class NotificationDispatcher {
 

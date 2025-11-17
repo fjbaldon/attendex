@@ -3,15 +3,13 @@ package com.github.fjbaldon.attendex.platform.notification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@Component
 @RequiredArgsConstructor
 @Slf4j
-public class NotificationScheduler {
+class NotificationScheduler {
 
     private final NotificationOutboxRepository outboxRepository;
     private final NotificationDispatcher dispatcher;

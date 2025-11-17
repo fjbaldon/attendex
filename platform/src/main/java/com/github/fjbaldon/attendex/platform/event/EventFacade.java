@@ -47,7 +47,7 @@ public class EventFacade {
         });
 
         Event saved = eventRepository.save(event);
-        eventPublisher.publishEvent(new EventCreatedEvent(saved.getId(), saved.getOrganizationId()));
+        eventPublisher.publishEvent(new EventCreatedEvent(saved.getId(), saved.getOrganizationId(), saved.getName()));
 
         return toDto(saved);
     }

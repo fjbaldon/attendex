@@ -1,9 +1,14 @@
 package com.github.fjbaldon.attendex.platform.admin;
 
 import com.github.fjbaldon.attendex.platform.admin.dto.*;
+import com.github.fjbaldon.attendex.platform.admin.events.StewardCreatedEvent;
+import com.github.fjbaldon.attendex.platform.admin.events.StewardDeletedEvent;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
+import com.github.fjbaldon.attendex.platform.organization.events.OrganizationLifecycleChangedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +26,7 @@ public class AdminFacade {
     private final StewardRepository stewardRepository;
     private final PasswordEncoder passwordEncoder;
     private final OrganizationFacade organizationFacade;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public StewardDto createSteward(CreateStewardRequestDto request) {
@@ -28,6 +34,10 @@ public class AdminFacade {
         String encodedPassword = passwordEncoder.encode(request.password());
         Steward steward = Steward.create(request.email(), encodedPassword);
         Steward saved = stewardRepository.save(steward);
+
+        String actorEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        eventPublisher.publishEvent(new StewardCreatedEvent(actorEmail, saved.getEmail()));
+
         return new StewardDto(saved.getId(), saved.getEmail(), saved.getCreatedAt());
     }
 
@@ -40,11 +50,23 @@ public class AdminFacade {
         Assert.isTrue(stewardRepository.count() > 1, "Cannot delete the last steward.");
 
         stewardRepository.delete(stewardToDelete);
+        eventPublisher.publishEvent(new StewardDeletedEvent(currentStewardEmail, stewardToDelete.getEmail()));
     }
 
     @Transactional
     public OrganizationDto updateOrganizationLifecycle(Long organizationId, UpdateOrganizationLifecycleDto dto) {
-        return organizationFacade.updateLifecycle(organizationId, dto.lifecycle());
+        OrganizationDto previousState = organizationFacade.findOrganizationById(organizationId);
+        OrganizationDto newState = organizationFacade.updateLifecycle(organizationId, dto.lifecycle());
+
+        String actorEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        eventPublisher.publishEvent(new OrganizationLifecycleChangedEvent(
+                actorEmail,
+                organizationId,
+                previousState.lifecycle(),
+                newState.lifecycle()
+        ));
+
+        return newState;
     }
 
     @Transactional
