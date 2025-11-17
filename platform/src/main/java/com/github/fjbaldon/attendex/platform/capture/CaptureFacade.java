@@ -110,8 +110,6 @@ public class CaptureFacade {
     public Page<EntryDetailsDto> findEntriesBySessionIds(Long organizationId, List<Long> sessionIds, Pageable pageable) {
         return entryRepository.findBySessionIdIn(sessionIds, pageable)
                 .map(entry -> {
-                    // This cross-module call inside a map is not ideal for performance at massive scale,
-                    // but it is architecturally correct and sufficient for our needs.
                     AttendeeDto attendee = attendeeFacade.findAttendeeById(entry.getAttendeeId(), organizationId)
                             .orElseThrow(() -> new IllegalStateException("Data inconsistency: Attendee not found for entry"));
 

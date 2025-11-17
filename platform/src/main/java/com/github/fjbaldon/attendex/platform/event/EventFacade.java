@@ -103,6 +103,15 @@ public class EventFacade {
     }
 
     @Transactional(readOnly = true)
+    public Page<EntryDetailsDto> findEntriesByIntent(Long eventId, Long organizationId, String intent, Pageable pageable) {
+        List<Long> sessionIds = sessionRepository.findSessionIdsByEventIdAndIntent(eventId, intent);
+        if (sessionIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return captureFacade.findEntriesBySessionIds(organizationId, sessionIds, pageable);
+    }
+
+    @Transactional(readOnly = true)
     public long countEvents(Long organizationId) {
         return eventRepository.count();
     }
@@ -119,7 +128,7 @@ public class EventFacade {
 
     @Transactional(readOnly = true)
     public long countRosterByEventId(Long eventId) {
-        return rosterRepository.count();
+        return rosterRepository.countByEventId(eventId);
     }
 
     @Transactional(readOnly = true)
@@ -147,15 +156,6 @@ public class EventFacade {
                         session.getEvent().getGraceMinutesAfter()
                 ))
                 .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public Page<EntryDetailsDto> findEntriesByIntent(Long eventId, Long organizationId, String intent, Pageable pageable) {
-        List<Long> sessionIds = sessionRepository.findSessionIdsByEventIdAndIntent(eventId, intent);
-        if (sessionIds.isEmpty()) {
-            return Page.empty(pageable);
-        }
-        return captureFacade.findEntriesBySessionIds(organizationId, sessionIds, pageable);
     }
 
     private EventDto toDto(Event event) {

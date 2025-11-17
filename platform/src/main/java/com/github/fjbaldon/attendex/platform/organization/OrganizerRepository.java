@@ -6,7 +6,6 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 import java.util.Optional;
 
 interface OrganizerRepository extends PagingAndSortingRepository<Organizer, Long>, CrudRepository<Organizer, Long> {
-
     Optional<Organizer> findByEmail(String email);
 
     boolean existsByOrganizationName(String organizationName);

@@ -9,7 +9,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
@@ -19,7 +18,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Service
 @RequiredArgsConstructor
 public class OrganizationFacade {
 
@@ -117,7 +115,9 @@ public class OrganizationFacade {
 
         String encodedPassword = passwordEncoder.encode(request.password());
         Scanner scanner = Scanner.create(request.email(), encodedPassword, organization);
+
         Scanner saved = scannerRepository.save(scanner);
+        eventPublisher.publishEvent(new ScannerCreatedEvent(saved.getId(), saved.getOrganization().getId()));
         return toScannerDto(saved);
     }
 

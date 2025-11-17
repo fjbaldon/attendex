@@ -23,6 +23,8 @@ class Audit {
 
     private String actorEmail;
     private String actionType;
+    private String status;
+    private String ipAddress;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -30,16 +32,18 @@ class Audit {
 
     private Instant createdAt;
 
-    private Audit(String actorEmail, String actionType, Map<String, Object> details) {
+    private Audit(String actorEmail, String actionType, String status, String ipAddress, Map<String, Object> details) {
         Assert.hasText(actorEmail, "Actor email must not be blank");
         Assert.hasText(actionType, "Action type must not be blank");
         this.actorEmail = actorEmail;
         this.actionType = actionType;
+        this.status = status;
+        this.ipAddress = ipAddress;
         this.details = details;
         this.createdAt = Instant.now();
     }
 
-    static Audit record(String actorEmail, String actionType, Map<String, Object> details) {
-        return new Audit(actorEmail, actionType, details);
+    static Audit record(String actorEmail, String actionType, String status, String ipAddress, Map<String, Object> details) {
+        return new Audit(actorEmail, actionType, status, ipAddress, details);
     }
 }

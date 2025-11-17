@@ -4,12 +4,18 @@ import com.github.fjbaldon.attendex.platform.admin.AdminFacade;
 import com.github.fjbaldon.attendex.platform.identity.dto.AuthRequestDto;
 import com.github.fjbaldon.attendex.platform.identity.dto.AuthResponseDto;
 import com.github.fjbaldon.attendex.platform.identity.dto.PasswordChangeRequestDto;
+import com.github.fjbaldon.attendex.platform.identity.events.UserLoggedInEvent;
+import com.github.fjbaldon.attendex.platform.identity.events.UserPasswordChangedEvent;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +25,7 @@ public class IdentityFacade {
     private final JwtService jwtService;
     private final OrganizationFacade organizationFacade;
     private final AdminFacade adminFacade;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AuthResponseDto login(AuthRequestDto request) {
         Authentication authentication = authenticationManager.authenticate(
@@ -26,6 +33,8 @@ public class IdentityFacade {
         );
 
         String jwt = jwtService.generateToken(authentication.getName());
+
+        eventPublisher.publishEvent(new UserLoggedInEvent(request.email(), getIpAddress()));
 
         return new AuthResponseDto(jwt);
     }
@@ -36,5 +45,16 @@ public class IdentityFacade {
         } else {
             organizationFacade.changeUserPassword(user.getUsername(), dto.newPassword());
         }
+        eventPublisher.publishEvent(new UserPasswordChangedEvent(user.getUsername(), getIpAddress()));
+    }
+
+    private String getIpAddress() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes != null) {
+            HttpServletRequest request = attributes.getRequest();
+            String ip = request.getHeader("X-Forwarded-For");
+            return (ip == null || ip.isEmpty()) ? request.getRemoteAddr() : ip;
+        }
+        return "N/A";
     }
 }
