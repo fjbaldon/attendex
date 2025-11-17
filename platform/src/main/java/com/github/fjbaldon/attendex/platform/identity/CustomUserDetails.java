@@ -10,6 +10,7 @@ import java.util.Collection;
 public class CustomUserDetails extends User {
     private final Long organizationId;
     private final boolean forcePasswordChange;
+    private final String role;
 
     public CustomUserDetails(
             String username,
@@ -17,10 +18,12 @@ public class CustomUserDetails extends User {
             Collection<? extends GrantedAuthority> authorities,
             Long organizationId,
             boolean enabled,
-            boolean forcePasswordChange
+            boolean forcePasswordChange,
+            String role
     ) {
         super(username, password, enabled, true, true, true, authorities);
         this.organizationId = organizationId;
         this.forcePasswordChange = forcePasswordChange;
+        this.role = role;
     }
 }

@@ -9,8 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 @Service
 @RequiredArgsConstructor
@@ -37,15 +37,34 @@ public class AnalyticsFacade {
     }
 
     @Transactional(readOnly = true)
+    public Optional<EventSummaryDto> findEventSummary(Long eventId) {
+        return eventSummaryRepository.findById(eventId).map(this::toDto);
+    }
+
+    @Transactional(readOnly = true)
     public List<EventSummaryDto> findRecentEventSummaries(Long organizationId, Pageable pageable) {
-        // This would be a proper query in a full implementation
-        Iterable<EventSummary> summaries = eventSummaryRepository.findAll();
-        return StreamSupport.stream(summaries.spliterator(), false) // Use StreamSupport for Iterable
-                .filter(summary -> summary.getOrganizationId().equals(organizationId))
-                .limit(pageable.getPageSize())
+        return eventSummaryRepository.findByOrganizationId(organizationId, pageable).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
+
+    @Transactional(readOnly = true)
+    public long countTotalOrganizations() {
+        return organizationSummaryRepository.count();
+    }
+
+    @Transactional(readOnly = true)
+    public long countOrganizationsByLifecycle(String lifecycle) {
+        // This query doesn't exist. We would add it to a new read model or query the OrganizationFacade.
+        return 0; // Placeholder
+    }
+
+    @Transactional(readOnly = true)
+    public long countOrganizationsBySubscriptionType(String subscriptionType) {
+        // This query doesn't exist.
+        return 0; // Placeholder
+    }
+
 
     private OrganizationSummaryDto toDto(OrganizationSummary summary) {
         return new OrganizationSummaryDto(
@@ -56,12 +75,17 @@ public class AnalyticsFacade {
     }
 
     private EventSummaryDto toDto(EventSummary summary) {
+        double attendanceRate = (summary.getRosterCount() > 0)
+                ? ((double) summary.getEntryCount() / summary.getRosterCount()) * 100.0
+                : 0.0;
+
         return new EventSummaryDto(
                 summary.getEventId(),
                 summary.getOrganizationId(),
                 summary.getRosterCount(),
                 summary.getEntryCount(),
-                "Event Name Placeholder"
+                summary.getEventName(),
+                attendanceRate
         );
     }
 }

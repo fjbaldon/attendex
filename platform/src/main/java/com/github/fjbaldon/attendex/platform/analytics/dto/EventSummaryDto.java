@@ -5,6 +5,7 @@ public record EventSummaryDto(
         Long organizationId,
         long rosterCount,
         long entryCount,
-        String eventName // Added to fulfill dashboard requirements
+        String eventName,
+        double attendanceRate
 ) {
 }

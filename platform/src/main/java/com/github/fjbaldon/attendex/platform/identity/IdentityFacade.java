@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -32,11 +31,7 @@ public class IdentityFacade {
     }
 
     public void forceChangePassword(CustomUserDetails user, PasswordChangeRequestDto dto) {
-        boolean isSteward = user.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(role -> role.equals("ROLE_STEWARD"));
-
-        if (isSteward) {
+        if ("Steward".equals(user.getRole())) {
             adminFacade.changeStewardPassword(user.getUsername(), dto.newPassword());
         } else {
             organizationFacade.changeUserPassword(user.getUsername(), dto.newPassword());

@@ -57,7 +57,7 @@ public class OrganizationFacade {
     // private final StewardRepository stewardRepository; // ILLEGAL!
 
     public void someOrganizationAction() {
-        boolean canPerform = adminFacade.hasPermission(...);
+        boolean canPerform = adminFacade.hasPermission(...)
         // ...
     }
 }
@@ -81,17 +81,17 @@ This is the preferred method for cross-module collaboration, ensuring loose coup
     The `package-private` service logic (which might be called by the Facade) publishes the event.
 
     ```java
-    // In: ...platform.admin.AdminFacade
-    public class AdminFacade {
-        private final ApplicationEventPublisher eventPublisher;
-        // ...
-        public void createSteward(...) {
-            Steward newSteward = ...;
-            stewardRepository.save(newSteward);
-            eventPublisher.publishEvent(new StewardCreatedEvent(...));
-        }
+// In: ...platform.admin.AdminFacade
+public class AdminFacade {
+    private final ApplicationEventPublisher eventPublisher;
+    // ...
+    public void createSteward(...) {
+        Steward newSteward = ...;
+        stewardRepository.save(newSteward);
+        eventPublisher.publishEvent(new StewardCreatedEvent(...))
     }
-    ```
+}
+```
 
 3.  **Listen for the Event (`analytics` module):**
     A `package-private` component in the `analytics` module listens for the public event.

@@ -28,4 +28,12 @@ class OrganizationSummary {
     void incrementEventCount() {
         this.totalEvents++;
     }
+
+    void incrementAttendeeCount() {
+        this.totalAttendees++;
+    }
+
+    void incrementScannerCount() {
+        this.totalScanners++;
+    }
 }

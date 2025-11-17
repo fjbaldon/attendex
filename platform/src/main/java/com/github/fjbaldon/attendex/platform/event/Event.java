@@ -30,10 +30,10 @@ class Event {
     private Instant createdAt;
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<Session> sessions = new HashSet<>();
+    private final Set<Session> sessions = new HashSet<>();
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<RosterEntry> rosterEntries = new HashSet<>();
+    private final Set<RosterEntry> rosterEntries = new HashSet<>();
 
     private Event(Long organizationId, Long organizerId, String name, Instant startDate, Instant endDate, int graceMinutesBefore, int graceMinutesAfter) {
         Assert.notNull(organizationId, "Organization ID must not be null");

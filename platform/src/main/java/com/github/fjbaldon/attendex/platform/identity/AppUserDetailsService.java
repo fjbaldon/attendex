@@ -37,7 +37,8 @@ class AppUserDetailsService implements UserDetailsService {
                     authorities,
                     null,
                     true,
-                    authDto.forcePasswordChange()
+                    authDto.forcePasswordChange(),
+                    "Steward"
             );
         }
 
@@ -49,13 +50,15 @@ class AppUserDetailsService implements UserDetailsService {
             if (authDto.forcePasswordChange()) {
                 authorities.add(new SimpleGrantedAuthority("FORCE_PASSWORD_CHANGE"));
             }
+            String domainRole = authDto.role().equals("ROLE_ORGANIZER") ? "Organizer" : "Scanner";
             return new CustomUserDetails(
                     authDto.email(),
                     authDto.password(),
                     authorities,
                     authDto.organizationId(),
                     authDto.enabled(),
-                    authDto.forcePasswordChange()
+                    authDto.forcePasswordChange(),
+                    domainRole
             );
         }
 

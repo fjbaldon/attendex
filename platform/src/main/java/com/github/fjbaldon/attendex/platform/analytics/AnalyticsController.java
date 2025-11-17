@@ -1,7 +1,9 @@
 package com.github.fjbaldon.attendex.platform.analytics;
 
 import com.github.fjbaldon.attendex.platform.analytics.dto.AttributeBreakdownDto;
+import com.github.fjbaldon.attendex.platform.analytics.dto.EventSummaryDto;
 import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,13 +18,28 @@ class AnalyticsController {
 
     private final AnalyticsFacade analyticsFacade;
 
+    @GetMapping("/events/{eventId}/summary")
+    public ResponseEntity<EventSummaryDto> getEventSummary(
+            @PathVariable Long eventId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        EventSummaryDto summary = analyticsFacade.findEventSummary(eventId)
+                .filter(s -> s.organizationId().equals(user.getOrganizationId()))
+                .orElseThrow(() -> new EntityNotFoundException("Event summary not found or you do not have permission to view it."));
+
+        return ResponseEntity.ok(summary);
+    }
+
     @GetMapping("/events/{eventId}/breakdown")
     public ResponseEntity<AttributeBreakdownDto> getAttributeBreakdown(
             @PathVariable Long eventId,
             @RequestParam String attributeName,
             @AuthenticationPrincipal CustomUserDetails user) {
 
-        // In a real app, we would first verify the user has access to this eventId
+        analyticsFacade.findEventSummary(eventId)
+                .filter(s -> s.organizationId().equals(user.getOrganizationId()))
+                .orElseThrow(() -> new EntityNotFoundException("Event not found or you do not have permission to view it."));
+
         return ResponseEntity.ok(analyticsFacade.getAttributeBreakdown(eventId, attributeName));
     }
 }

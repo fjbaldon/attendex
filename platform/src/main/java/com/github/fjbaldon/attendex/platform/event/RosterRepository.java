@@ -12,6 +12,8 @@ interface RosterRepository extends PagingAndSortingRepository<RosterEntry, Roste
     @Query("SELECT re.id.attendeeId FROM RosterEntry re WHERE re.id.eventId = :eventId")
     Page<Long> findAttendeeIdsByEventId(Long eventId, Pageable pageable);
 
+    long countByEventId(Long eventId);
+
     @Override
     boolean existsById(@NonNull RosterEntryId id);
 }

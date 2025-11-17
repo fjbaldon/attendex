@@ -2,6 +2,7 @@ package com.github.fjbaldon.attendex.platform.organization;
 
 import com.github.fjbaldon.attendex.platform.organization.dto.*;
 import com.github.fjbaldon.attendex.platform.organization.events.OrganizationRegisteredEvent;
+import com.github.fjbaldon.attendex.platform.organization.events.ScannerCreatedEvent;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -14,6 +15,7 @@ import org.springframework.util.Assert;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -87,6 +89,7 @@ public class OrganizationFacade {
         Organizer organizer = Organizer.create(request.email(), encodedPassword, organization, null, null);
 
         Organizer saved = organizerRepository.save(organizer);
+        eventPublisher.publishEvent(new ScannerCreatedEvent(saved.getId(), saved.getOrganization().getId()));
         return toOrganizerDto(saved);
     }
 
@@ -223,6 +226,27 @@ public class OrganizationFacade {
                     scanner.changePassword(encodedPassword);
                 }
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrganizationDto> findExpiringSubscriptions(Instant thirtyDaysFromNow, Pageable pageable) {
+        // This will require a new method in OrganizationRepository
+        // findBySubscriptionExpiresAtBeforeOrderBySubscriptionExpiresAtAsc
+        return List.of(); // Placeholder
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrganizationDto> findRecentRegistrations(Pageable pageable) {
+        // This will require a new method in OrganizationRepository
+        // findByOrderByCreatedAtDesc
+        return List.of(); // Placeholder
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrganizationDto> findOrganizationsByLifecycle(List<String> lifecycles, Pageable pageable) {
+        // This will require a new method in OrganizationRepository
+        // findByLifecycleIn
+        return List.of(); // Placeholder
     }
 
     private void assertEmailIsUniqueInOrganization(String email, Long organizationId) {

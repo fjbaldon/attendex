@@ -1,11 +1,13 @@
 package com.github.fjbaldon.attendex.platform.attendee;
 
 import com.github.fjbaldon.attendex.platform.attendee.dto.*;
+import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeCreatedEvent;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class AttendeeFacade {
 
     private final AttendeeRepository attendeeRepository;
     private final AttributeRepository attributeRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public AttendeeDto createAttendee(Long organizationId, CreateAttendeeDto dto) {
@@ -44,6 +47,7 @@ public class AttendeeFacade {
         );
 
         Attendee saved = attendeeRepository.save(attendee);
+        eventPublisher.publishEvent(new AttendeeCreatedEvent(saved.getId(), saved.getOrganizationId()));
         return toDto(saved);
     }
 

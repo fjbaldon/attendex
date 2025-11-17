@@ -18,6 +18,7 @@ class Entry {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private Long organizationId;
     private Long sessionId;
     private Long attendeeId;
     private Long scannerId;
@@ -25,13 +26,15 @@ class Entry {
     private String punctuality;
     private Instant syncTimestamp;
 
-    private Entry(Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality) {
+    private Entry(Long organizationId, Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality) {
+        Assert.notNull(organizationId, "Organization ID must not be null");
         Assert.notNull(sessionId, "Session ID must not be null");
         Assert.notNull(attendeeId, "Attendee ID must not be null");
         Assert.notNull(scannerId, "Scanner ID must not be null");
         Assert.notNull(scanTimestamp, "Scan timestamp must not be null");
         Assert.hasText(punctuality, "Punctuality must not be blank");
 
+        this.organizationId = organizationId;
         this.sessionId = sessionId;
         this.attendeeId = attendeeId;
         this.scannerId = scannerId;
@@ -40,7 +43,7 @@ class Entry {
         this.syncTimestamp = Instant.now();
     }
 
-    static Entry create(Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality) {
-        return new Entry(sessionId, attendeeId, scannerId, scanTimestamp, punctuality);
+    static Entry create(Long organizationId, Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality) {
+        return new Entry(organizationId, sessionId, attendeeId, scannerId, scanTimestamp, punctuality);
     }
 }

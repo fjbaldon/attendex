@@ -2,6 +2,8 @@ package com.github.fjbaldon.attendex.platform.event;
 
 import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.attendee.dto.AttendeeDto;
+import com.github.fjbaldon.attendex.platform.capture.CaptureFacade;
+import com.github.fjbaldon.attendex.platform.capture.dto.EntryDetailsDto;
 import com.github.fjbaldon.attendex.platform.event.dto.*;
 import com.github.fjbaldon.attendex.platform.event.events.EventCreatedEvent;
 import com.github.fjbaldon.attendex.platform.event.events.RosterEntryAddedEvent;
@@ -27,6 +29,7 @@ public class EventFacade {
     private final RosterRepository rosterRepository;
     private final SessionRepository sessionRepository;
     private final AttendeeFacade attendeeFacade;
+    private final CaptureFacade captureFacade;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -144,6 +147,15 @@ public class EventFacade {
                         session.getEvent().getGraceMinutesAfter()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<EntryDetailsDto> findEntriesByIntent(Long eventId, Long organizationId, String intent, Pageable pageable) {
+        List<Long> sessionIds = sessionRepository.findSessionIdsByEventIdAndIntent(eventId, intent);
+        if (sessionIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return captureFacade.findEntriesBySessionIds(organizationId, sessionIds, pageable);
     }
 
     private EventDto toDto(Event event) {

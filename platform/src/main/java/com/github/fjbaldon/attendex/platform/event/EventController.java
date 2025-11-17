@@ -1,6 +1,7 @@
 package com.github.fjbaldon.attendex.platform.event;
 
 import com.github.fjbaldon.attendex.platform.attendee.dto.AttendeeDto;
+import com.github.fjbaldon.attendex.platform.capture.dto.EntryDetailsDto;
 import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -42,5 +43,23 @@ class EventController {
             @AuthenticationPrincipal CustomUserDetails user) {
 
         return eventFacade.findRosterForEvent(eventId, user.getOrganizationId(), pageable);
+    }
+
+    @GetMapping("/{eventId}/arrivals")
+    public Page<EntryDetailsDto> getArrivals(
+            @PathVariable Long eventId,
+            Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        return eventFacade.findEntriesByIntent(eventId, user.getOrganizationId(), "Arrival", pageable);
+    }
+
+    @GetMapping("/{eventId}/departures")
+    public Page<EntryDetailsDto> getDepartures(
+            @PathVariable Long eventId,
+            Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        return eventFacade.findEntriesByIntent(eventId, user.getOrganizationId(), "Departure", pageable);
     }
 }
