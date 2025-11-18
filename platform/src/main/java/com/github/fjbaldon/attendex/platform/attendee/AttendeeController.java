@@ -16,13 +16,12 @@ import java.io.IOException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/attendees")
 @RequiredArgsConstructor
 class AttendeeController {
-
     private final AttendeeFacade attendeeFacade;
 
-    @PostMapping("/attendees")
+    @PostMapping
     public ResponseEntity<AttendeeDto> createAttendee(
             @Valid @RequestBody CreateAttendeeDto request,
             @AuthenticationPrincipal CustomUserDetails user) {
@@ -30,26 +29,35 @@ class AttendeeController {
         return new ResponseEntity<>(attendee, HttpStatus.CREATED);
     }
 
-    @GetMapping("/attendees")
+    @GetMapping
     public Page<AttendeeDto> getAttendees(
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails user) {
         return attendeeFacade.findAttendees(user.getOrganizationId(), pageable);
     }
 
-    @PostMapping("/attendees/import/analyze")
+    @PostMapping("/import/analyze")
     public ResponseEntity<AttendeeImportAnalysisDto> analyzeImport(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal CustomUserDetails user) throws IOException {
         return ResponseEntity.ok(attendeeFacade.analyzeAttendeeImport(user.getOrganizationId(), file));
     }
 
-    @PostMapping("/attendees/import/commit")
+    @PostMapping("/import/commit")
     @ResponseStatus(HttpStatus.CREATED)
     public void commitImport(
             @Valid @RequestBody AttendeeImportCommitRequestDto request,
             @AuthenticationPrincipal CustomUserDetails user) {
         attendeeFacade.commitAttendeeImport(user.getOrganizationId(), request.attendees());
+    }
+
+    @PutMapping("/{attendeeId}")
+    public ResponseEntity<AttendeeDto> updateAttendee(
+            @PathVariable Long attendeeId,
+            @Valid @RequestBody UpdateAttendeeDto request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        AttendeeDto attendee = attendeeFacade.updateAttendee(user.getOrganizationId(), attendeeId, request);
+        return ResponseEntity.ok(attendee);
     }
 
     @PostMapping("/attributes")
@@ -63,14 +71,5 @@ class AttendeeController {
     @GetMapping("/attributes")
     public List<AttributeDto> getAttributes(@AuthenticationPrincipal CustomUserDetails user) {
         return attendeeFacade.findAttributes(user.getOrganizationId());
-    }
-
-    @PutMapping("/attendees/{attendeeId}")
-    public ResponseEntity<AttendeeDto> updateAttendee(
-            @PathVariable Long attendeeId,
-            @Valid @RequestBody UpdateAttendeeDto request,
-            @AuthenticationPrincipal CustomUserDetails user) {
-        AttendeeDto attendee = attendeeFacade.updateAttendee(user.getOrganizationId(), attendeeId, request);
-        return ResponseEntity.ok(attendee);
     }
 }
