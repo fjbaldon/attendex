@@ -20,51 +20,64 @@ export const useAuth = () => {
         mutationFn: (credentials) =>
             api.post("/api/v1/auth/login", credentials).then((res) => res.data),
         onSuccess: (data) => {
-            const decoded: DecodedToken = jwtDecode(data.accessToken);
-            setToken(data.accessToken, decoded.sub, decoded.forcePasswordChange);
+            try {
+                const decoded: DecodedToken = jwtDecode(data.accessToken);
+                setToken(data.accessToken, decoded.sub, decoded.forcePasswordChange);
 
-            const isOrganizer = decoded.roles.includes('ROLE_ORGANIZER');
-            const isSteward = decoded.roles.includes('ROLE_STEWARD');
+                const isSteward = decoded.organizationId === undefined;
+                const isOrganizerOrScanner = decoded.organizationId !== undefined;
 
-            if (!isOrganizer && !isSteward) {
-                toast.error("Access Denied", {
-                    description: "This account does not have permission to access the dashboard.",
-                });
+                if (decoded.forcePasswordChange) {
+                    toast.info("Password change required", {
+                        description: "Please create a new password to continue.",
+                    });
+                    router.replace("/force-password-change");
+                } else if (isSteward) {
+                    router.replace("/admin/dashboard");
+                } else if (isOrganizerOrScanner) {
+                    toast.success("Login successful!", {
+                        description: "Redirecting to your dashboard...",
+                    });
+                    router.replace("/dashboard");
+                } else {
+                    toast.error("Access Denied", {
+                        description: "This account does not have permission to access the dashboard.",
+                    });
+                    clearToken();
+                }
+            } catch (e) {
+                console.error("Failed to process token on login success:", e);
+                toast.error("Login failed", {description: "An issue occurred after login. Please try again."});
                 clearToken();
-                return;
-            }
-
-            if (decoded.forcePasswordChange) {
-                toast.info("Password change required", {
-                    description: "Please create a new password to continue.",
-                });
-                router.replace("/force-password-change");
-            } else if (isSteward) {
-                router.replace("/admin/dashboard");
-            } else {
-                toast.success("Login successful!", {
-                    description: "Redirecting to your dashboard...",
-                });
-                router.replace("/dashboard");
             }
         },
         onError: (error) => {
             const defaultMessage = "Invalid email or password.";
-            const errorMessage = getErrorMessage(error, defaultMessage);
-            if (errorMessage.includes("not active") || errorMessage.includes("subscription has expired")) {
+            const errorMessage = getErrorMessage(error, defaultMessage) || defaultMessage;
+
+            if (errorMessage.includes("Account is not verified")) {
+                toast.warning("Account Not Verified", {
+                    description: "Please check your inbox for a verification email to activate your account.",
+                });
+            } else if (errorMessage.includes("not active") || errorMessage.includes("subscription has expired")) {
                 toast.error("Account Access Issue", {
                     description: errorMessage,
                 });
             } else {
-                toast.error("Login failed", {
+                toast.error("Login Failed", {
                     description: errorMessage,
                 });
             }
         },
     });
 
-    const registerMutation = useMutation<void, AxiosError<ApiErrorResponse>, RegisterRequest>({
-        mutationFn: (userInfo) => api.post("/api/v1/organizations", userInfo).then((res) => res.data),
+    const registerMutation = useMutation<
+        void,
+        AxiosError<ApiErrorResponse>,
+        RegisterRequest
+    >({
+        mutationFn: (userInfo) =>
+            api.post("/api/v1/organizations", userInfo).then((res) => res.data),
         onSuccess: () => {
             router.push("/register-success");
         },

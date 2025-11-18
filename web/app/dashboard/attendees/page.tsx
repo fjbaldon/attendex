@@ -17,12 +17,12 @@ export default function AttendeesPage() {
     });
 
     const {attendeesData, isLoadingAttendees} = useAttendees(pageIndex, pageSize);
-    const {definitions, isLoading: isLoadingDefinitions} = useAttributes();
+    const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
 
     const attendees = attendeesData?.content ?? [];
     const pageCount = attendeesData?.totalPages ?? 0;
 
-    const columns = useMemo(() => getColumns(definitions), [definitions]);
+    const columns = useMemo(() => getColumns(attributes), [attributes]);
 
     return (
         <SidebarProvider
@@ -42,7 +42,7 @@ export default function AttendeesPage() {
                             <AttendeesDataTable
                                 columns={columns}
                                 data={attendees}
-                                isLoading={isLoadingAttendees || isLoadingDefinitions}
+                                isLoading={isLoadingAttendees || isLoadingAttributes}
                                 pageCount={pageCount}
                                 pagination={{pageIndex, pageSize}}
                                 setPagination={setPagination}

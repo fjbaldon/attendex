@@ -25,12 +25,16 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (axios.isAxiosError(error) && error.response) {
+            const originalRequest = error.config;
+            if (originalRequest && originalRequest.url === "/api/v1/auth/login") {
+                return Promise.reject(error);
+            }
+
             if (error.response.status === 401) {
-                const {clearToken} = useAuthStore.getState();
+                const {clearToken, accessToken} = useAuthStore.getState();
 
-                if (useAuthStore.getState().accessToken) {
+                if (accessToken) {
                     clearToken();
-
                     window.location.href = '/login?sessionExpired=true';
                 }
             }

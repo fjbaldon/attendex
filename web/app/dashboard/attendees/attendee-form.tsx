@@ -22,21 +22,21 @@ interface AttendeeFormProps {
 }
 
 export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeFormProps) {
-    const {definitions, isLoading: isLoadingDefinitions} = useAttributes();
+    const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
     const isEditing = !!attendee;
 
-    const defaultCustomFields = definitions.reduce((acc, field) => {
-        acc[field.fieldName] = attendee?.customFields?.[field.fieldName] ?? "";
+    const defaultAttributes = attributes.reduce((acc, attr) => {
+        acc[attr.name] = attendee?.attributes?.[attr.name] ?? "";
         return acc;
     }, {} as Record<string, unknown>);
 
     const form = useForm<AttendeeFormSubmitValues>({
         resolver: zodResolver(attendeeSchema),
         defaultValues: {
-            uniqueIdentifier: attendee?.uniqueIdentifier || "",
+            identity: attendee?.identity || "",
             firstName: attendee?.firstName || "",
             lastName: attendee?.lastName || "",
-            customFields: defaultCustomFields,
+            attributes: defaultAttributes,
         },
     });
 
@@ -45,8 +45,8 @@ export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeF
             <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
                 <StandardFormField
                     control={form.control}
-                    name="uniqueIdentifier"
-                    label="Unique Identifier"
+                    name="identity"
+                    label="Identifier"
                     placeholder="e.g., 202012345"
                     iconType="hash"
                     disabled={isEditing}
@@ -68,21 +68,21 @@ export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeF
 
                 <Separator className="my-2"/>
 
-                {isLoadingDefinitions ? (
+                {isLoadingAttributes ? (
                     <div className="space-y-4">
                         <Skeleton className="h-10 w-full"/>
                         <Skeleton className="h-10 w-full"/>
                     </div>
-                ) : definitions.length > 0 ? (
-                    <h3 className="text-sm font-medium text-muted-foreground">Custom Fields</h3>
+                ) : attributes.length > 0 ? (
+                    <h3 className="text-sm font-medium text-muted-foreground">Attributes</h3>
                 ) : null}
 
-                {definitions.map((fieldDef) => (
+                {attributes.map((attrDef) => (
                     <DynamicFormField
-                        key={fieldDef.id}
-                        fieldDef={fieldDef}
+                        key={attrDef.id}
+                        fieldDef={attrDef}
                         control={form.control}
-                        name={`customFields.${fieldDef.fieldName}`}
+                        name={`attributes.${attrDef.name}`}
                     />
                 ))}
 

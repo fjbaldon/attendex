@@ -1,4 +1,4 @@
-import {clsx, type ClassValue} from "clsx";
+import {type ClassValue, clsx} from "clsx";
 import {twMerge} from "tailwind-merge";
 import {AxiosError} from "axios";
 import {ApiErrorResponse} from "@/types";
@@ -8,24 +8,24 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const getErrorMessage = (error: unknown, defaultMessage: string): string => {
+    let message = defaultMessage;
+
     if (error instanceof AxiosError) {
-        if (error.response?.data) {
-            const errorData = error.response.data as ApiErrorResponse;
-            if (errorData.validationErrors && Object.keys(errorData.validationErrors).length > 0) {
-                return Object.values(errorData.validationErrors)[0];
-            }
-            if (errorData.message) {
-                return errorData.message;
-            }
+        const errorData = error.response?.data as ApiErrorResponse;
+
+        if (errorData?.validationErrors && Object.keys(errorData.validationErrors).length > 0) {
+            message = Object.values(errorData.validationErrors)[0];
         }
-        if (error.request) {
-            return "Cannot connect to the server. Please check your network connection.";
+        else if (errorData?.message) {
+            message = errorData.message;
+        }
+        else if (!error.response) {
+            message = "Cannot connect to the server. Please check your network connection.";
         }
     }
-
-    if (error instanceof Error) {
-        return error.message;
+    else if (error instanceof Error) {
+        message = error.message;
     }
 
-    return defaultMessage;
+    return message;
 };
