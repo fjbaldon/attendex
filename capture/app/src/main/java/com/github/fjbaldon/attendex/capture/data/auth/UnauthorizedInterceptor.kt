@@ -1,6 +1,5 @@
 package com.github.fjbaldon.attendex.capture.data.auth
 
-import com.github.fjbaldon.attendex.capture.data.repository.AuthRepository
 import okhttp3.Interceptor
 import okhttp3.Response
 import javax.inject.Inject

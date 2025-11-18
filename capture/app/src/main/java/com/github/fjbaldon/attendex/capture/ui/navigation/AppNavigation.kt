@@ -11,10 +11,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.github.fjbaldon.attendex.capture.ui.screens.eventlist.EventListScreen
-import com.github.fjbaldon.attendex.capture.ui.screens.login.LoginScreen
-import com.github.fjbaldon.attendex.capture.ui.screens.scanner.ScannerScreen
-import com.github.fjbaldon.attendex.capture.ui.screens.splash.SplashScreen
+import com.github.fjbaldon.attendex.capture.feature.eventlist.EventListScreen
+import com.github.fjbaldon.attendex.capture.feature.login.LoginScreen
+import com.github.fjbaldon.attendex.capture.feature.scanner.ScannerScreen
+import com.github.fjbaldon.attendex.capture.feature.splash.SplashScreen
 
 @Composable
 fun AppNavigation(

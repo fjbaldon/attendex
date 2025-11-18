@@ -2,16 +2,16 @@ package com.github.fjbaldon.attendex.capture.di
 
 import android.content.Context
 import androidx.room.Room
+import com.github.fjbaldon.attendex.capture.core.data.local.AppDatabase
+import com.github.fjbaldon.attendex.capture.core.data.local.dao.AttendanceRecordDao
+import com.github.fjbaldon.attendex.capture.core.data.local.dao.AttendeeDao
+import com.github.fjbaldon.attendex.capture.core.data.local.dao.EventDao
+import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
 import com.github.fjbaldon.attendex.capture.data.auth.AuthInterceptor
+import com.github.fjbaldon.attendex.capture.data.auth.AuthRepository
 import com.github.fjbaldon.attendex.capture.data.auth.SessionManager
 import com.github.fjbaldon.attendex.capture.data.auth.UnauthorizedInterceptor
-import com.github.fjbaldon.attendex.capture.data.local.AppDatabase
-import com.github.fjbaldon.attendex.capture.data.local.dao.AttendanceRecordDao
-import com.github.fjbaldon.attendex.capture.data.local.dao.AttendeeDao
-import com.github.fjbaldon.attendex.capture.data.local.dao.EventDao
-import com.github.fjbaldon.attendex.capture.data.remote.ApiService
-import com.github.fjbaldon.attendex.capture.data.repository.AuthRepository
-import com.github.fjbaldon.attendex.capture.data.repository.EventRepository
+import com.github.fjbaldon.attendex.capture.data.event.EventRepository
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -109,6 +109,6 @@ object AppModule {
         attendeeDao: AttendeeDao,
         attendanceRecordDao: AttendanceRecordDao
     ): EventRepository {
-        return EventRepository(apiService, appDatabase, eventDao, attendeeDao, attendanceRecordDao) // <-- AND HERE
+        return EventRepository(apiService, appDatabase, eventDao, attendeeDao, attendanceRecordDao)
     }
 }
