@@ -24,9 +24,9 @@ export const useAuth = () => {
             setToken(data.accessToken, decoded.sub, decoded.forcePasswordChange);
 
             const isOrganizer = decoded.roles.includes('ROLE_ORGANIZER');
-            const isSystemAdmin = decoded.roles.includes('ROLE_SYSTEM_ADMIN');
+            const isSteward = decoded.roles.includes('ROLE_STEWARD');
 
-            if (!isOrganizer && !isSystemAdmin) {
+            if (!isOrganizer && !isSteward) {
                 toast.error("Access Denied", {
                     description: "This account does not have permission to access the dashboard.",
                 });
@@ -39,7 +39,7 @@ export const useAuth = () => {
                     description: "Please create a new password to continue.",
                 });
                 router.replace("/force-password-change");
-            } else if (isSystemAdmin) {
+            } else if (isSteward) {
                 router.replace("/admin/dashboard");
             } else {
                 toast.success("Login successful!", {
@@ -63,13 +63,8 @@ export const useAuth = () => {
         },
     });
 
-    const registerMutation = useMutation<
-        void,
-        AxiosError<ApiErrorResponse>,
-        RegisterRequest
-    >({
-        mutationFn: (userInfo) =>
-            api.post("/api/v1/auth/register-organization", userInfo).then((res) => res.data),
+    const registerMutation = useMutation<void, AxiosError<ApiErrorResponse>, RegisterRequest>({
+        mutationFn: (userInfo) => api.post("/api/v1/organizations", userInfo).then((res) => res.data),
         onSuccess: () => {
             router.push("/register-success");
         },

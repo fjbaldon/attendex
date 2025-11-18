@@ -14,28 +14,29 @@ import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/
 import {Input} from "@/components/ui/input";
 import {z} from "zod";
 import {zodResolver} from "@hookform/resolvers/zod";
-import {useSystemAdmins} from "@/hooks/use-system-admins";
-import {SystemAdminCreateRequest} from "@/types";
+import {useStewards} from "@/hooks/use-stewards";
+import {StewardCreateRequest} from "@/types";
 
-interface AddAdminDialogProps {
+interface AddStewardDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
 
-const addAdminSchema = z.object({
+const addStewardSchema = z.object({
     email: z.email("Please enter a valid email address."),
-    temporaryPassword: z.string().min(8, "Password must be at least 8 characters long."),
+    password: z.string().min(8, "Password must be at least 8 characters long."),
 });
 
-export function AddAdminDialog({open, onOpenChange}: AddAdminDialogProps) {
-    const {createAdmin, isCreatingAdmin} = useSystemAdmins();
-    const form = useForm<z.infer<typeof addAdminSchema>>({
-        resolver: zodResolver(addAdminSchema),
-        defaultValues: {email: "", temporaryPassword: ""},
+export function AddStewardDialog({open, onOpenChange}: AddStewardDialogProps) {
+    const {createSteward, isCreatingSteward} = useStewards();
+
+    const form = useForm<z.infer<typeof addStewardSchema>>({
+        resolver: zodResolver(addStewardSchema),
+        defaultValues: {email: "", password: ""},
     });
 
-    const onSubmit = (values: SystemAdminCreateRequest) => {
-        createAdmin(values, {
+    const onSubmit = (values: StewardCreateRequest) => {
+        createSteward(values, {
             onSuccess: () => {
                 onOpenChange(false);
                 form.reset();
@@ -47,14 +48,14 @@ export function AddAdminDialog({open, onOpenChange}: AddAdminDialogProps) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Add New System Administrator</DialogTitle>
+                    <DialogTitle>Add New Steward</DialogTitle>
                     <DialogDescription>
                         This user will have full access to manage all organizations. They will be required to change
                         their password on first login.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                    <form id="add-admin-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form id="add-steward-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
                             name="email"
@@ -70,7 +71,7 @@ export function AddAdminDialog({open, onOpenChange}: AddAdminDialogProps) {
                         />
                         <FormField
                             control={form.control}
-                            name="temporaryPassword"
+                            name="password" // CORRECTED: from temporaryPassword
                             render={({field}) => (
                                 <FormItem>
                                     <FormLabel>Temporary Password</FormLabel>
@@ -85,8 +86,8 @@ export function AddAdminDialog({open, onOpenChange}: AddAdminDialogProps) {
                 </Form>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button type="submit" form="add-admin-form" disabled={isCreatingAdmin}>
-                        {isCreatingAdmin ? "Adding Admin..." : "Add Admin"}
+                    <Button type="submit" form="add-steward-form" disabled={isCreatingSteward}>
+                        {isCreatingSteward ? "Adding Steward..." : "Add Steward"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

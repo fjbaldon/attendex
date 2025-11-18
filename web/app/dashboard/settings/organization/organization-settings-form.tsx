@@ -28,7 +28,7 @@ export function OrganizationSettingsForm({organization, onSubmit, isLoading}: Or
     useEffect(() => {
         form.reset({
             name: organization.name,
-            identifierFormatRegex: organization.identifierFormatRegex || "",
+            identifierFormatRegex: organization.identityFormatRegex || "",
         });
     }, [organization, form]);
 

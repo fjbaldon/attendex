@@ -18,18 +18,18 @@ import {
     BreadcrumbSeparator
 } from "@/components/ui/breadcrumb";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
-import {getCheckedInColumns} from "./checked-in-columns";
-import {CheckedInAttendeesDataTable} from "./checked-in-attendees-data-table";
-import {useCustomFields} from "@/hooks/use-custom-fields";
-import {getCheckedOutColumns} from "./checked-out-columns";
-import {CheckedOutAttendeesDataTable} from "./checked-out-attendees-data-table";
+import {getArrivalsColumns} from "./arrivals-columns";
+import {ArrivalsDataTable} from "./arrivals-data-table";
+import {useAttributes} from "@/hooks/use-attributes";
+import {getDeparturesColumns} from "./departures-columns";
+import {DeparturesDataTable} from "./departures-data-table";
 
-type TabType = 'roster' | 'checked-in' | 'checked-out';
+type TabType = 'roster' | 'arrival' | 'departure';
 
 export default function EventDetailsPage() {
     const params = useParams();
     const eventId = Number(params.id);
-    const [activeTab, setActiveTab] = React.useState<TabType>('checked-in');
+    const [activeTab, setActiveTab] = React.useState<TabType>('arrival');
 
     const [pagination, setPagination] = React.useState({
         pageIndex: 0,
@@ -41,13 +41,13 @@ export default function EventDetailsPage() {
         isLoadingEvent,
         attendeesData,
         isLoadingAttendees,
-        checkedInData,
-        isLoadingCheckedIn,
-        checkedOutData,
-        isLoadingCheckedOut,
+        arrivalsData,
+        isLoadingArrivals,
+        departuresData,
+        isLoadingDepartures,
     } = useEventDetails(eventId, pagination);
 
-    const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useCustomFields();
+    const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useAttributes();
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab as TabType);
@@ -55,8 +55,8 @@ export default function EventDetailsPage() {
     }
 
     const rosterColumns = React.useMemo(() => getRosterColumns(customFieldDefinitions), [customFieldDefinitions]);
-    const checkedInColumns = React.useMemo(() => getCheckedInColumns(customFieldDefinitions), [customFieldDefinitions]);
-    const checkedOutColumns = React.useMemo(() => getCheckedOutColumns(customFieldDefinitions), [customFieldDefinitions]);
+    const checkedInColumns = React.useMemo(() => getArrivalsColumns(customFieldDefinitions), [customFieldDefinitions]);
+    const checkedOutColumns = React.useMemo(() => getDeparturesColumns(customFieldDefinitions), [customFieldDefinitions]);
 
     return (
         <SidebarProvider
@@ -77,7 +77,7 @@ export default function EventDetailsPage() {
                             <BreadcrumbSeparator/>
                             <BreadcrumbItem>
                                 {isLoadingEvent ? <Skeleton className="h-5 w-32"/> :
-                                    <BreadcrumbPage>{event?.eventName}</BreadcrumbPage>}
+                                    <BreadcrumbPage>{event?.name}</BreadcrumbPage>}
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
@@ -85,15 +85,15 @@ export default function EventDetailsPage() {
                     <div className="flex items-center">
                         <div>
                             {isLoadingEvent ? <Skeleton className="h-8 w-64"/> :
-                                <h1 className="text-lg font-semibold md:text-2xl">{event?.eventName}</h1>}
+                                <h1 className="text-lg font-semibold md:text-2xl">{event?.name}</h1>}
                         </div>
                     </div>
 
                     <Tabs value={activeTab} onValueChange={handleTabChange}>
                         <TabsList>
                             <TabsTrigger value="roster">Roster</TabsTrigger>
-                            <TabsTrigger value="checked-in">Checked-in</TabsTrigger>
-                            <TabsTrigger value="checked-out">Checked-out</TabsTrigger>
+                            <TabsTrigger value="arrival">Arrival</TabsTrigger>
+                            <TabsTrigger value="departure">Departure</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="roster">
@@ -108,25 +108,25 @@ export default function EventDetailsPage() {
                             />
                         </TabsContent>
 
-                        <TabsContent value="checked-in">
-                            <CheckedInAttendeesDataTable
+                        <TabsContent value="arrival">
+                            <ArrivalsDataTable
                                 columns={checkedInColumns}
-                                data={checkedInData?.content ?? []}
-                                pageCount={checkedInData?.totalPages ?? 0}
+                                data={arrivalsData?.content ?? []}
+                                pageCount={arrivalsData?.totalPages ?? 0}
                                 pagination={pagination}
                                 setPagination={setPagination}
-                                isLoading={isLoadingCheckedIn || isLoadingCustomFields}
+                                isLoading={isLoadingArrivals || isLoadingCustomFields}
                             />
                         </TabsContent>
 
-                        <TabsContent value="checked-out">
-                            <CheckedOutAttendeesDataTable
+                        <TabsContent value="departure">
+                            <DeparturesDataTable
                                 columns={checkedOutColumns}
-                                data={checkedOutData?.content ?? []}
-                                pageCount={checkedOutData?.totalPages ?? 0}
+                                data={departuresData?.content ?? []}
+                                pageCount={departuresData?.totalPages ?? 0}
                                 pagination={pagination}
                                 setPagination={setPagination}
-                                isLoading={isLoadingCheckedOut || isLoadingCustomFields}
+                                isLoading={isLoadingDepartures || isLoadingCustomFields}
                             />
                         </TabsContent>
                     </Tabs>

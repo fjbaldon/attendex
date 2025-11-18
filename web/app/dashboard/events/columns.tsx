@@ -76,12 +76,12 @@ const formatTime = (dateString: string | Date) => {
 export const getColumns = (router: AppRouterInstance): ColumnDef<EventResponse>[] => [
     selectColumn<EventResponse>(),
     {
-        accessorKey: "eventName",
+        accessorKey: "name",
         header: "Event",
         cell: ({row}) => (
             <Link href={`/dashboard/events/${row.original.id}`}
                   className="font-medium text-primary underline-offset-4 hover:underline">
-                {row.original.eventName}
+                {row.original.name}
             </Link>
         ),
         enableHiding: false,
@@ -108,15 +108,15 @@ export const getColumns = (router: AppRouterInstance): ColumnDef<EventResponse>[
         }
     },
     {
-        id: 'schedule',
-        header: 'Activities',
+        id: 'sessions',
+        header: 'Sessions',
         cell: ({row}) => {
-            const {timeSlots} = row.original;
-            if (!timeSlots || timeSlots.length === 0) {
-                return <span className="text-muted-foreground italic text-sm">No activities</span>;
+            const {sessions} = row.original;
+            if (!sessions || sessions.length === 0) {
+                return <span className="text-muted-foreground italic text-sm">No sessions</span>;
             }
 
-            const summary = `${timeSlots.length} activities`;
+            const summary = `${sessions.length} sessions`;
 
             return (
                 <Popover>
@@ -127,24 +127,24 @@ export const getColumns = (router: AppRouterInstance): ColumnDef<EventResponse>[
                     <PopoverContent className="w-80">
                         <div className="grid gap-4">
                             <div className="space-y-2">
-                                <h4 className="font-medium leading-none">Event Activities</h4>
+                                <h4 className="font-medium leading-none">Event Sessions</h4>
                                 <p className="text-sm text-muted-foreground">
                                     Key scheduled times for this event.
                                 </p>
                             </div>
                             <div className="grid gap-2">
-                                {timeSlots.map((slot, index) => (
+                                {sessions.map((session, index) => (
                                     <div key={index}
                                          className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 text-sm">
                                         <Badge
-                                            variant={slot.type === 'CHECK_IN' ? 'default' : 'secondary'}
+                                            variant={session.intent === 'Arrival' ? 'default' : 'secondary'}
                                             className="font-normal"
                                         >
-                                            {slot.type === 'CHECK_IN' ? 'Check-in' : 'Check-out'}
+                                            {session.intent}
                                         </Badge>
-                                        <span className="font-medium truncate">{slot.activityName}</span>
+                                        <span className="font-medium truncate">{session.activityName}</span>
                                         <span className="text-muted-foreground justify-self-end">
-                                            {formatTime(slot.targetTime)}
+                                            {formatTime(session.targetTime)}
                                         </span>
                                     </div>
                                 ))}

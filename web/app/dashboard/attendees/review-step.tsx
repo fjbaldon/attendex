@@ -16,7 +16,7 @@ interface ReviewStepProps {
 }
 
 const validColumns: ColumnDef<AttendeeRequest>[] = [
-    {accessorKey: "uniqueIdentifier", header: "Identifier"},
+    {accessorKey: "identity", header: "Identifier"},
     {accessorKey: "lastName", header: "Last Name"},
     {accessorKey: "firstName", header: "First Name"},
 ];

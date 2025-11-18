@@ -3,25 +3,25 @@
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle} from "@/components/ui/drawer";
 import {useIsMobile} from "@/hooks/use-mobile";
-import {CustomFieldForm} from "./custom-field-form";
-import {CustomFieldDefinition} from "@/types";
+import {AttributeForm} from "./attribute-form";
+import {Attribute} from "@/types";
 
-interface CustomFieldDialogProps {
+interface AttributeDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    field: CustomFieldDefinition | null;
+    attribute: Attribute | null;
 }
 
-export function CustomFieldDialog({open, onOpenChange, field}: CustomFieldDialogProps) {
+export function AttributeDialog({open, onOpenChange, attribute}: AttributeDialogProps) {
     const isMobile = useIsMobile();
-    const isEditing = !!field;
+    const isEditing = !!attribute;
 
-    const title = isEditing ? "Edit Custom Field" : "Add New Custom Field";
+    const title = isEditing ? "Edit Attribute" : "Add New Attribute";
     const description = isEditing
-        ? "Update the options for your custom field. Note: name and type cannot be changed."
-        : "Create a new field to capture additional attendee information.";
+        ? "Update the options for this attribute. Note: name and type cannot be changed."
+        : "Create a new attribute to capture additional attendee information.";
 
-    const form = <CustomFieldForm field={field} onSuccess={() => onOpenChange(false)}/>;
+    const form = <AttributeForm attribute={attribute} onSuccess={() => onOpenChange(false)}/>;
 
     if (isMobile) {
         return (

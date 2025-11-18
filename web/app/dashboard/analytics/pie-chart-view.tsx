@@ -21,7 +21,7 @@ const COLORS = [
 
 function PieChartComponent({data, total}: PieChartViewProps) {
     const formattedData = data.map(item => ({
-        name: item.groupName,
+        name: item.value,
         value: item.count,
     }));
 

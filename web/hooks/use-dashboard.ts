@@ -6,24 +6,20 @@ export const useDashboard = (timeRange: string) => {
     const {data: dashboardData, isLoading: isLoadingDashboardData} = useQuery<DashboardData>({
         queryKey: ["dashboardAll"],
         queryFn: async () => {
-            const response = await api.get("/api/v1/dashboard/all");
+            const response = await api.get("/api/v1/dashboard");
             return response.data;
         },
     });
 
-    const {data: activity, isLoading: isLoadingActivity} = useQuery<DailyActivity[]>({
-        queryKey: ["dashboardActivity", timeRange],
-        queryFn: async () => {
-            const response = await api.get("/api/v1/dashboard/activity", {
-                params: {range: timeRange}
-            });
-            return response.data;
-        },
-    });
+    // The activity data is no longer fetched separately in the platform backend.
+    // For now, we return an empty array to satisfy the component props.
+    // A future enhancement could be a dedicated activity endpoint if needed.
+    const activity: DailyActivity[] = [];
+    const isLoadingActivity = false;
 
     return {
         dashboardData,
         isLoading: isLoadingDashboardData || isLoadingActivity,
-        activity: activity || [],
+        activity,
     };
 };

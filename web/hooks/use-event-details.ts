@@ -1,6 +1,6 @@
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import api from "@/lib/api";
-import {ApiErrorResponse, AttendeeResponse, CheckedInAttendeeResponse, EventResponse, PaginatedResponse} from "@/types";
+import {ApiErrorResponse, AttendeeResponse, EntryDetailsDto, EventResponse, PaginatedResponse} from "@/types";
 import {toast} from "sonner";
 import {getErrorMessage} from "@/lib/utils";
 import {AxiosError} from "axios";
@@ -17,7 +17,7 @@ export const useEventDetails = (eventId: number | null, pagination: PageParams) 
     const {pageIndex, pageSize} = pagination;
 
     const {data: event, isLoading: isLoadingEvent} = useQuery<EventResponse>({
-        queryKey: ["eventDetails", eventId, "details"],
+        queryKey: ["eventDetails", eventId],
         queryFn: async () => {
             if (!eventId) return null;
             const response = await api.get(`/api/v1/events/${eventId}`);
@@ -27,10 +27,10 @@ export const useEventDetails = (eventId: number | null, pagination: PageParams) 
     });
 
     const {data: attendeesData, isLoading: isLoadingAttendees} = useQuery<PaginatedResponse<AttendeeResponse>>({
-        queryKey: ["eventDetails", eventId, "attendees", pageIndex, pageSize],
+        queryKey: ["eventDetails", eventId, "roster", pageIndex, pageSize],
         queryFn: async () => {
             if (!eventId) return null;
-            const response = await api.get(`/api/v1/events/${eventId}/attendees`, {
+            const response = await api.get(`/api/v1/events/${eventId}/roster`, {
                 params: {page: pageIndex, size: pageSize}
             });
             return response.data;
@@ -39,13 +39,13 @@ export const useEventDetails = (eventId: number | null, pagination: PageParams) 
     });
 
     const {
-        data: checkedInData,
-        isLoading: isLoadingCheckedIn
-    } = useQuery<PaginatedResponse<CheckedInAttendeeResponse>>({
-        queryKey: ["eventDetails", eventId, "checkedIn", pageIndex, pageSize],
+        data: arrivalsData,
+        isLoading: isLoadingArrivals
+    } = useQuery<PaginatedResponse<EntryDetailsDto>>({
+        queryKey: ["eventDetails", eventId, "arrivals", pageIndex, pageSize],
         queryFn: async () => {
             if (!eventId) return null;
-            const response = await api.get(`/api/v1/events/${eventId}/checked-in`, {
+            const response = await api.get(`/api/v1/events/${eventId}/arrivals`, {
                 params: {page: pageIndex, size: pageSize}
             });
             return response.data;
@@ -55,13 +55,13 @@ export const useEventDetails = (eventId: number | null, pagination: PageParams) 
     });
 
     const {
-        data: checkedOutData,
-        isLoading: isLoadingCheckedOut
-    } = useQuery<PaginatedResponse<CheckedInAttendeeResponse>>({
-        queryKey: ["eventDetails", eventId, "checkedOut", pageIndex, pageSize],
+        data: departuresData,
+        isLoading: isLoadingDepartures
+    } = useQuery<PaginatedResponse<EntryDetailsDto>>({
+        queryKey: ["eventDetails", eventId, "departures", pageIndex, pageSize],
         queryFn: async () => {
             if (!eventId) return null;
-            const response = await api.get(`/api/v1/events/${eventId}/checked-out`, {
+            const response = await api.get(`/api/v1/events/${eventId}/departures`, {
                 params: {page: pageIndex, size: pageSize}
             });
             return response.data;
@@ -69,14 +69,15 @@ export const useEventDetails = (eventId: number | null, pagination: PageParams) 
         enabled: !!eventId,
         refetchInterval: REFETCH_INTERVAL_MS,
     });
+
 
     const addAttendeeMutation = useMutation<void, AxiosError<ApiErrorResponse>, {
         eventId: number;
         attendeeId: number;
     }>({
-        mutationFn: ({eventId, attendeeId}) => api.post(`/api/v1/events/${eventId}/attendees/${attendeeId}`),
+        mutationFn: ({eventId, attendeeId}) => api.post(`/api/v1/events/${eventId}/roster/${attendeeId}`),
         onSuccess: (_, {eventId}) => {
-            toast.success("Attendee added to event successfully!");
+            toast.success("Attendee added to roster successfully!");
             return queryClient.invalidateQueries({queryKey: ["eventDetails", eventId]});
         },
         onError: (error) => toast.error("Failed to add attendee", {description: getErrorMessage(error, "An unknown error occurred.")}),
@@ -86,9 +87,9 @@ export const useEventDetails = (eventId: number | null, pagination: PageParams) 
         eventId: number;
         attendeeId: number;
     }>({
-        mutationFn: ({eventId, attendeeId}) => api.delete(`/api/v1/events/${eventId}/attendees/${attendeeId}`),
+        mutationFn: ({eventId, attendeeId}) => api.delete(`/api/v1/events/${eventId}/roster/${attendeeId}`),
         onSuccess: (_, {eventId}) => {
-            toast.success("Attendee removed from event successfully!");
+            toast.success("Attendee removed from roster successfully!");
             return queryClient.invalidateQueries({queryKey: ["eventDetails", eventId]});
         },
         onError: (error) => toast.error("Failed to remove attendee", {description: getErrorMessage(error, "An unknown error occurred.")}),
@@ -97,16 +98,12 @@ export const useEventDetails = (eventId: number | null, pagination: PageParams) 
     return {
         event,
         isLoadingEvent,
-
         attendeesData,
         isLoadingAttendees,
-
-        checkedInData,
-        isLoadingCheckedIn,
-
-        checkedOutData,
-        isLoadingCheckedOut,
-
+        arrivalsData,
+        isLoadingArrivals,
+        departuresData,
+        isLoadingDepartures,
         addAttendee: addAttendeeMutation.mutate,
         isAddingAttendee: addAttendeeMutation.isPending,
         removeAttendee: removeAttendeeMutation.mutate,

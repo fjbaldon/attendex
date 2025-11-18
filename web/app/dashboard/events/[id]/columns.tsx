@@ -1,13 +1,14 @@
 "use client";
 
 import {ColumnDef} from "@tanstack/react-table";
-import {AttendeeResponse, CustomFieldDefinition} from "@/types";
-import {IconTrash} from "@tabler/icons-react";
+import {AttendeeResponse, Attribute} from "@/types";
 import {createAttendeeBaseColumns} from "../../attendees/attendee-column-helper";
 import {createActionsColumn} from "@/components/shared/data-table-action-column";
+import {selectColumn} from "@/components/shared/data-table-columns";
+import {IconTrash} from "@tabler/icons-react";
 
-export const getColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<AttendeeResponse>[] => {
-    const baseColumns = createAttendeeBaseColumns<AttendeeResponse>(customFieldDefs);
+export const getColumns = (attributes: Attribute[]): ColumnDef<AttendeeResponse>[] => {
+    const baseColumns = createAttendeeBaseColumns<AttendeeResponse>(attributes);
 
     const actionColumn = createActionsColumn<AttendeeResponse>([
         {
@@ -18,5 +19,5 @@ export const getColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<
         },
     ]);
 
-    return [...baseColumns, actionColumn];
+    return [selectColumn<AttendeeResponse>(), ...baseColumns, actionColumn];
 };

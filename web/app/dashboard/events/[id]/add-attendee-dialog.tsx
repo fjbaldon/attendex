@@ -26,7 +26,7 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/c
 import {Input} from "@/components/ui/input";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {getColumns} from "./add-attendees-columns";
-import {useCustomFields} from "@/hooks/use-custom-fields";
+import {useAttributes} from "@/hooks/use-attributes";
 import {Skeleton} from "@/components/ui/skeleton";
 import {
     DropdownMenu,
@@ -114,7 +114,7 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
     const {data: eventAttendees, isLoading: isLoadingEventAttendees} = useEventRoster(eventId);
 
     const {addAttendee, isAddingAttendee} = useEventDetails(eventId, {pageIndex: 0, pageSize: 10});
-    const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useCustomFields();
+    const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useAttributes();
 
     const columns = useMemo(() => getColumns(customFieldDefinitions), [customFieldDefinitions]);
 

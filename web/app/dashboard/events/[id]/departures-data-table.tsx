@@ -2,23 +2,24 @@
 
 import * as React from "react";
 import {ColumnDef} from "@tanstack/react-table";
-import {CheckedInAttendeeResponse} from "@/types";
+import {EntryDetailsDto} from "@/types";
 import {SimpleFilteredDataTable} from "@/components/shared/simple-filtered-data-table";
 
-interface CheckedInAttendeesDataTableProps {
-    columns: ColumnDef<CheckedInAttendeeResponse>[];
-    data: CheckedInAttendeeResponse[];
+interface DeparturesDataTableProps {
+    columns: ColumnDef<EntryDetailsDto>[];
+    data: EntryDetailsDto[];
     isLoading: boolean;
     pageCount: number;
     pagination: { pageIndex: number; pageSize: number; };
     setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
 }
 
-export function CheckedInAttendeesDataTable(props: CheckedInAttendeesDataTableProps) {
+export function DeparturesDataTable(props: DeparturesDataTableProps) {
     return (
         <SimpleFilteredDataTable
             {...props}
-            filterPlaceholder="Filter attendees by name..."
+            filterPlaceholder="Filter by name..."
+            filterColumnFn={(item) => `${item.attendee.firstName} ${item.attendee.lastName}`}
         />
     );
 }

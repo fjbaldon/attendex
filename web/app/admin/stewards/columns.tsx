@@ -1,12 +1,12 @@
 "use client";
 
 import {ColumnDef} from "@tanstack/react-table";
-import {SystemAdmin} from "@/types";
+import {Steward} from "@/types";
 import {IconKey, IconTrash} from "@tabler/icons-react";
 import {createActionsColumn} from "@/components/shared/data-table-action-column";
 import {format} from "date-fns";
 
-export const columns: ColumnDef<SystemAdmin>[] = [
+export const columns: ColumnDef<Steward>[] = [
     {
         accessorKey: "email",
         header: () => <div className="pl-4">Email Address</div>,
@@ -21,7 +21,7 @@ export const columns: ColumnDef<SystemAdmin>[] = [
             </div>
         ),
     },
-    createActionsColumn<SystemAdmin>([
+    createActionsColumn<Steward>([
         {
             icon: IconKey,
             label: "Reset Password",
@@ -29,7 +29,7 @@ export const columns: ColumnDef<SystemAdmin>[] = [
         },
         {
             icon: IconTrash,
-            label: "Delete Admin",
+            label: "Delete Steward",
             isDestructive: true,
             onClick: (row, table) => table.options.meta?.openDeleteDialog?.(row.original),
         }

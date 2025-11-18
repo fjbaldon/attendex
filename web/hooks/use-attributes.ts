@@ -3,49 +3,49 @@ import api from "@/lib/api";
 import {toast} from "sonner";
 import {AxiosError} from "axios";
 import {getErrorMessage} from "@/lib/utils";
-import {ApiErrorResponse, CustomFieldDefinition, CustomFieldDefinitionRequest} from "@/types";
+import {ApiErrorResponse, Attribute, AttributeRequest} from "@/types";
 
-export const useCustomFields = () => {
+export const useAttributes = () => {
     const queryClient = useQueryClient();
-    const queryKey = ["customFieldDefinitions"];
+    const queryKey = ["attributes"];
 
-    const {data: definitions, isLoading} = useQuery<CustomFieldDefinition[]>({
+    const {data: definitions, isLoading} = useQuery<Attribute[]>({
         queryKey,
         queryFn: async () => {
-            const response = await api.get("/api/v1/custom-fields");
+            const response = await api.get("/api/v1/attendees/attributes");
             return response.data;
         },
     });
 
     const createDefinitionMutation = useMutation<
-        CustomFieldDefinition,
+        Attribute,
         AxiosError<ApiErrorResponse>,
-        CustomFieldDefinitionRequest
+        AttributeRequest
     >({
-        mutationFn: (newDefinition) => api.post("/api/v1/custom-fields", newDefinition),
+        mutationFn: (newDefinition) => api.post("/api/v1/attendees/attributes", newDefinition),
         onSuccess: async () => {
-            toast.success("Custom field added successfully!");
+            toast.success("Attribute added successfully!");
             await queryClient.invalidateQueries({queryKey});
         },
         onError: (error) => {
-            toast.error("Failed to add field", {
+            toast.error("Failed to add attribute", {
                 description: getErrorMessage(error, "An unknown error occurred."),
             });
         },
     });
 
     const updateDefinitionMutation = useMutation<
-        CustomFieldDefinition,
+        Attribute,
         AxiosError<ApiErrorResponse>,
-        { fieldId: number; data: CustomFieldDefinitionRequest }
+        { attributeId: number; data: AttributeRequest }
     >({
-        mutationFn: ({fieldId, data}) => api.put(`/api/v1/custom-fields/${fieldId}`, data),
+        mutationFn: ({attributeId, data}) => api.put(`/api/v1/attendees/attributes/${attributeId}`, data),
         onSuccess: async () => {
-            toast.success("Custom field updated successfully!");
+            toast.success("Attribute updated successfully!");
             await queryClient.invalidateQueries({queryKey});
         },
         onError: (error) => {
-            toast.error("Failed to update field", {
+            toast.error("Failed to update attribute", {
                 description: getErrorMessage(error, "An unknown error occurred."),
             });
         },
@@ -56,14 +56,14 @@ export const useCustomFields = () => {
         AxiosError<ApiErrorResponse>,
         number
     >({
-        mutationFn: (fieldId) => api.delete(`/api/v1/custom-fields/${fieldId}`),
+        mutationFn: (attributeId) => api.delete(`/api/v1/attendees/attributes/${attributeId}`),
         onSuccess: async () => {
-            toast.success("Custom field removed successfully!");
+            toast.success("Attribute removed successfully!");
             await queryClient.invalidateQueries({queryKey});
         },
         onError: (error) => {
-            toast.error("Failed to remove field", {
-                description: getErrorMessage(error, "The field might be in use by an attendee."),
+            toast.error("Failed to remove attribute", {
+                description: getErrorMessage(error, "The attribute might be in use by an attendee."),
             });
         },
     });

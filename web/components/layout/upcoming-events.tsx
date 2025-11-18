@@ -20,9 +20,7 @@ export function UpcomingEvents({events, isLoading}: UpcomingEventsProps) {
             <CardContent className="flex-grow">
                 {isLoading ? (
                     <div className="space-y-4">
-                        <Skeleton className="h-10 w-full"/>
-                        <Skeleton className="h-10 w-full"/>
-                        <Skeleton className="h-10 w-full"/>
+                        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full"/>)}
                     </div>
                 ) : !events || events.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center">
@@ -43,7 +41,7 @@ export function UpcomingEvents({events, isLoading}: UpcomingEventsProps) {
                                     <TableCell className="font-medium">
                                         <Link href={`/dashboard/events/${event.id}`}
                                               className="hover:underline underline-offset-4">
-                                            {event.eventName}
+                                            {event.name}
                                         </Link>
                                     </TableCell>
                                     <TableCell className="text-right text-muted-foreground text-sm">

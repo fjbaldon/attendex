@@ -3,40 +3,40 @@
 import {useForm} from "react-hook-form";
 import {z} from "zod";
 import {zodResolver} from "@hookform/resolvers/zod";
-import {customFieldSchema} from "@/lib/schemas";
-import {useCustomFields} from "@/hooks/use-custom-fields";
+import {attributeSchema} from "@/lib/schemas";
+import {useAttributes} from "@/hooks/use-attributes";
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
-import {CustomFieldDefinition} from "@/types";
+import {Attribute} from "@/types";
 
-interface CustomFieldFormProps {
+interface AttributeFormProps {
     onSuccess: () => void;
-    field: CustomFieldDefinition | null;
+    attribute: Attribute | null;
 }
 
-export function CustomFieldForm({onSuccess, field}: CustomFieldFormProps) {
-    const {createDefinition, isCreating, updateDefinition, isUpdating} = useCustomFields();
-    const isEditing = !!field;
+export function AttributeForm({onSuccess, attribute}: AttributeFormProps) {
+    const {createDefinition, isCreating, updateDefinition, isUpdating} = useAttributes();
+    const isEditing = !!attribute;
 
-    const form = useForm<z.infer<typeof customFieldSchema>>({
-        resolver: zodResolver(customFieldSchema),
+    const form = useForm<z.infer<typeof attributeSchema>>({
+        resolver: zodResolver(attributeSchema),
         defaultValues: {
-            fieldName: field?.fieldName || "",
-            options: field?.options?.join(', ') || "",
+            name: attribute?.name || "",
+            options: attribute?.options?.join(', ') || "",
         },
     });
 
     const isLoading = isCreating || isUpdating;
 
-    function onSubmit(values: z.infer<typeof customFieldSchema>) {
+    function onSubmit(values: z.infer<typeof attributeSchema>) {
         const requestData = {
-            fieldName: values.fieldName,
+            name: values.name,
             options: values.options.split(',').map(opt => opt.trim()),
         };
 
         if (isEditing) {
-            updateDefinition({fieldId: field.id, data: requestData}, {onSuccess});
+            updateDefinition({attributeId: attribute.id, data: requestData}, {onSuccess});
         } else {
             createDefinition(requestData, {onSuccess});
         }
@@ -47,10 +47,10 @@ export function CustomFieldForm({onSuccess, field}: CustomFieldFormProps) {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                     control={form.control}
-                    name="fieldName"
+                    name="name"
                     render={({field}) => (
                         <FormItem className="flex flex-col gap-1.5">
-                            <FormLabel>Field Name</FormLabel>
+                            <FormLabel>Attribute Name</FormLabel>
                             <FormControl>
                                 <Input placeholder="e.g., Department" {...field} disabled={isEditing}/>
                             </FormControl>
@@ -76,7 +76,7 @@ export function CustomFieldForm({onSuccess, field}: CustomFieldFormProps) {
 
                 <div className="flex justify-end pt-4">
                     <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-                        {isLoading ? "Saving..." : isEditing ? "Save Changes" : "Add Field"}
+                        {isLoading ? "Saving..." : isEditing ? "Save Changes" : "Add Attribute"}
                     </Button>
                 </div>
             </form>

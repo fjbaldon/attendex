@@ -10,9 +10,9 @@ interface RecentEventsStatsProps {
     isLoading: boolean;
 }
 
-const calculateAttendanceRate = (registered: number, checkedIn: number): string => {
-    if (registered === 0) return "0%";
-    return `${((checkedIn / registered) * 100).toFixed(0)}%`;
+const calculateAttendanceRate = (rosterCount: number, entryCount: number): string => {
+    if (rosterCount === 0) return "0%";
+    return `${((entryCount / rosterCount) * 100).toFixed(0)}%`;
 };
 
 export function RecentEventsStats({events, isLoading}: RecentEventsStatsProps) {
@@ -53,11 +53,11 @@ export function RecentEventsStats({events, isLoading}: RecentEventsStatsProps) {
                                         </Link>
                                     </TableCell>
                                     <TableCell className="text-center text-muted-foreground text-sm">
-                                        {event.totalCheckedIn} / {event.totalRegistered}
+                                        {event.entryCount} / {event.rosterCount}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Badge variant="secondary" className="font-semibold">
-                                            {calculateAttendanceRate(event.totalRegistered, event.totalCheckedIn)}
+                                            {calculateAttendanceRate(event.rosterCount, event.entryCount)}
                                         </Badge>
                                     </TableCell>
                                 </TableRow>

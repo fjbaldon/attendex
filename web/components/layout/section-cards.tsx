@@ -1,4 +1,4 @@
-import {Card, CardContent, CardFooter, CardHeader, CardTitle,} from "@/components/ui/card";
+import {Card, CardContent, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import {DashboardStats} from "@/types";
 import {Skeleton} from "@/components/ui/skeleton";
 
@@ -12,7 +12,7 @@ export function SectionCards({stats, isLoading}: SectionCardsProps) {
         {title: "Total Events", value: stats?.totalEvents, description: "All scheduled events"},
         {title: "Total Attendees", value: stats?.totalAttendees, description: "Unique attendees registered"},
         {title: "Total Scanners", value: stats?.totalScanners, description: "Active scanner accounts"},
-        {title: "Live Check-ins (1hr)", value: stats?.liveCheckIns, description: "Recent attendance activity"},
+        {title: "Live Entries (1hr)", value: stats?.liveEntries, description: "Recent attendance activity"},
     ];
 
     return (

@@ -9,7 +9,7 @@ import {Form} from "@/components/ui/form";
 import {Button} from "@/components/ui/button";
 import {Separator} from "@/components/ui/separator";
 import {Skeleton} from "@/components/ui/skeleton";
-import {useCustomFields} from "@/hooks/use-custom-fields";
+import {useAttributes} from "@/hooks/use-attributes";
 import {DynamicFormField, StandardFormField} from "./dynamic-form-field";
 
 type AttendeeFormSubmitValues = z.infer<typeof attendeeSchema>;
@@ -22,7 +22,7 @@ interface AttendeeFormProps {
 }
 
 export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeFormProps) {
-    const {definitions, isLoading: isLoadingDefinitions} = useCustomFields();
+    const {definitions, isLoading: isLoadingDefinitions} = useAttributes();
     const isEditing = !!attendee;
 
     const defaultCustomFields = definitions.reduce((acc, field) => {

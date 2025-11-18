@@ -5,7 +5,7 @@ import {ColumnDef} from "@tanstack/react-table";
 import {Input} from "@/components/ui/input";
 import {DataTable} from "@/components/shared/data-table";
 
-interface SimpleFilteredDataTableProps<TData extends { firstName: string; lastName: string }> {
+interface SimpleFilteredDataTableProps<TData> {
     columns: ColumnDef<TData>[];
     data: TData[];
     isLoading: boolean;
@@ -13,13 +13,15 @@ interface SimpleFilteredDataTableProps<TData extends { firstName: string; lastNa
     pagination: { pageIndex: number; pageSize: number };
     setPagination: (pagination: { pageIndex: number; pageSize: number }) => void;
     filterPlaceholder: string;
+    filterColumnFn: (item: TData) => string;
 }
 
-export function SimpleFilteredDataTable<TData extends { firstName: string; lastName: string }>({
-                                                                                                   data,
-                                                                                                   filterPlaceholder,
-                                                                                                   ...props
-                                                                                               }: SimpleFilteredDataTableProps<TData>) {
+export function SimpleFilteredDataTable<TData>({
+                                                   data,
+                                                   filterPlaceholder,
+                                                   filterColumnFn,
+                                                   ...props
+                                               }: SimpleFilteredDataTableProps<TData>) {
     const [filter, setFilter] = React.useState("");
 
     const toolbar = (
@@ -35,8 +37,8 @@ export function SimpleFilteredDataTable<TData extends { firstName: string; lastN
 
     const filteredData = React.useMemo(() =>
         data.filter(item =>
-            `${item.firstName} ${item.lastName}`.toLowerCase().includes(filter.toLowerCase())
-        ), [data, filter]);
+            filterColumnFn(item).toLowerCase().includes(filter.toLowerCase())
+        ), [data, filter, filterColumnFn]);
 
     return (
         <DataTable

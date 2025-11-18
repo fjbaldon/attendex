@@ -8,7 +8,7 @@ import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
 import {useAttendees} from "@/hooks/use-attendees";
 import {getColumns} from "./columns";
 import {AttendeesDataTable} from "./attendees-data-table";
-import {useCustomFields} from "@/hooks/use-custom-fields";
+import {useAttributes} from "@/hooks/use-attributes";
 
 export default function AttendeesPage() {
     const [{pageIndex, pageSize}, setPagination] = React.useState({
@@ -17,7 +17,7 @@ export default function AttendeesPage() {
     });
 
     const {attendeesData, isLoadingAttendees} = useAttendees(pageIndex, pageSize);
-    const {definitions, isLoading: isLoadingDefinitions} = useCustomFields();
+    const {definitions, isLoading: isLoadingDefinitions} = useAttributes();
 
     const attendees = attendeesData?.content ?? [];
     const pageCount = attendeesData?.totalPages ?? 0;

@@ -18,6 +18,7 @@ import {Button} from "@/components/ui/button";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {ToggleGroup, ToggleGroupItem} from "@/components/ui/toggle-group";
 import {toast} from "sonner";
+import {useAttributes} from "@/hooks/use-attributes";
 
 const BarChart = dynamic(() => import("recharts").then(mod => mod.BarChart), {
     ssr: false,
@@ -33,7 +34,7 @@ type ChartType = 'bar' | 'pie' | 'table';
 
 export default function AnalyticsPage() {
     const [selectedEventId, setSelectedEventId] = useState<string>("");
-    const [selectedGroupBy, setSelectedGroupBy] = useState<string>("");
+    const [selectedAttribute, setSelectedAttribute] = useState<string>("");
     const [chartType, setChartType] = useState<ChartType>('bar');
     const [isExporting, setIsExporting] = useState(false);
     const analyticsContentRef = useRef<HTMLDivElement>(null);
@@ -41,13 +42,12 @@ export default function AnalyticsPage() {
     const {eventsData, isLoadingEvents} = useEvents(0, 9999);
     const events = eventsData?.content ?? [];
 
-    const {
-        customFields,
-        isLoadingCustomFields,
-        breakdown,
-        totalCheckedIn,
-        isLoadingBreakdown
-    } = useAnalytics(selectedEventId, selectedGroupBy);
+    const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
+    const {breakdown, isLoadingBreakdown} = useAnalytics(selectedEventId, selectedAttribute);
+
+    const totalCheckedIn = useMemo(() => {
+        return breakdown.reduce((sum, item) => sum + item.count, 0);
+    }, [breakdown]);
 
     const chartConfig = useMemo(() => ({
         count: {
@@ -59,8 +59,8 @@ export default function AnalyticsPage() {
     const selectedEvent = events.find(e => String(e.id) === selectedEventId);
 
     const handleExport = async () => {
-        if (!analyticsContentRef.current || !selectedEventId || !selectedGroupBy) {
-            toast.error("Please select an event and a field to export.");
+        if (!analyticsContentRef.current || !selectedEventId || !selectedAttribute) {
+            toast.error("Please select an event and an attribute to export.");
             return;
         }
 
@@ -69,8 +69,8 @@ export default function AnalyticsPage() {
 
         try {
             const {exportToPdf} = await import("@/lib/pdf-exporter");
-            const eventName = selectedEvent ? selectedEvent.eventName.replace(/ /g, '_') : 'analytics';
-            const fileName = `analytics-${eventName}-by-${selectedGroupBy}`;
+            const eventName = selectedEvent ? selectedEvent.name.replace(/ /g, '_') : 'analytics';
+            const fileName = `analytics-${eventName}-by-${selectedAttribute}`;
             await exportToPdf(analyticsContentRef.current, fileName);
         } catch (error) {
             console.error("Failed to export PDF:", error);
@@ -81,16 +81,16 @@ export default function AnalyticsPage() {
     };
 
     const EmptyState = () => {
-        let title = "Select an Event and Field";
-        let description = "Choose an event and a field to break down your checked-in attendee data.";
+        let title = "Select an Event and Attribute";
+        let description = "Choose an event and an attribute to break down your checked-in attendee data.";
 
-        if (selectedEventId && selectedGroupBy) {
+        if (selectedEventId && selectedAttribute) {
             if (totalCheckedIn === 0) {
                 title = "No Check-in Data Found";
                 description = "This event has no check-in records to analyze.";
             } else {
-                title = "No Data for this Field";
-                description = `No checked-in attendees have a value for the "${selectedGroupBy}" field.`;
+                title = "No Data for this Attribute";
+                description = `No checked-in attendees have a value for the "${selectedAttribute}" attribute.`;
             }
         }
 
@@ -109,15 +109,15 @@ export default function AnalyticsPage() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>{selectedGroupBy}</TableHead>
+                        <TableHead>{selectedAttribute}</TableHead>
                         <TableHead className="text-right">Count</TableHead>
                         <TableHead className="text-right">Percentage</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {breakdown.map((item) => (
-                        <TableRow key={item.groupName}>
-                            <TableCell className="font-medium">{item.groupName}</TableCell>
+                        <TableRow key={item.value}>
+                            <TableCell className="font-medium">{item.value}</TableCell>
                             <TableCell className="text-right">{item.count}</TableCell>
                             <TableCell className="text-right text-muted-foreground">
                                 {totalCheckedIn > 0 ? ((item.count / totalCheckedIn) * 100).toFixed(1) : 0}%
@@ -149,7 +149,7 @@ export default function AnalyticsPage() {
                                         <SelectContent>
                                             {events.map(event => (
                                                 <SelectItem key={event.id}
-                                                            value={String(event.id)}>{event.eventName}</SelectItem>
+                                                            value={String(event.id)}>{event.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -169,15 +169,15 @@ export default function AnalyticsPage() {
                             <div className="rounded-lg border bg-card p-4">
                                 <div className="flex items-center gap-4">
                                     <p className="text-sm font-medium text-muted-foreground">Breakdown by:</p>
-                                    {isLoadingCustomFields ? <Skeleton className="h-9 w-full sm:w-64"/> : (
-                                        <Select value={selectedGroupBy} onValueChange={setSelectedGroupBy}
-                                                disabled={!customFields.length}>
+                                    {isLoadingAttributes ? <Skeleton className="h-9 w-full sm:w-64"/> : (
+                                        <Select value={selectedAttribute} onValueChange={setSelectedAttribute}
+                                                disabled={!attributes.length}>
                                             <SelectTrigger className="w-full sm:w-64">
-                                                <SelectValue placeholder="Select a Field..."/>
+                                                <SelectValue placeholder="Select an Attribute..."/>
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {customFields.map(field => (
-                                                    <SelectItem key={field} value={field}>{field}</SelectItem>
+                                                {attributes.map(attr => (
+                                                    <SelectItem key={attr.id} value={attr.name}>{attr.name}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -187,15 +187,15 @@ export default function AnalyticsPage() {
                         )}
 
                         <div className="pt-2">
-                            {(!selectedEventId || !selectedGroupBy) ? <EmptyState/> : (
+                            {(!selectedEventId || !selectedAttribute) ? <EmptyState/> : (
                                 <Card>
                                     <CardHeader>
                                         <div>
                                             <CardTitle>Checked-in Breakdown</CardTitle>
                                             <CardDescription>
                                                 Visualizing the distribution
-                                                for &quot;{selectedEvent?.eventName}&quot; grouped
-                                                by &quot;{selectedGroupBy}&quot;.
+                                                for &quot;{selectedEvent?.name}&quot; grouped
+                                                by &quot;{selectedAttribute}&quot;.
                                             </CardDescription>
                                         </div>
                                         <CardAction>
@@ -227,7 +227,7 @@ export default function AnalyticsPage() {
                                                                                 className="h-[350px] w-full">
                                                                     <BarChart data={breakdown}>
                                                                         <CartesianGrid vertical={false}/>
-                                                                        <XAxis dataKey="groupName" tickLine={false}
+                                                                        <XAxis dataKey="value" tickLine={false}
                                                                                tickMargin={10} axisLine={false}
                                                                                angle={-45}
                                                                                textAnchor="end" height={60}
@@ -246,10 +246,8 @@ export default function AnalyticsPage() {
                                                                     </BarChart>
                                                                 </ChartContainer>
                                                             )}
-
                                                             {chartType === 'pie' &&
                                                                 <PieChartView data={breakdown} total={totalCheckedIn}/>}
-
                                                             {chartType === 'table' && <DataTable/>}
                                                         </>
                                                     )}

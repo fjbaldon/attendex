@@ -35,7 +35,7 @@ function VerificationComponent() {
         error,
     } = useMutation<string, AxiosError<ApiErrorResponse>, string>({
         mutationFn: async (verificationToken: string) => {
-            const response = await api.get(`/api/v1/auth/verify?token=${verificationToken}`);
+            const response = await api.get(`/api/v1/organizations/verify?token=${verificationToken}`);
             return response.data;
         },
     });

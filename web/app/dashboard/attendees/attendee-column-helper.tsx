@@ -1,41 +1,35 @@
 "use client";
 
 import {ColumnDef} from "@tanstack/react-table";
-import {CustomFieldDefinition} from "@/types";
-import {selectColumn} from "@/components/shared/data-table-columns";
+import {Attribute} from "@/types";
 
-type AttendeeLike = {
-    id: number;
-    uniqueIdentifier: string;
-    firstName: string;
-    lastName: string;
-    customFields?: Record<string, unknown>;
-};
+export const createAttendeeBaseColumns = <TData, >(
+    attributes: Attribute[],
+    baseAccessor?: keyof TData | ''
+): ColumnDef<TData>[] => {
 
-export const createAttendeeBaseColumns = <T extends AttendeeLike>(
-    customFieldDefs: CustomFieldDefinition[]
-): ColumnDef<T>[] => {
-    const standardColumns: ColumnDef<T>[] = [
-        selectColumn<T>(),
+    const accessorPrefix = baseAccessor ? `${String(baseAccessor)}.` : '';
+
+    const standardColumns: ColumnDef<TData>[] = [
         {
-            accessorKey: "uniqueIdentifier",
+            accessorKey: `${accessorPrefix}identity`,
             header: "Identifier",
         },
         {
-            accessorKey: "lastName",
+            accessorKey: `${accessorPrefix}lastName`,
             header: "Last Name",
-            cell: ({row}) => <div className="font-medium">{row.original.lastName}</div>,
+            cell: ({getValue}) => <div className="font-medium">{String(getValue())}</div>,
         },
         {
-            accessorKey: "firstName",
+            accessorKey: `${accessorPrefix}firstName`,
             header: "First Name",
-            cell: ({row}) => <div className="font-medium">{row.original.firstName}</div>,
+            cell: ({getValue}) => <div className="font-medium">{String(getValue())}</div>,
         },
     ];
 
-    const customFieldColumns: ColumnDef<T>[] = customFieldDefs.map(def => ({
-        accessorKey: `customFields.${def.fieldName}`,
-        header: def.fieldName,
+    const attributeColumns: ColumnDef<TData>[] = attributes.map(def => ({
+        accessorKey: `${accessorPrefix}attributes.${def.name}`,
+        header: def.name,
         cell: ({getValue}) => {
             const value = getValue<unknown>();
             if (value === null || value === undefined || value === '') {
@@ -45,5 +39,5 @@ export const createAttendeeBaseColumns = <T extends AttendeeLike>(
         }
     }));
 
-    return [...standardColumns, ...customFieldColumns];
+    return [...standardColumns, ...attributeColumns];
 };

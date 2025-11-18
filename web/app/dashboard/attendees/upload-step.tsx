@@ -82,7 +82,7 @@ export function UploadStep({onFileSelect, isAnalyzing}: UploadStepProps) {
                         </div>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                        Required columns: <code className="font-semibold">uniqueIdentifier</code>, <code
+                        Required columns: <code className="font-semibold">identity</code>, <code
                         className="font-semibold">firstName</code>, <code className="font-semibold">lastName</code>
                     </div>
                 </>

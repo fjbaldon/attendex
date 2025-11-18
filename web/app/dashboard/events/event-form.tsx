@@ -28,7 +28,6 @@ interface EventFormProps {
 
 export function EventForm({event, onSubmit}: EventFormProps) {
     const isEditing = !!event;
-
     const isDateEditable = !isEditing || event?.status === "UPCOMING";
 
     const form = useForm({
@@ -36,57 +35,57 @@ export function EventForm({event, onSubmit}: EventFormProps) {
         mode: "onChange",
         defaultValues: event
             ? {
-                eventName: event.eventName || "",
+                name: event.name || "",
                 startDate: new Date(event.startDate),
                 endDate: new Date(event.endDate),
-                onTimeWindowMinutesBefore: event.onTimeWindowMinutesBefore,
-                onTimeWindowMinutesAfter: event.onTimeWindowMinutesAfter,
-                timeSlots: event.timeSlots.map(ts => ({
-                    activityName: ts.activityName,
-                    targetTime: new Date(ts.targetTime),
-                    type: ts.type
+                graceMinutesBefore: event.graceMinutesBefore,
+                graceMinutesAfter: event.graceMinutesAfter,
+                sessions: event.sessions.map(s => ({
+                    activityName: s.activityName,
+                    targetTime: new Date(s.targetTime),
+                    intent: s.intent
                 }))
             }
             : {
-                eventName: "",
+                name: "",
                 startDate: startOfDay(new Date()),
                 endDate: endOfDay(new Date()),
-                onTimeWindowMinutesBefore: 30,
-                onTimeWindowMinutesAfter: 30,
-                timeSlots: [],
+                graceMinutesBefore: 15,
+                graceMinutesAfter: 15,
+                sessions: [],
             },
     });
 
     useEffect(() => {
         if (event) {
             form.reset({
-                eventName: event.eventName || "",
+                name: event.name || "",
                 startDate: new Date(event.startDate),
                 endDate: new Date(event.endDate),
-                onTimeWindowMinutesBefore: event.onTimeWindowMinutesBefore,
-                onTimeWindowMinutesAfter: event.onTimeWindowMinutesAfter,
-                timeSlots: event.timeSlots.map(ts => ({
-                    activityName: ts.activityName,
-                    targetTime: new Date(ts.targetTime),
-                    type: ts.type
+                graceMinutesBefore: event.graceMinutesBefore,
+                graceMinutesAfter: event.graceMinutesAfter,
+                sessions: event.sessions.map(s => ({
+                    activityName: s.activityName,
+                    targetTime: new Date(s.targetTime),
+                    intent: s.intent
                 }))
             });
         } else {
             const today = new Date();
             form.reset({
-                eventName: "",
+                name: "",
                 startDate: startOfDay(today),
                 endDate: endOfDay(today),
-                onTimeWindowMinutesBefore: 30,
-                onTimeWindowMinutesAfter: 30,
-                timeSlots: [],
+                graceMinutesBefore: 15,
+                graceMinutesAfter: 15,
+                sessions: [],
             });
         }
     }, [event, form]);
 
     const {fields, append, remove} = useFieldArray({
         control: form.control,
-        name: "timeSlots",
+        name: "sessions",
     });
 
     const startDate = form.watch("startDate");
@@ -94,20 +93,18 @@ export function EventForm({event, onSubmit}: EventFormProps) {
 
     React.useEffect(() => {
         if (fields.length > 0 && startDate && endDate) {
-            void form.trigger("timeSlots");
+            void form.trigger("sessions");
         }
     }, [startDate, endDate, form, fields.length]);
 
     return (
         <Form {...form}>
-            <form id="event-form" onSubmit={form.handleSubmit(onSubmit, (errors) => {
-                console.log("Form validation errors:", errors);
-            })} className="space-y-4">
+            <form id="event-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
-                    control={form.control} name="eventName" render={({field}) => (
+                    control={form.control} name="name" render={({field}) => (
                     <FormItem>
                         <FormLabel>Event Name</FormLabel>
-                        <FormControl><Input placeholder="e.g., Annual Tech Conference" {...field}/></FormControl>
+                        <FormControl><Input placeholder="e.g., Annual Tech Conference" {...field} /></FormControl>
                         <FormMessage/>
                     </FormItem>
                 )}/>
@@ -175,41 +172,23 @@ export function EventForm({event, onSubmit}: EventFormProps) {
 
                 <div className="space-y-2 pt-2">
                     <FormLabel>On-Time Window</FormLabel>
-                    <FormDescription>Define the grace period around an activity&#39;s target time to be considered
-                        &#34;On-Time&#34;.</FormDescription>
+                    <FormDescription>Define the grace period around a session&#39;s target time to be considered
+                        &#34;Punctual&#34;.</FormDescription>
                     <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="onTimeWindowMinutesBefore" render={({field}) => (
+                        <FormField control={form.control} name="graceMinutesBefore" render={({field}) => (
                             <FormItem>
                                 <FormLabel className="text-xs font-normal">Minutes Before Target</FormLabel>
                                 <FormControl>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        {...field}
-                                        value={field.value === undefined || field.value === null ? "" : String(field.value)}
-                                        onChange={(e) => {
-                                            const value = e.target.valueAsNumber;
-                                            field.onChange(isNaN(value) ? "" : value);
-                                        }}
-                                    />
+                                    <Input type="number" min="0" {...field} value={field.value as string}/>
                                 </FormControl>
                                 <FormMessage/>
                             </FormItem>
                         )}/>
-                        <FormField control={form.control} name="onTimeWindowMinutesAfter" render={({field}) => (
+                        <FormField control={form.control} name="graceMinutesAfter" render={({field}) => (
                             <FormItem>
                                 <FormLabel className="text-xs font-normal">Minutes After Target</FormLabel>
                                 <FormControl>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        {...field}
-                                        value={field.value === undefined || field.value === null ? "" : String(field.value)}
-                                        onChange={(e) => {
-                                            const value = e.target.valueAsNumber;
-                                            field.onChange(isNaN(value) ? "" : value);
-                                        }}
-                                    />
+                                    <Input type="number" min="0" {...field} value={field.value as string}/>
                                 </FormControl>
                                 <FormMessage/>
                             </FormItem>
@@ -220,119 +199,76 @@ export function EventForm({event, onSubmit}: EventFormProps) {
                 <Separator className="my-4"/>
 
                 <div className="space-y-1">
-                    <FormLabel>Event Activities</FormLabel>
-                    <p className="text-sm text-muted-foreground">Define key moments for your event like check-ins or
-                        exits.</p>
-                    {form.formState.errors.timeSlots?.root && (
+                    <FormLabel>Event Sessions</FormLabel>
+                    <p className="text-sm text-muted-foreground">Define key moments for your event like arrivals or
+                        departures.</p>
+                    {form.formState.errors.sessions?.root && (
                         <p className="text-sm font-medium text-destructive mt-2">
-                            {form.formState.errors.timeSlots.root.message}
+                            {form.formState.errors.sessions.root.message}
                         </p>
                     )}
                 </div>
 
                 <div className="space-y-4">
-                    {fields
-                        .slice()
-                        .sort((a, b) => (a.targetTime || 0) > (b.targetTime || 0) ? 1 : -1)
-                        .map((field) => {
-                            const originalIndex = fields.findIndex(f => f.id === field.id);
-                            return (
-                                <div key={field.id} className="rounded-lg border bg-muted/50 p-4 space-y-4 relative">
-                                    <Button type="button" variant="ghost" size="icon"
-                                            onClick={() => remove(originalIndex)}
-                                            className="text-muted-foreground hover:text-destructive absolute top-2 right-2 h-7 w-7">
-                                        <IconTrash className="h-4 w-4"/>
-                                    </Button>
-                                    <div className="space-y-2">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-                                            <FormField control={form.control}
-                                                       name={`timeSlots.${originalIndex}.activityName`}
-                                                       render={({field}) => (
-                                                           <FormItem>
-                                                               <FormLabel className="text-xs">Activity Name</FormLabel>
-                                                               <FormControl><Input
-                                                                   placeholder="e.g., Morning Registration" {...field} /></FormControl>
-                                                           </FormItem>
-                                                       )}/>
-                                            <FormField control={form.control} name={`timeSlots.${originalIndex}.type`}
-                                                       render={({field}) => (
-                                                           <FormItem>
-                                                               <FormLabel className="text-xs">Type</FormLabel>
-                                                               <Select onValueChange={field.onChange}
-                                                                       value={field.value}>
-                                                                   <FormControl><SelectTrigger><SelectValue
-                                                                       placeholder="Select Type"/></SelectTrigger></FormControl>
-                                                                   <SelectContent>
-                                                                       <SelectItem
-                                                                           value="CHECK_IN">Check-in</SelectItem>
-                                                                       <SelectItem
-                                                                           value="CHECK_OUT">Check-out</SelectItem>
-                                                                   </SelectContent>
-                                                               </Select>
-                                                           </FormItem>
-                                                       )}/>
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-                                            <FormField control={form.control}
-                                                       name={`timeSlots.${originalIndex}.activityName`}
-                                                       render={() => (
-                                                           <FormItem>
-                                                               <FormMessage/>
-                                                           </FormItem>
-                                                       )}/>
-                                            <FormField control={form.control} name={`timeSlots.${originalIndex}.type`}
-                                                       render={() => (
-                                                           <FormItem>
-                                                               <FormMessage/>
-                                                           </FormItem>
-                                                       )}/>
-                                        </div>
-                                    </div>
-                                    <Separator/>
-                                    <div className="space-y-2">
-                                        <FormField control={form.control}
-                                                   name={`timeSlots.${originalIndex}.targetTime`}
-                                                   render={({field}) => {
-                                                       const startDate = form.watch("startDate");
-                                                       const endDate = form.watch("endDate");
-
-                                                       const disabledDays = [];
-                                                       if (startDate) {
-                                                           disabledDays.push({before: startOfDay(startDate)});
-                                                       }
-                                                       if (endDate) {
-                                                           disabledDays.push({after: endOfDay(endDate)});
-                                                       }
-
-                                                       return (
-                                                           <FormItem>
-                                                               <FormLabel className="text-xs font-normal">Target
-                                                                   Time</FormLabel>
-                                                               <DateTimePicker
-                                                                   field={field}
-                                                                   disabledDays={disabledDays.length > 0 ? disabledDays : undefined}
-                                                               />
-                                                               <FormMessage/>
-                                                           </FormItem>
-                                                       );
-                                                   }}/>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                    {fields.map((field, index) => (
+                        <div key={field.id} className="rounded-lg border bg-muted/50 p-4 space-y-4 relative">
+                            <Button type="button" variant="ghost" size="icon"
+                                    onClick={() => remove(index)}
+                                    className="text-muted-foreground hover:text-destructive absolute top-2 right-2 h-7 w-7">
+                                <IconTrash className="h-4 w-4"/>
+                            </Button>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                                <FormField control={form.control}
+                                           name={`sessions.${index}.activityName`}
+                                           render={({field}) => (
+                                               <FormItem>
+                                                   <FormLabel className="text-xs">Activity Name</FormLabel>
+                                                   <FormControl><Input
+                                                       placeholder="e.g., Morning Registration" {...field} /></FormControl>
+                                                   <FormMessage/>
+                                               </FormItem>
+                                           )}/>
+                                <FormField control={form.control} name={`sessions.${index}.intent`}
+                                           render={({field}) => (
+                                               <FormItem>
+                                                   <FormLabel className="text-xs">Intent</FormLabel>
+                                                   <Select onValueChange={field.onChange} value={field.value}>
+                                                       <FormControl><SelectTrigger><SelectValue
+                                                           placeholder="Select Intent"/></SelectTrigger></FormControl>
+                                                       <SelectContent>
+                                                           <SelectItem value="Arrival">Arrival</SelectItem>
+                                                           <SelectItem value="Departure">Departure</SelectItem>
+                                                       </SelectContent>
+                                                   </Select>
+                                                   <FormMessage/>
+                                               </FormItem>
+                                           )}/>
+                            </div>
+                            <FormField control={form.control}
+                                       name={`sessions.${index}.targetTime`}
+                                       render={({field}) => (
+                                           <FormItem>
+                                               <FormLabel className="text-xs font-normal">Target Time</FormLabel>
+                                               <DateTimePicker field={field}
+                                                               disabledDays={[{before: startDate, after: endDate}]}/>
+                                               <FormMessage/>
+                                           </FormItem>
+                                       )}/>
+                        </div>
+                    ))}
                     <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => {
                         const baseDate = form.getValues("startDate") || new Date();
                         const newActivityTime = new Date(baseDate);
                         newActivityTime.setHours(9, 0, 0, 0);
                         append({
                             activityName: "",
-                            type: 'CHECK_IN',
+                            intent: 'Arrival',
                             targetTime: newActivityTime,
                         });
                     }}>
-                        <IconPlus className="mr-2 h-4 w-4"/>Add Activity
+                        <IconPlus className="mr-2 h-4 w-4"/>Add Session
                     </Button>
-                    <FormField control={form.control} name="timeSlots"
+                    <FormField control={form.control} name="sessions"
                                render={({fieldState}) => (
                                    <FormItem>
                                        <FormMessage>{fieldState.error?.message}</FormMessage>

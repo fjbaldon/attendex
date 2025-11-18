@@ -11,7 +11,6 @@ export interface RegisterRequest {
 
 export interface AuthResponse {
     accessToken: string;
-    tokenType: string;
 }
 
 export interface DecodedToken {
@@ -23,32 +22,32 @@ export interface DecodedToken {
     exp: number;
 }
 
-export type TimeSlotType = 'CHECK_IN' | 'CHECK_OUT';
+export type SessionIntent = 'Arrival' | 'Departure';
 
-export interface TimeSlot {
+export interface Session {
     id?: number;
     activityName: string;
     targetTime: Date;
-    type: TimeSlotType;
+    intent: SessionIntent;
 }
 
 export interface EventRequest {
-    eventName: string;
+    name: string;
     startDate: Date;
     endDate: Date;
-    onTimeWindowMinutesBefore: number;
-    onTimeWindowMinutesAfter: number;
-    timeSlots: TimeSlot[];
+    graceMinutesBefore: number;
+    graceMinutesAfter: number;
+    sessions: Session[];
 }
 
 export interface EventResponse {
     id: number;
-    eventName: string;
+    name: string;
     startDate: string;
     endDate: string;
-    onTimeWindowMinutesBefore: number;
-    onTimeWindowMinutesAfter: number;
-    timeSlots: TimeSlot[];
+    graceMinutesBefore: number;
+    graceMinutesAfter: number;
+    sessions: Session[];
     status: 'ACTIVE' | 'ONGOING' | 'UPCOMING' | 'PAST';
 }
 
@@ -69,18 +68,19 @@ export interface PaginatedResponse<T> {
 }
 
 export interface AttendeeRequest {
-    uniqueIdentifier: string;
+    identity: string;
     firstName: string;
     lastName: string;
-    customFields?: Record<string, unknown>;
+    attributes?: Record<string, unknown>;
 }
 
 export interface AttendeeResponse {
     id: number;
-    uniqueIdentifier: string;
+    identity: string;
     firstName: string;
     lastName: string;
-    customFields?: Record<string, unknown>;
+    attributes?: Record<string, unknown>;
+    createdAt: string;
 }
 
 export interface ApiErrorResponse {
@@ -104,38 +104,36 @@ export interface ScannerResponse {
 
 export interface UserCreateRequest {
     email: string;
-    temporaryPassword: string;
+    password: string;
 }
 
-export type FieldType = 'SELECT';
-
-export interface CustomFieldDefinition {
+export interface Attribute {
     id: number;
-    fieldName: string;
-    fieldType: FieldType;
+    name: string;
+    type: 'SELECT';
     options?: string[];
 }
 
-export interface CustomFieldDefinitionRequest {
-    fieldName: string;
+export interface AttributeRequest {
+    name: string;
     options: string[];
 }
 
 export interface AnalyticsBreakdownItem {
-    groupName: string;
+    value: string;
     count: number;
 }
 
 export interface AnalyticsBreakdownDto {
+    attributeName: string;
     breakdown: AnalyticsBreakdownItem[];
-    totalCheckedIn: number;
 }
 
 export interface DashboardStats {
     totalEvents: number;
     totalAttendees: number;
     totalScanners: number;
-    liveCheckIns: number;
+    liveEntries: number;
 }
 
 export interface DailyActivity {
@@ -146,27 +144,30 @@ export interface DailyActivity {
 export interface Organization {
     id: number;
     name: string;
-    identifierFormatRegex: string | null;
-    status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+    identityFormatRegex: string | null;
+    lifecycle: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
     subscriptionType: 'LIFETIME' | 'ANNUAL' | 'TRIAL';
     subscriptionExpiresAt: string | null;
 }
 
-export interface CheckedInAttendeeResponse extends AttendeeResponse {
-    checkInTimestamp: string;
+export interface EntryDetailsDto {
+    entryId: number;
+    scanTimestamp: string;
+    punctuality: 'EARLY' | 'PUNCTUAL' | 'LATE';
+    attendee: AttendeeResponse;
 }
 
 export interface UpcomingEvent {
     id: number;
-    eventName: string;
+    name: string;
     startDate: string;
 }
 
 export interface RecentEventStats {
     id: number;
     eventName: string;
-    totalRegistered: number;
-    totalCheckedIn: number;
+    rosterCount: number;
+    entryCount: number;
 }
 
 export interface DashboardData {
@@ -196,7 +197,7 @@ export interface AdminDashboardStats {
 export interface OrganizationSummary {
     id: number;
     name: string;
-    date: string;
+    date: string; // Represents either expiry or creation date
 }
 
 export interface DailyRegistration {
@@ -211,13 +212,13 @@ export interface AdminDashboardData {
     attentionRequired: OrganizationSummary[];
 }
 
-export interface SystemAdmin {
+export interface Steward {
     id: number;
     email: string;
     createdAt: string;
 }
 
-export interface SystemAdminCreateRequest {
+export interface StewardCreateRequest {
     email: string;
-    temporaryPassword: string;
+    password: string;
 }

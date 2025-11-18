@@ -5,7 +5,7 @@ import {AppSidebar} from "@/components/layout/app-sidebar";
 import {ChartAreaInteractive} from "@/components/shared/chart-area-interactive";
 import {SectionCards} from "@/components/layout/section-cards";
 import {SiteHeader} from "@/components/layout/site-header";
-import {SidebarInset, SidebarProvider,} from "@/components/ui/sidebar";
+import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
 import {useDashboard} from "@/hooks/use-dashboard";
 import {useIsMobile} from "@/hooks/use-mobile";
 import {UpcomingEvents} from "@/components/layout/upcoming-events";
@@ -34,10 +34,6 @@ export default function DashboardPage() {
             <AppSidebar variant="inset"/>
             <SidebarInset>
                 <SiteHeader title="Dashboard"/>
-                {/*
-                  THE FIX IS HERE: Added `@container/main` to the <main> element.
-                  This "names" the container, allowing the container queries in SectionCards to work.
-                */}
                 <main className="@container/main flex-1 overflow-y-auto p-4 lg:p-6">
                     <div className="flex flex-col gap-6">
                         {/* Section 1: KPIs */}

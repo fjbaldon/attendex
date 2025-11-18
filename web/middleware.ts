@@ -1,5 +1,4 @@
-import type {NextRequest} from 'next/server';
-import {NextResponse} from 'next/server';
+import {NextRequest, NextResponse} from 'next/server';
 import {jwtDecode} from 'jwt-decode';
 
 interface DecodedToken {
@@ -33,18 +32,18 @@ export function middleware(request: NextRequest) {
     }
 
     const {pathname} = request.nextUrl;
-    const isSystemAdmin = roles.includes('ROLE_SYSTEM_ADMIN');
+    const isSteward = roles.includes('ROLE_STEWARD');
 
     if (isAuthenticated) {
         if (forcePasswordChange && pathname !== '/force-password-change') {
             return NextResponse.redirect(new URL('/force-password-change', request.url));
         }
 
-        if (isSystemAdmin) {
+        if (isSteward) {
             if (!pathname.startsWith('/admin') && pathname !== '/force-password-change') {
                 return NextResponse.redirect(new URL('/admin/dashboard', request.url));
             }
-        } else {
+        } else { // Assumes ROLE_ORGANIZER
             if (pathname.startsWith('/admin')) {
                 return NextResponse.redirect(new URL('/dashboard', request.url));
             }
