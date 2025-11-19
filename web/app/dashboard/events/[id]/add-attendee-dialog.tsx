@@ -15,77 +15,15 @@ import {useEventDetails} from "@/hooks/use-event-details";
 import {AttendeeResponse} from "@/types";
 import {Button} from "@/components/ui/button";
 import {useDebounce} from "@uidotdev/usehooks";
-import {
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    useReactTable
-} from "@tanstack/react-table";
+import {flexRender, getCoreRowModel, useReactTable} from "@tanstack/react-table";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {Input} from "@/components/ui/input";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {getColumns} from "./add-attendees-columns";
 import {useAttributes} from "@/hooks/use-attributes";
-import {Skeleton} from "@/components/ui/skeleton";
-import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import {IconChevronDown, IconFilterOff} from "@tabler/icons-react";
 import {toast} from "sonner";
 import {useQuery} from "@tanstack/react-query";
 import api from "@/lib/api";
-
-const FilterDropdown = ({field, attendees, activeFilters, onFilterChange}: {
-    field: string;
-    attendees: AttendeeResponse[];
-    activeFilters: Record<string, string[]>;
-    onFilterChange: (filters: Record<string, string[]>) => void;
-}) => {
-    const options = useMemo(() => Array.from(
-        attendees.reduce((acc, attendee) => {
-            const value = attendee.attributes?.[field];
-            if (value != null && String(value).trim() !== "") {
-                acc.add(String(value));
-            }
-            return acc;
-        }, new Set<string>())
-    ).sort(), [field, attendees]);
-
-    const handleSelect = (value: string, isSelected: boolean) => {
-        const currentSelection = activeFilters[field] || [];
-        const newSelection = isSelected ? [...currentSelection, value] : currentSelection.filter(item => item !== value);
-        onFilterChange({...activeFilters, [field]: newSelection});
-    };
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8">
-                    {field}
-                    {activeFilters[field]?.length > 0 && ` (${activeFilters[field].length})`}
-                    <IconChevronDown className="ml-2 h-4 w-4" stroke={1.5}/>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56">
-                <DropdownMenuLabel>{`Filter by ${field}`}</DropdownMenuLabel>
-                <DropdownMenuSeparator/>
-                {options.map(option => (
-                    <DropdownMenuCheckboxItem key={option}
-                                              checked={activeFilters[field]?.includes(option)}
-                                              onCheckedChange={(isSelected) => handleSelect(option, isSelected)}>
-                        {option}
-                    </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
-};
 
 interface AddAttendeeDialogProps {
     open: boolean;
@@ -93,83 +31,73 @@ interface AddAttendeeDialogProps {
     eventId: number;
 }
 
-const useEventRoster = (eventId: number) => {
-    return useQuery<AttendeeResponse[]>({
-        queryKey: ["eventDetails", eventId, "allAttendees"],
+// Helper to get current roster IDs to disable checkboxes
+const useEventRosterIds = (eventId: number) => {
+    return useQuery<Set<number>>({
+        queryKey: ["eventDetails", eventId, "rosterIds"],
         queryFn: async () => {
-            const response = await api.get(`/api/v1/events/${eventId}/roster?size=2000`);
-            return response.data.content;
+            // Fetch ONLY IDs if possible, or map efficiently.
+            // For now, fetching full list is okay as it's paginated,
+            // BUT strictly we only know the current page of roster.
+            // Ideally backend provides 'isRegistered' flag in search response.
+            // For this fix, we'll fetch a larger chunk of roster to check against.
+            const response = await api.get(`/api/v1/events/${eventId}/roster?size=1000`);
+            return new Set(response.data.content.map((a: AttendeeResponse) => a.id));
         },
         enabled: !!eventId,
     });
 };
 
 export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDialogProps) {
+    // 1. Search State
     const [searchQuery, setSearchQuery] = useState("");
-    const debouncedSearchQuery = useDebounce(searchQuery, 300);
-    const [rowSelection, setRowSelection] = useState({});
-    const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+    const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-    const {attendeesData, isLoadingAttendees, refetch: refetchAttendees} = useAttendees(0, 2000);
-    const {data: eventAttendees, isLoading: isLoadingEventAttendees, refetch: refetchRoster} = useEventRoster(eventId);
+    // 2. Pagination State
+    const [pagination, setPagination] = useState({pageIndex: 0, pageSize: 10});
+
+    const [rowSelection, setRowSelection] = useState({});
+
+    // 3. Data Fetching (Server-Side)
+    const {attendeesData, isLoadingAttendees, refetch: refetchAttendees} =
+        useAttendees(pagination.pageIndex, pagination.pageSize, debouncedSearchQuery);
+
+    const {data: rosterIds, refetch: refetchRoster} = useEventRosterIds(eventId);
 
     const {addAttendee, isAddingAttendee} = useEventDetails(eventId, {pageIndex: 0, pageSize: 10});
     const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
 
+    // 4. Setup Columns
     const columns = useMemo(() => getColumns(attributes), [attributes]);
 
-    const availableAttendees = useMemo(() => {
-        if (!attendeesData?.content || !eventAttendees) return [];
-        const eventAttendeeIds = new Set(eventAttendees.map(ea => ea.id));
-        return attendeesData.content.filter(attendee => !eventAttendeeIds.has(attendee.id));
-    }, [attendeesData, eventAttendees]);
-
-    const filteredAttendees = useMemo(() => {
-        let attendees = availableAttendees;
-
-        if (debouncedSearchQuery) {
-            attendees = attendees.filter(attendee =>
-                `${attendee.firstName} ${attendee.lastName} ${attendee.identity}`
-                    .toLowerCase()
-                    .includes(debouncedSearchQuery.toLowerCase())
-            );
-        }
-
-        const filterKeys = Object.keys(activeFilters).filter(key => activeFilters[key].length > 0);
-        if (filterKeys.length > 0) {
-            attendees = attendees.filter(attendee => {
-                return filterKeys.every(field => {
-                    const selectedValues = activeFilters[field];
-                    const attendeeValue = attendee.attributes?.[field];
-                    return selectedValues.includes(String(attendeeValue));
-                });
-            });
-        }
-
-        return attendees;
-    }, [availableAttendees, debouncedSearchQuery, activeFilters]);
+    // 5. Filter out attendees already in roster (Client-side check of Server-side results)
+    // Note: In a truly massive system, the backend search should exclude these.
+    // For now, we disable selection if they are found in the rosterIds set.
+    const attendees = attendeesData?.content ?? [];
 
     const table = useReactTable({
-        data: filteredAttendees,
+        data: attendees,
         columns,
-        state: {rowSelection},
+        pageCount: attendeesData?.totalPages ?? -1, // -1 indicates server-side unknown, or use totalPages
+        state: {
+            rowSelection,
+            pagination,
+        },
         getRowId: (row) => String(row.id),
-        enableRowSelection: true,
+        enableRowSelection: (row) => !rosterIds?.has(row.original.id), // Disable if already added
         onRowSelectionChange: setRowSelection,
+        onPaginationChange: setPagination, // Handle page changes
+        manualPagination: true, // Enable server-side pagination
         getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
     });
 
     useEffect(() => {
         if (open) {
-            // FIX: Use void to explicitly ignore the promise returned by React Query
+            setSearchQuery("");
+            setRowSelection({});
+            setPagination({pageIndex: 0, pageSize: 10});
             void refetchAttendees();
             void refetchRoster();
-
-            setSearchQuery("");
-            setActiveFilters({});
-            setRowSelection({});
         }
     }, [open, refetchAttendees, refetchRoster]);
 
@@ -185,28 +113,18 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                 });
                 successCount++;
             } catch {
-                toast.error(`Failed to add attendee with ID ${attendeeId}.`);
+                toast.error(`Failed to add attendee ID ${attendeeId}`);
                 break;
             }
         }
 
         if (successCount > 0) {
-            toast.success(`${successCount} attendee(s) added successfully!`);
+            toast.success(`${successCount} attendee(s) added!`);
+            // Refresh roster IDs to update disabled state
+            void refetchRoster();
+            setRowSelection({});
         }
-
-        onOpenChange(false);
     };
-
-    const handleClearFilters = () => {
-        setSearchQuery("");
-        setActiveFilters({});
-    };
-
-    const isFiltered = useMemo(() => {
-        return searchQuery !== "" || Object.values(activeFilters).some(v => v.length > 0);
-    }, [searchQuery, activeFilters]);
-
-    const isLoading = isLoadingAttendees || isLoadingAttributes || isLoadingEventAttendees;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -214,7 +132,7 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                 <DialogHeader>
                     <DialogTitle>Add Attendees to Roster</DialogTitle>
                     <DialogDescription>
-                        Select one or more attendees from the list below to add them to the event.
+                        Search and select attendees to add to this event.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -223,36 +141,15 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                         <Input
                             placeholder="Search by name or identity..."
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                setPagination(prev => ({...prev, pageIndex: 0})); // Reset page on search
+                            }}
                             className="h-9 max-w-sm"
                         />
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {isLoadingAttributes ? <Skeleton className="h-8 w-24"/> :
-                                attributes.map(def => (
-                                    <FilterDropdown
-                                        key={def.id}
-                                        field={def.name}
-                                        attendees={availableAttendees}
-                                        activeFilters={activeFilters}
-                                        onFilterChange={setActiveFilters}
-                                    />
-                                ))
-                            }
-                            {isFiltered && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 text-muted-foreground"
-                                    onClick={handleClearFilters}
-                                >
-                                    <IconFilterOff className="mr-2 h-4 w-4"/>
-                                    Clear
-                                </Button>
-                            )}
-                        </div>
                     </div>
 
-                    <div className="rounded-md border flex-grow overflow-y-auto">
+                    <div className="rounded-md border flex-grow overflow-y-auto relative">
                         <Table>
                             <TableHeader className="bg-muted sticky top-0 z-10">
                                 {table.getHeaderGroups().map(headerGroup => (
@@ -266,15 +163,16 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                                 ))}
                             </TableHeader>
                             <TableBody>
-                                {isLoading ? (
+                                {isLoadingAttendees || isLoadingAttributes ? (
                                     <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">Loading
-                                            available
-                                            attendees...</TableCell>
+                                        <TableCell colSpan={columns.length} className="h-24 text-center">
+                                            Loading...
+                                        </TableCell>
                                     </TableRow>
                                 ) : table.getRowModel().rows.length > 0 ? (
                                     table.getRowModel().rows.map(row => (
-                                        <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                                        <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}
+                                                  className={rosterIds?.has(row.original.id) ? "opacity-50 bg-muted/50" : ""}>
                                             {row.getVisibleCells().map(cell => (
                                                 <TableCell key={cell.id}>
                                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -284,20 +182,22 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">No attendees
-                                            found.</TableCell>
+                                        <TableCell colSpan={columns.length} className="h-24 text-center">
+                                            No attendees found.
+                                        </TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
                         </Table>
                     </div>
+                    {/* Use the existing Pagination Component, passing the table instance which now has manual pagination config */}
                     <DataTablePagination table={table}/>
                 </div>
                 <DialogFooter className="pt-4 border-t">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
                     <Button onClick={handleAddSelected}
                             disabled={isAddingAttendee || Object.keys(rowSelection).length === 0}>
-                        {isAddingAttendee ? "Adding..." : `Add ${Object.keys(rowSelection).length} Attendee(s)`}
+                        {isAddingAttendee ? "Adding..." : `Add ${Object.keys(rowSelection).length} Selected`}
                     </Button>
                 </DialogFooter>
             </DialogContent>

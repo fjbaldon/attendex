@@ -1,15 +1,14 @@
-import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {keepPreviousData, useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import api from "@/lib/api";
 import {ApiErrorResponse, AttendeeImportAnalysis, AttendeeRequest, AttendeeResponse, PaginatedResponse} from "@/types";
 import {toast} from "sonner";
 import {AxiosError} from "axios";
 import {getErrorMessage} from "@/lib/utils";
 
-export const useAttendees = (page = 0, size = 10) => {
+export const useAttendees = (page = 0, size = 10, query: string = "") => {
     const queryClient = useQueryClient();
-    const queryKey = ["attendees", page, size];
+    const queryKey = ["attendees", page, size, query];
 
-    // FIXED: Destructure 'refetch' from useQuery
     const {
         data,
         isLoading: isLoadingAttendees,
@@ -19,10 +18,16 @@ export const useAttendees = (page = 0, size = 10) => {
         queryKey,
         queryFn: async () => {
             const response = await api.get("/api/v1/attendees", {
-                params: {page, size, sort: "lastName,asc"},
+                params: {
+                    page,
+                    size,
+                    sort: "lastName,asc",
+                    query: query || undefined
+                },
             });
             return response.data;
         },
+        placeholderData: keepPreviousData,
     });
 
     const createAttendeeMutation = useMutation<

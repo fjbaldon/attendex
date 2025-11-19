@@ -133,6 +133,7 @@ public class AttendeeFacade {
 
     @Transactional(readOnly = true)
     public AttendeeImportAnalysisDto analyzeAttendeeImport(Long organizationId, MultipartFile file) throws IOException {
+        // 1. Fetch Configuration & Context
         OrganizationDto organization = organizationFacade.findOrganizationById(organizationId);
         String regex = organization.identityFormatRegex();
 
@@ -140,11 +141,19 @@ public class AttendeeFacade {
         Map<String, Attribute> attributeMap = attributes.stream()
                 .collect(Collectors.toMap(attr -> attr.getName().toLowerCase(), Function.identity()));
 
+        // 2. Prepare containers
         List<CreateAttendeeDto> validAttendees = new ArrayList<>();
         List<AttendeeImportAnalysisDto.InvalidRow> invalidRows = new ArrayList<>();
         Set<String> identifiersInThisFile = new HashSet<>();
 
+        // Safety Limits to prevent OOM on massive files
+        final int MAX_ROWS_TO_PROCESS = 2000;
+        int processedCount = 0;
+
+        // 3. Parse CSV (Streaming)
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+
+            // Define the format once
             CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
                     .setHeader()
                     .setSkipHeaderRecord(true)
@@ -152,10 +161,18 @@ public class AttendeeFacade {
                     .setIgnoreEmptyLines(true)
                     .get();
 
-            CSVParser csvParser = CSVParser.parse(reader, csvFormat);
+            // The parser returns an Iterable, processing line-by-line
+            CSVParser csvParser = csvFormat.parse(reader);
 
             for (CSVRecord record : csvParser) {
+                // Stop processing if we hit the safety limit
+                if (processedCount >= MAX_ROWS_TO_PROCESS) {
+                    break;
+                }
+                processedCount++;
+
                 try {
+                    // A. Basic Validation
                     String identity = record.isMapped("identity") ? record.get("identity") : null;
                     String firstName = record.isMapped("firstName") ? record.get("firstName") : null;
                     String lastName = record.isMapped("lastName") ? record.get("lastName") : null;
@@ -164,10 +181,12 @@ public class AttendeeFacade {
                     if (!StringUtils.hasText(firstName)) throw new IllegalArgumentException("Missing 'firstName'.");
                     if (!StringUtils.hasText(lastName)) throw new IllegalArgumentException("Missing 'lastName'.");
 
+                    // B. Regex Validation
                     if (regex != null && !regex.isBlank() && !identity.matches(regex)) {
                         throw new IllegalArgumentException("Identity does not match required format: " + regex);
                     }
 
+                    // C. Duplicate Checks
                     if (attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, identity)) {
                         throw new IllegalArgumentException("Identity '" + identity + "' already exists in the system.");
                     }
@@ -176,13 +195,16 @@ public class AttendeeFacade {
                     }
                     identifiersInThisFile.add(identity);
 
+                    // D. Attribute Validation
                     Map<String, Object> attributeValues = new HashMap<>();
                     for (String header : csvParser.getHeaderNames()) {
                         Attribute attribute = attributeMap.get(header.toLowerCase());
 
+                        // If column matches a defined Attribute
                         if (attribute != null && record.isMapped(header)) {
                             String value = record.get(header);
                             if (StringUtils.hasText(value)) {
+                                // Validate against Options (Select type)
                                 if (attribute.getOptions() != null && !attribute.getOptions().contains(value)) {
                                     throw new IllegalStateException("Value '" + value + "' is invalid for attribute '" + attribute.getName() + "'. Allowed: " + attribute.getOptions());
                                 }
@@ -220,23 +242,25 @@ public class AttendeeFacade {
     }
 
     @Transactional(readOnly = true)
-    public long countAttendees(Long organizationId) {
-        return attendeeRepository.countByOrganizationId(organizationId);
-    }
-
-    @Transactional(readOnly = true)
     public String generateImportTemplate(Long organizationId) {
         List<Attribute> attributes = attributeRepository.findAllByOrganizationId(organizationId);
 
+        // 1. Build Header Row
         StringBuilder csv = new StringBuilder("identity,firstName,lastName");
         for (Attribute attr : attributes) {
             csv.append(",").append(attr.getName());
         }
         csv.append("\n");
 
+        // 2. Build Example Row
         csv.append("2025001,John,Doe");
         for (Attribute attr : attributes) {
-            csv.append(",").append("SampleValue");
+            // FIXED: Use 'attr' to get a real sample value (e.g., the first option)
+            String sample = (attr.getOptions() != null && !attr.getOptions().isEmpty())
+                    ? attr.getOptions().getFirst()
+                    : "SampleValue";
+
+            csv.append(",").append(sample);
         }
         csv.append("\n");
 
