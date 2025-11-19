@@ -45,7 +45,7 @@ export default function AnalyticsPage() {
     const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
     const {breakdown, isLoadingBreakdown} = useAnalytics(selectedEventId, selectedAttribute);
 
-    const totalCheckedIn = useMemo(() => {
+    const totalEntries = useMemo(() => {
         return breakdown.reduce((sum, item) => sum + item.count, 0);
     }, [breakdown]);
 
@@ -85,9 +85,9 @@ export default function AnalyticsPage() {
         let description = "Choose an event and an attribute to break down your checked-in attendee data.";
 
         if (selectedEventId && selectedAttribute) {
-            if (totalCheckedIn === 0) {
-                title = "No Check-in Data Found";
-                description = "This event has no check-in records to analyze.";
+            if (totalEntries === 0) {
+                title = "No Entry Data Found";
+                description = "This event has no scan records to analyze.";
             } else {
                 title = "No Data for this Attribute";
                 description = `No checked-in attendees have a value for the "${selectedAttribute}" attribute.`;
@@ -120,7 +120,7 @@ export default function AnalyticsPage() {
                             <TableCell className="font-medium">{item.value}</TableCell>
                             <TableCell className="text-right">{item.count}</TableCell>
                             <TableCell className="text-right text-muted-foreground">
-                                {totalCheckedIn > 0 ? ((item.count / totalCheckedIn) * 100).toFixed(1) : 0}%
+                                {totalEntries > 0 ? ((item.count / totalEntries) * 100).toFixed(1) : 0}%
                             </TableCell>
                         </TableRow>
                     ))}
@@ -191,11 +191,10 @@ export default function AnalyticsPage() {
                                 <Card>
                                     <CardHeader>
                                         <div>
-                                            <CardTitle>Checked-in Breakdown</CardTitle>
+                                            <CardTitle>Attribute Breakdown</CardTitle>
                                             <CardDescription>
-                                                Visualizing the distribution
-                                                for &quot;{selectedEvent?.name}&quot; grouped
-                                                by &quot;{selectedAttribute}&quot;.
+                                                Visualizing the distribution of {totalEntries} entries
+                                                for &quot;{selectedEvent?.name}&quot;.
                                             </CardDescription>
                                         </div>
                                         <CardAction>
@@ -237,7 +236,7 @@ export default function AnalyticsPage() {
                                                                             cursor={false}
                                                                             content={
                                                                                 <ChartTooltipContent
-                                                                                    formatter={(value) => `${value} (${totalCheckedIn > 0 ? ((Number(value) / totalCheckedIn) * 100).toFixed(1) : 0}%)`}
+                                                                                    formatter={(value) => `${value} (${totalEntries > 0 ? ((Number(value) / totalEntries) * 100).toFixed(1) : 0}%)`}
                                                                                 />
                                                                             }
                                                                         />
@@ -247,7 +246,7 @@ export default function AnalyticsPage() {
                                                                 </ChartContainer>
                                                             )}
                                                             {chartType === 'pie' &&
-                                                                <PieChartView data={breakdown} total={totalCheckedIn}/>}
+                                                                <PieChartView data={breakdown} total={totalEntries}/>}
                                                             {chartType === 'table' && <DataTable/>}
                                                         </>
                                                     )}

@@ -18,7 +18,7 @@ interface ApiService {
         @Path("eventId") eventId: Long,
         @Query("page") page: Int,
         @Query("size") size: Int
-    ): PaginatedResponse<EventAttendeeSyncResponse>
+    ): PaginatedResponse<RosterItemResponse>
 
     @POST("api/v1/capture/sync")
     suspend fun syncEntries(@Body syncRequest: EntrySyncRequest)

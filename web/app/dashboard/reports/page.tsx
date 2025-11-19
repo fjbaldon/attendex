@@ -29,12 +29,10 @@ export default function ReportsPage() {
     const {eventsData, isLoadingEvents} = useEvents(0, 9999);
     const events = eventsData?.content ?? [];
 
-    // FIXED: Use arrivalsData instead of checkedInData
     const {arrivalsData, isLoadingArrivals} = useEventDetails(selectedEventId, pagination);
     const {organization} = useOrganization();
 
-    // FIXED: Data is now a list of EntryDetailsDto
-    const checkedInEntries = arrivalsData?.content ?? [];
+    const entries = arrivalsData?.content ?? [];
 
     const selectedEvent = events.find(e => e.id === selectedEventId);
     const generationDate = new Date().toLocaleString();
@@ -50,8 +48,7 @@ export default function ReportsPage() {
 
         try {
             const {exportToPdf} = await import("@/lib/pdf-exporter");
-            // FIXED: eventName -> name
-            const fileName = `report-${selectedEvent.name.replace(/ /g, '_')}`;
+            const fileName = `report-${selectedEvent.name.replace(/ /g, '_')}-arrivals`;
             await exportToPdf(reportContentRef.current, fileName);
         } catch (error) {
             console.error("Failed to export PDF:", error);
@@ -85,9 +82,9 @@ export default function ReportsPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             {events.map(event => (
-                                                // FIXED: eventName -> name
-                                                <SelectItem key={event.id}
-                                                            value={String(event.id)}>{event.name}</SelectItem>
+                                                <SelectItem key={event.id} value={String(event.id)}>
+                                                    {event.name}
+                                                </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -103,7 +100,6 @@ export default function ReportsPage() {
                         <div className="pt-2">
                             {selectedEventId ? (
                                 <>
-                                    {/* FIXED: isLoadingCheckedIn -> isLoadingArrivals */}
                                     {isLoadingArrivals ? (
                                         <div className="flex items-center justify-center h-96">
                                             <IconLoader className="h-8 w-8 animate-spin" stroke={1.5}/>
@@ -111,7 +107,6 @@ export default function ReportsPage() {
                                     ) : (
                                         <Card ref={reportContentRef} className="p-8 bg-white text-black">
                                             <header className="mb-6">
-                                                {/* FIXED: eventName -> name */}
                                                 <h2 className="text-3xl font-bold">{selectedEvent?.name}</h2>
                                                 <p className="text-lg text-gray-500">Arrivals Report</p>
                                             </header>
@@ -119,7 +114,7 @@ export default function ReportsPage() {
                                             <section className="grid grid-cols-3 gap-4 mb-6 text-sm">
                                                 <div className="space-y-1">
                                                     <p className="font-semibold">Total Arrivals:</p>
-                                                    <p className="text-gray-600">{checkedInEntries.length}</p>
+                                                    <p className="text-gray-600">{entries.length}</p>
                                                 </div>
                                             </section>
 
@@ -131,23 +126,27 @@ export default function ReportsPage() {
                                                         <TableHead className="text-black">Identity</TableHead>
                                                         <TableHead className="text-black">Last Name</TableHead>
                                                         <TableHead className="text-black">First Name</TableHead>
-                                                        <TableHead className="text-right text-black">Arrival
-                                                            Time</TableHead>
+                                                        <TableHead className="text-right text-black">
+                                                            Arrival Time
+                                                        </TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {checkedInEntries.length > 0 ? (
-                                                        // FIXED: iterate over EntryDetailsDto and access .attendee
-                                                        checkedInEntries.map((entry: EntryDetailsDto) => (
-                                                            <TableRow key={entry.entryId} className="border-b-gray-200">
-                                                                <TableCell
-                                                                    className="font-mono text-xs">{entry.attendee.identity}</TableCell>
-                                                                <TableCell
-                                                                    className="font-medium">{entry.attendee.lastName}</TableCell>
-                                                                <TableCell>{entry.attendee.firstName}</TableCell>
+                                                    {entries.length > 0 ? (
+                                                        entries.map((entry: EntryDetailsDto) => (
+                                                            <TableRow key={entry.entryId}
+                                                                      className="border-b-gray-200">
+                                                                <TableCell className="font-mono text-xs">
+                                                                    {entry.attendee.identity}
+                                                                </TableCell>
+                                                                <TableCell className="font-medium">
+                                                                    {entry.attendee.lastName}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {entry.attendee.firstName}
+                                                                </TableCell>
                                                                 <TableCell
                                                                     className="text-right text-gray-500 text-sm">
-                                                                    {/* FIXED: checkInTimestamp -> scanTimestamp */}
                                                                     {format(new Date(entry.scanTimestamp), "h:mm:ss a")}
                                                                 </TableCell>
                                                             </TableRow>
@@ -156,7 +155,7 @@ export default function ReportsPage() {
                                                         <TableRow>
                                                             <TableCell colSpan={4}
                                                                        className="h-24 text-center text-gray-500">
-                                                                No attendees have arrived yet.
+                                                                No arrivals recorded for this event yet.
                                                             </TableCell>
                                                         </TableRow>
                                                     )}
@@ -177,7 +176,7 @@ export default function ReportsPage() {
                                                          stroke={1.5}/>
                                     <h2 className="text-xl font-semibold">Select an Event to Generate a Report</h2>
                                     <p className="text-muted-foreground mt-2">
-                                        Choose an event to view its arrivals report.
+                                        Choose an event to view its official arrivals report.
                                     </p>
                                 </div>
                             )}

@@ -12,5 +12,5 @@ data class ActiveEventResponse(
     // The backend sends 'roster' here now, but your app fetches it separately.
     // You can ignore it here or refactor the app to use it.
     // For now, ignore it to prevent parsing errors if your JSON config is strict.
-    val roster: List<EventAttendeeSyncResponse> = emptyList()
+    val roster: List<RosterItemResponse> = emptyList()
 )
