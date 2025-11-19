@@ -41,4 +41,9 @@ class Attribute {
     static Attribute create(Long organizationId, String name, String type, List<String> options) {
         return new Attribute(organizationId, name, type, options);
     }
+
+    void updateOptions(List<String> newOptions) {
+        Assert.notEmpty(newOptions, "Options list cannot be empty");
+        this.options = newOptions;
+    }
 }

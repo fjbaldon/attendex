@@ -35,9 +35,10 @@ class EventController {
 
     @GetMapping
     public Page<EventDto> getEvents(
+            @RequestParam(required = false) String query,
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return eventFacade.findEvents(user.getOrganizationId(), pageable);
+        return eventFacade.findEvents(user.getOrganizationId(), query, pageable);
     }
 
     @GetMapping("/{eventId}")

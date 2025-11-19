@@ -42,13 +42,6 @@ public class AnalyticsFacade {
     }
 
     @Transactional(readOnly = true)
-    public List<EventSummaryDto> findRecentEventSummaries(Long organizationId, Pageable pageable) {
-        return eventSummaryRepository.findByOrganizationId(organizationId, pageable).stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
     public long countTotalOrganizations() {
         return organizationSummaryRepository.count();
     }
@@ -65,6 +58,14 @@ public class AnalyticsFacade {
         return 0; // Placeholder
     }
 
+    @Transactional(readOnly = true)
+    public List<EventSummaryDto> findRecentEventSummaries(Long organizationId, Pageable pageable) {
+        // You might need to join with Event table if you want recent events *that don't have analytics yet*
+        // But strictly speaking, this returns events that have some activity history.
+        return eventSummaryRepository.findByOrganizationId(organizationId, pageable).stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
 
     private OrganizationSummaryDto toDto(OrganizationSummary summary) {
         return new OrganizationSummaryDto(

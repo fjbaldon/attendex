@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -57,7 +59,11 @@ public class EventFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<EventDto> findEvents(Long organizationId, Pageable pageable) {
+    public Page<EventDto> findEvents(Long organizationId, String query, Pageable pageable) {
+        if (query != null && !query.isBlank()) {
+            return eventRepository.searchByOrganizationId(organizationId, query.trim(), pageable)
+                    .map(this::toDto);
+        }
         return eventRepository.findAllByOrganizationId(organizationId, pageable)
                 .map(this::toDto);
     }
@@ -189,8 +195,28 @@ public class EventFacade {
                 event.getGraceMinutesBefore(),
                 event.getGraceMinutesAfter(),
                 event.getCreatedAt(),
+                calculateEventStatus(event), // ADDED CALL
                 event.getSessions().stream().map(this::toDto).collect(Collectors.toList())
         );
+    }
+
+    private String calculateEventStatus(Event event) {
+        Instant now = Instant.now();
+        if (now.isAfter(event.getEndDate())) {
+            return "PAST";
+        }
+        if (now.isBefore(event.getStartDate())) {
+            return "UPCOMING";
+        }
+
+        // Check if currently within a session's active window (Target +/- Grace)
+        boolean isActive = event.getSessions().stream().anyMatch(session -> {
+            Instant startWindow = session.getTargetTime().minus(event.getGraceMinutesBefore(), ChronoUnit.MINUTES);
+            Instant endWindow = session.getTargetTime().plus(event.getGraceMinutesAfter(), ChronoUnit.MINUTES);
+            return !now.isBefore(startWindow) && !now.isAfter(endWindow);
+        });
+
+        return isActive ? "ACTIVE" : "ONGOING";
     }
 
     private SessionDto toDto(Session session) {

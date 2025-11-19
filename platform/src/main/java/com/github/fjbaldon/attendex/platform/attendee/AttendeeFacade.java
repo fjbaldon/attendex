@@ -52,7 +52,11 @@ public class AttendeeFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<AttendeeDto> findAttendees(Long organizationId, Pageable pageable) {
+    public Page<AttendeeDto> findAttendees(Long organizationId, String query, Pageable pageable) {
+        if (query != null && !query.isBlank()) {
+            return attendeeRepository.searchByOrganizationId(organizationId, query.trim(), pageable)
+                    .map(this::toDto);
+        }
         return attendeeRepository.findAllByOrganizationId(organizationId, pageable)
                 .map(this::toDto);
     }
@@ -96,6 +100,27 @@ public class AttendeeFacade {
         return attributeRepository.findAllByOrganizationId(organizationId).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public AttributeDto updateAttribute(Long organizationId, Long attributeId, List<String> newOptions) {
+        Attribute attribute = attributeRepository.findByIdAndOrganizationId(attributeId, organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Attribute not found"));
+
+        attribute.updateOptions(newOptions);
+        return toDto(attributeRepository.save(attribute));
+    }
+
+    @Transactional
+    public void deleteAttribute(Long organizationId, Long attributeId) {
+        Attribute attribute = attributeRepository.findByIdAndOrganizationId(attributeId, organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Attribute not found"));
+
+        if (attendeeRepository.isAttributeInUse(organizationId, attribute.getName())) {
+            throw new IllegalStateException("Cannot delete attribute '" + attribute.getName() + "' because it is currently assigned to one or more attendees.");
+        }
+
+        attributeRepository.delete(attribute);
     }
 
     @Transactional(readOnly = true)

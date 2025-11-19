@@ -11,6 +11,7 @@ public record EventDto(
         int graceMinutesBefore,
         int graceMinutesAfter,
         Instant createdAt,
+        String status,
         List<SessionDto> sessions
 ) {
 }

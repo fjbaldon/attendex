@@ -31,9 +31,10 @@ class AttendeeController {
 
     @GetMapping
     public Page<AttendeeDto> getAttendees(
+            @RequestParam(required = false) String query,
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return attendeeFacade.findAttendees(user.getOrganizationId(), pageable);
+        return attendeeFacade.findAttendees(user.getOrganizationId(), query, pageable);
     }
 
     @PostMapping("/import/analyze")
@@ -71,5 +72,23 @@ class AttendeeController {
     @GetMapping("/attributes")
     public List<AttributeDto> getAttributes(@AuthenticationPrincipal CustomUserDetails user) {
         return attendeeFacade.findAttributes(user.getOrganizationId());
+    }
+
+    @PutMapping("/attributes/{attributeId}")
+    public ResponseEntity<AttributeDto> updateAttribute(
+            @PathVariable Long attributeId,
+            @Valid @RequestBody CreateAttributeDto request, // Reusing Create DTO for simplicity
+            @AuthenticationPrincipal CustomUserDetails user) {
+        // We only update options, ignoring name changes as per business rule
+        AttributeDto attribute = attendeeFacade.updateAttribute(user.getOrganizationId(), attributeId, request.options());
+        return ResponseEntity.ok(attribute);
+    }
+
+    @DeleteMapping("/attributes/{attributeId}")
+    public ResponseEntity<Void> deleteAttribute(
+            @PathVariable Long attributeId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        attendeeFacade.deleteAttribute(user.getOrganizationId(), attributeId);
+        return ResponseEntity.noContent().build();
     }
 }

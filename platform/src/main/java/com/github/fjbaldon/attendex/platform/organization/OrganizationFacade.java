@@ -17,6 +17,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 public class OrganizationFacade {
@@ -233,24 +234,24 @@ public class OrganizationFacade {
     }
 
     @Transactional(readOnly = true)
-    public List<OrganizationDto> findExpiringSubscriptions(Instant thirtyDaysFromNow, Pageable pageable) {
-        // This will require a new method in OrganizationRepository
-        // findBySubscriptionExpiresAtBeforeOrderBySubscriptionExpiresAtAsc
-        return List.of(); // Placeholder
+    public List<OrganizationDto> findExpiringSubscriptions(Instant expirationThreshold, Pageable pageable) {
+        return organizationRepository.findBySubscriptionExpiresAtBetweenOrderBySubscriptionExpiresAtAsc(
+                Instant.now(),
+                expirationThreshold,
+                pageable
+        ).stream().map(this::toOrganizationDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<OrganizationDto> findRecentRegistrations(Pageable pageable) {
-        // This will require a new method in OrganizationRepository
-        // findByOrderByCreatedAtDesc
-        return List.of(); // Placeholder
+        return organizationRepository.findByOrderByIdDesc(pageable)
+                .stream().map(this::toOrganizationDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<OrganizationDto> findOrganizationsByLifecycle(List<String> lifecycles, Pageable pageable) {
-        // This will require a new method in OrganizationRepository
-        // findByLifecycleIn
-        return List.of(); // Placeholder
+        return organizationRepository.findByLifecycleIn(lifecycles, pageable)
+                .stream().map(this::toOrganizationDto).collect(Collectors.toList());
     }
 
     private void assertEmailIsUniqueInOrganization(String email, Long organizationId) {
@@ -270,5 +271,9 @@ public class OrganizationFacade {
 
     private ScannerDto toScannerDto(Scanner scanner) {
         return new ScannerDto(scanner.getId(), scanner.getEmail(), scanner.isEnabled(), scanner.isForcePasswordChange());
+    }
+
+    private OrganizationDto toOrganizationDto(Organization org) {
+        return org.toDto();
     }
 }
