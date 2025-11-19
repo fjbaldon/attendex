@@ -7,8 +7,6 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Optional;
-
 interface AttendeeRepository extends PagingAndSortingRepository<Attendee, Long>, CrudRepository<Attendee, Long> {
 
     Page<Attendee> findAllByOrganizationId(Long organizationId, Pageable pageable);
@@ -17,18 +15,12 @@ interface AttendeeRepository extends PagingAndSortingRepository<Attendee, Long>,
             "(LOWER(a.identity) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
             "LOWER(a.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
             "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :query, '%')))")
-    Page<Attendee> searchByOrganizationId(
-            @Param("organizationId") Long organizationId,
-            @Param("query") String query,
-            Pageable pageable
-    );
+    Page<Attendee> searchByOrganizationId(@Param("organizationId") Long organizationId, @Param("query") String query, Pageable pageable);
 
     boolean existsByOrganizationIdAndIdentity(Long organizationId, String identity);
 
     long countByOrganizationId(Long organizationId);
 
-    Optional<Attendee> findByIdAndOrganizationId(Long id, Long organizationId);
-
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM attendee_attendee WHERE organization_id = :organizationId AND attributes ? :attributeName)", nativeQuery = true)
+    @Query(value = "SELECT EXISTS(SELECT 1 FROM attendee_attendee WHERE organization_id = :organizationId AND jsonb_exists(attributes, :attributeName))", nativeQuery = true)
     boolean isAttributeInUse(@Param("organizationId") Long organizationId, @Param("attributeName") String attributeName);
 }

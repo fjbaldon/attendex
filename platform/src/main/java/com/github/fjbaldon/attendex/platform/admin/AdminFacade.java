@@ -8,6 +8,8 @@ import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
 import com.github.fjbaldon.attendex.platform.organization.events.OrganizationLifecycleChangedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,9 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.StreamSupport;
 
 @Service
 @RequiredArgsConstructor
@@ -82,14 +82,13 @@ public class AdminFacade {
     }
 
     @Transactional(readOnly = true)
-    public List<StewardDto> findAllStewards() {
-        return StreamSupport.stream(stewardRepository.findAll().spliterator(), false)
+    public Page<StewardDto> findAllStewards(Pageable pageable) {
+        return stewardRepository.findAll(pageable)
                 .map(steward -> new StewardDto(
                         steward.getId(),
                         steward.getEmail(),
                         steward.getCreatedAt()
-                ))
-                .toList();
+                ));
     }
 
     @Transactional(readOnly = true)
