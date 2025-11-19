@@ -49,6 +49,10 @@ class AppUserDetailsService implements UserDetailsService {
         if (userAuth.isPresent()) {
             var authDto = userAuth.get();
 
+            if (!authDto.enabled()) {
+                throw new DisabledException("Account is not verified. Please check your email for the verification link.");
+            }
+
             var orgDto = organizationFacade.findOrganizationById(authDto.organizationId());
 
             if (!"ACTIVE".equals(orgDto.lifecycle())) {

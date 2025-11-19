@@ -8,8 +8,8 @@ import {AxiosError} from "axios";
 type OrganizationStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 type SubscriptionType = 'LIFETIME' | 'ANNUAL' | 'TRIAL';
 
-interface OrganizationStatusUpdate {
-    status: OrganizationStatus;
+interface OrganizationLifecycleUpdate {
+    lifecycle: OrganizationStatus;
 }
 
 interface OrganizationSubscriptionUpdate {
@@ -34,7 +34,7 @@ export const useAdminOrganizations = (page = 0, size = 10) => {
     const updateStatusMutation = useMutation<
         Organization,
         AxiosError<ApiErrorResponse>,
-        { id: number; data: OrganizationStatusUpdate }
+        { id: number; data: OrganizationLifecycleUpdate }
     >({
         mutationFn: ({id, data}) => api.put(`/api/v1/admin/organizations/${id}/status`, data),
         onSuccess: async () => {

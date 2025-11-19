@@ -9,7 +9,13 @@ export const useAttendees = (page = 0, size = 10) => {
     const queryClient = useQueryClient();
     const queryKey = ["attendees", page, size];
 
-    const {data, isLoading: isLoadingAttendees, error: attendeesError} = useQuery<PaginatedResponse<AttendeeResponse>>({
+    // FIXED: Destructure 'refetch' from useQuery
+    const {
+        data,
+        isLoading: isLoadingAttendees,
+        error: attendeesError,
+        refetch
+    } = useQuery<PaginatedResponse<AttendeeResponse>>({
         queryKey,
         queryFn: async () => {
             const response = await api.get("/api/v1/attendees", {
@@ -112,6 +118,7 @@ export const useAttendees = (page = 0, size = 10) => {
         attendeesData: data,
         isLoadingAttendees,
         attendeesError,
+        refetch, // FIXED: Return refetch so components can use it
 
         createAttendee: createAttendeeMutation.mutate,
         isCreatingAttendee: createAttendeeMutation.isPending,

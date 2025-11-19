@@ -11,14 +11,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/users/me")
+@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 class UserController {
 
     private final IdentityFacade identityFacade;
     private final OrganizationFacade organizationFacade;
 
-    @PostMapping("/change-password")
+    @PostMapping("/me/change-password")
     @PreAuthorize("hasAuthority('FORCE_PASSWORD_CHANGE')")
     public ResponseEntity<Void> forceChangePassword(
             @Valid @RequestBody PasswordChangeRequestDto request,

@@ -14,7 +14,7 @@ export const useScanners = (page = 0, size = 10) => {
     const {data, isLoading: isLoadingScanners} = useQuery<PaginatedResponse<ScannerResponse>>({
         queryKey,
         queryFn: async () => {
-            const response = await api.get("/api/v1/scanners", {
+            const response = await api.get("/api/v1/organization/scanners", {
                 params: {page, size, sort: "email,asc"},
             });
             return response.data;
@@ -26,7 +26,7 @@ export const useScanners = (page = 0, size = 10) => {
         AxiosError<ApiErrorResponse>,
         ScannerCreateRequest
     >({
-        mutationFn: (newScannerData) => api.post("/api/v1/scanners", newScannerData),
+        mutationFn: (newScannerData) => api.post("/api/v1/organization/scanners", newScannerData),
         onSuccess: async () => {
             toast.success("Scanner created successfully!");
             await queryClient.invalidateQueries({queryKey: ["scanners"]});
@@ -43,7 +43,7 @@ export const useScanners = (page = 0, size = 10) => {
         AxiosError<ApiErrorResponse>,
         number
     >({
-        mutationFn: (id) => api.delete(`/api/v1/scanners/${id}`),
+        mutationFn: (id) => api.delete(`/api/v1/organization/scanners/${id}`),
         onSuccess: async () => {
             toast.success("Scanner removed successfully!");
             await queryClient.invalidateQueries({queryKey: ["scanners"]});

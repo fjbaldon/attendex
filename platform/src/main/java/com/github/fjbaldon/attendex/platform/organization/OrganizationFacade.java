@@ -61,6 +61,12 @@ public class OrganizationFacade {
 
         organizer.verify();
         organizerRepository.save(organizer);
+
+        Organization organization = organizer.getOrganization();
+        if ("INACTIVE".equals(organization.getLifecycle())) {
+            organization.updateLifecycle("ACTIVE");
+            organizationRepository.save(organization);
+        }
     }
 
     @Transactional

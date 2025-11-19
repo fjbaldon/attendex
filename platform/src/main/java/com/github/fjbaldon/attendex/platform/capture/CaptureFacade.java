@@ -11,6 +11,7 @@ import com.github.fjbaldon.attendex.platform.organization.dto.ScannerAuthDto;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,8 +32,6 @@ public class CaptureFacade {
     private final OrganizationFacade organizationFacade;
     private final ApplicationEventPublisher eventPublisher;
 
-    // NOTE: EventFacade dependency is COMPLETELY REMOVED
-
     @Transactional
     public void syncEntries(
             Long organizationId,
@@ -45,7 +44,8 @@ public class CaptureFacade {
                 .filter(s -> s.organizationId().equals(organizationId))
                 .orElseThrow(() -> new EntityNotFoundException("Scanner not found or does not belong to this organization."));
 
-        List<Entry> entriesToSave = new ArrayList<>();
+        List<Entry> newEntries = new ArrayList<>();
+
         for (var record : request.records()) {
             if (!entryRepository.existsBySessionIdAndAttendeeId(record.sessionId(), record.attendeeId())) {
                 SessionDetailsDto details = sessionDetailsMap.get(record.sessionId());
@@ -54,17 +54,16 @@ public class CaptureFacade {
                 }
                 String punctuality = calculatePunctuality(record.scanTimestamp(), details);
                 Entry entry = Entry.create(organizationId, record.sessionId(), record.attendeeId(), scanner.id(), record.scanTimestamp(), punctuality);
-                entriesToSave.add(entry);
+
+                try {
+                    entryRepository.saveAndFlush(entry);
+                    newEntries.add(entry);
+                } catch (DataIntegrityViolationException _) {
+                }
             }
         }
 
-        if (entriesToSave.isEmpty()) {
-            return;
-        }
-
-        entryRepository.saveAll(entriesToSave);
-
-        for (Entry entry : entriesToSave) {
+        for (Entry entry : newEntries) {
             Long eventId = sessionIdToEventIdMap.get(entry.getSessionId());
             if (eventId != null) {
                 eventPublisher.publishEvent(new EntryCreatedEvent(

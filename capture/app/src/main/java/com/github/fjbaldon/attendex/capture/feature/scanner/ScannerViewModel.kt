@@ -12,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 sealed class ScanUiResult {
@@ -83,7 +84,7 @@ class ScannerViewModel @Inject constructor(
         initialValue = ScannerUiState()
     )
 
-    private var isProcessing = false
+    private val isProcessing = AtomicBoolean(false)
 
     init {
         loadEventDetails()
@@ -119,8 +120,7 @@ class ScannerViewModel @Inject constructor(
             return
         }
 
-        if (isProcessing || !_isEventActive.value) return
-        isProcessing = true
+        if (!_isEventActive.value || !isProcessing.compareAndSet(false, true)) return
 
         viewModelScope.launch {
             when (val result = eventRepository.processScan(eventId, currentSession.id, scannedText)) {
@@ -147,7 +147,7 @@ class ScannerViewModel @Inject constructor(
         viewModelScope.launch {
             delay(250)
             _lastScanResult.value = ScanUiResult.Idle
-            isProcessing = false
+            isProcessing.set(false)
         }
     }
 

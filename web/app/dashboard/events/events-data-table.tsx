@@ -20,6 +20,9 @@ interface EventsDataTableProps {
     pageCount: number;
     pagination: { pageIndex: number; pageSize: number; };
     setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
+    // New props for Server-Side Search
+    onSearchChange: (value: string) => void;
+    searchValue: string;
 }
 
 export function EventsDataTable({
@@ -28,14 +31,15 @@ export function EventsDataTable({
                                     isLoading,
                                     pageCount,
                                     pagination,
-                                    setPagination
+                                    setPagination,
+                                    onSearchChange,
+                                    searchValue
                                 }: EventsDataTableProps) {
     const {createEvent, isCreatingEvent, updateEvent, isUpdatingEvent, deleteEvent, isDeletingEvent} = useEvents();
 
     const [isFormDialogOpen, setIsFormDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
     const [selectedEvent, setSelectedEvent] = React.useState<EventResponse | null>(null);
-    const [filter, setFilter] = React.useState("");
 
     const handleFormSubmit = (values: z.infer<typeof eventSchema>) => {
         if (selectedEvent) {
@@ -61,8 +65,8 @@ export function EventsDataTable({
         <div className="flex items-center justify-between">
             <Input
                 placeholder="Filter events..."
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
+                value={searchValue}
+                onChange={(event) => onSearchChange(event.target.value)}
                 className="h-9 max-w-sm"
             />
             <Button size="sm" className="h-9" onClick={() => {
@@ -74,11 +78,6 @@ export function EventsDataTable({
             </Button>
         </div>
     );
-
-    const filteredData = React.useMemo(() =>
-        data.filter(event =>
-            event.name.toLowerCase().includes(filter.toLowerCase())
-        ), [data, filter]);
 
     return (
         <>
@@ -94,13 +93,12 @@ export function EventsDataTable({
                 onOpenChange={setIsConfirmDialogOpen}
                 onConfirm={handleDeleteConfirm}
                 title="Are you sure?"
-                // FIXED: Changed from selectedEvent?.eventName to selectedEvent?.name
                 description={`This will permanently delete the event "${selectedEvent?.name}". This action cannot be undone.`}
                 isLoading={isDeletingEvent}
             />
             <DataTable
                 columns={columns}
-                data={filteredData}
+                data={data} // Pass data directly, filtering happens on backend
                 isLoading={isLoading}
                 pageCount={pageCount}
                 pagination={pagination}

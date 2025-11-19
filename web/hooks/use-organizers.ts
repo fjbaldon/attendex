@@ -14,7 +14,7 @@ export const useOrganizers = (page = 0, size = 10) => {
     const {data, isLoading: isLoadingOrganizers} = useQuery<PaginatedResponse<OrganizerResponse>>({
         queryKey,
         queryFn: async () => {
-            const response = await api.get("/api/v1/organizers", {
+            const response = await api.get("/api/v1/organization/organizers", {
                 params: {page, size, sort: "email,asc"}
             });
             return response.data;
@@ -26,7 +26,7 @@ export const useOrganizers = (page = 0, size = 10) => {
         AxiosError<ApiErrorResponse>,
         OrganizerCreateRequest
     >({
-        mutationFn: (newOrganizerData) => api.post("/api/v1/organizers", newOrganizerData),
+        mutationFn: (newOrganizerData) => api.post("/api/v1/organization/organizers", newOrganizerData),
         onSuccess: async () => {
             toast.success("Organizer created successfully!");
             await queryClient.invalidateQueries({queryKey: ["organizers"]});
@@ -43,7 +43,7 @@ export const useOrganizers = (page = 0, size = 10) => {
         AxiosError<ApiErrorResponse>,
         number
     >({
-        mutationFn: (id) => api.delete(`/api/v1/organizers/${id}`),
+        mutationFn: (id) => api.delete(`/api/v1/organization/organizers/${id}`),
         onSuccess: async () => {
             toast.success("Organizer removed successfully!");
             await queryClient.invalidateQueries({queryKey: ["organizers"]});

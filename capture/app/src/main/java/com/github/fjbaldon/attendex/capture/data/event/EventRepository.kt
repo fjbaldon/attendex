@@ -58,6 +58,7 @@ class EventRepository @Inject constructor(
     suspend fun refreshEvents(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val remoteEvents = apiService.getActiveEvents()
+
             val eventEntities = remoteEvents.map {
                 EventEntity(
                     id = it.id,
@@ -68,20 +69,58 @@ class EventRepository @Inject constructor(
                 )
             }
 
-            appDatabase.withTransaction {
-                eventDao.clearAll()
-                eventDao.insertAll(eventEntities)
-            }
+            val attendeesByEvent = mutableMapOf<Long, List<AttendeeEntity>>()
 
             remoteEvents.map { event ->
-                async { refreshAttendeesForEvent(event.id) }
+                async {
+                    val attendees = fetchAllAttendeesForEventFromNetwork(event.id)
+                    attendeesByEvent[event.id] = attendees
+                }
             }.awaitAll()
+
+            appDatabase.withTransaction {
+                eventDao.clearAll()
+
+                eventDao.insertAll(eventEntities)
+
+                attendeesByEvent.forEach { (eventId, attendees) ->
+                    attendeeDao.clearAttendeesForEvent(eventId)
+                    if (attendees.isNotEmpty()) {
+                        attendeeDao.insertAll(attendees)
+                    }
+                }
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("EventRepository", "Failed to refresh events", e)
             Result.failure(e)
         }
+    }
+
+    private suspend fun fetchAllAttendeesForEventFromNetwork(eventId: Long): List<AttendeeEntity> {
+        val allAttendees = mutableListOf<AttendeeEntity>()
+        var page = 0
+        val pageSize = 500
+        var isLastPage = false
+
+        while (!isLastPage) {
+            val response = apiService.getAttendeesForEvent(eventId, page, pageSize)
+            val entities = response.content.map {
+                AttendeeEntity(
+                    eventId = eventId,
+                    attendeeId = it.attendeeId,
+                    identity = it.identity,
+                    qrCodeHash = it.qrCodeHash,
+                    firstName = it.firstName,
+                    lastName = it.lastName
+                )
+            }
+            allAttendees.addAll(entities)
+            isLastPage = response.last
+            page++
+        }
+        return allAttendees
     }
 
     private suspend fun refreshAttendeesForEvent(eventId: Long): Result<Unit> {

@@ -97,7 +97,6 @@ const useEventRoster = (eventId: number) => {
     return useQuery<AttendeeResponse[]>({
         queryKey: ["eventDetails", eventId, "allAttendees"],
         queryFn: async () => {
-            // Note: Ensure backend supports ?size=2000 or handles pagination correctly
             const response = await api.get(`/api/v1/events/${eventId}/roster?size=2000`);
             return response.data.content;
         },
@@ -111,8 +110,8 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
     const [rowSelection, setRowSelection] = useState({});
     const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
 
-    const {attendeesData, isLoadingAttendees} = useAttendees(0, 2000);
-    const {data: eventAttendees, isLoading: isLoadingEventAttendees} = useEventRoster(eventId);
+    const {attendeesData, isLoadingAttendees, refetch: refetchAttendees} = useAttendees(0, 2000);
+    const {data: eventAttendees, isLoading: isLoadingEventAttendees, refetch: refetchRoster} = useEventRoster(eventId);
 
     const {addAttendee, isAddingAttendee} = useEventDetails(eventId, {pageIndex: 0, pageSize: 10});
     const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
@@ -163,12 +162,16 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
     });
 
     useEffect(() => {
-        if (!open) {
+        if (open) {
+            // FIX: Use void to explicitly ignore the promise returned by React Query
+            void refetchAttendees();
+            void refetchRoster();
+
             setSearchQuery("");
             setActiveFilters({});
             setRowSelection({});
         }
-    }, [open]);
+    }, [open, refetchAttendees, refetchRoster]);
 
     const handleAddSelected = async () => {
         const selectedIds = Object.keys(rowSelection).map(Number);
@@ -218,7 +221,7 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                 <div className="space-y-4 flex-grow flex flex-col min-h-0">
                     <div className="flex flex-col sm:flex-row gap-2">
                         <Input
-                            placeholder="Search by name or identifier..."
+                            placeholder="Search by name or identity..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="h-9 max-w-sm"

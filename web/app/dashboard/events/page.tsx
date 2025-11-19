@@ -8,6 +8,7 @@ import {useEvents} from "@/hooks/use-events";
 import {EventsDataTable} from "./events-data-table";
 import {getColumns} from "./columns";
 import {useRouter} from "next/navigation";
+import {useDebounce} from "@uidotdev/usehooks";
 
 export default function EventsPage() {
     const [{pageIndex, pageSize}, setPagination] = React.useState({
@@ -15,14 +16,18 @@ export default function EventsPage() {
         pageSize: 10,
     });
 
-    const router = useRouter(); // <-- Router is created here
+    // Search State
+    const [searchQuery, setSearchQuery] = React.useState("");
+    // Debounce to prevent API calls on every keystroke (500ms delay)
+    const debouncedQuery = useDebounce(searchQuery, 500);
 
-    const {eventsData, isLoadingEvents} = useEvents(pageIndex, pageSize);
+    const router = useRouter();
+
+    // Pass debouncedQuery to hook for server-side filtering
+    const {eventsData, isLoadingEvents} = useEvents(pageIndex, pageSize, debouncedQuery);
     const events = eventsData?.content ?? [];
     const pageCount = eventsData?.totalPages ?? 0;
 
-    // useMemo ensures that getColumns is only re-run if the router instance changes (which it won't).
-    // This correctly "bakes in" the router instance for the column definitions.
     const columns = React.useMemo(() => getColumns(router), [router]);
 
     return (
@@ -41,12 +46,14 @@ export default function EventsPage() {
                     <div className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
                         <div className="px-4 lg:px-6">
                             <EventsDataTable
-                                columns={columns} // <-- The correct columns are passed here
+                                columns={columns}
                                 data={events}
                                 isLoading={isLoadingEvents}
                                 pageCount={pageCount}
                                 pagination={{pageIndex, pageSize}}
                                 setPagination={setPagination}
+                                onSearchChange={setSearchQuery}
+                                searchValue={searchQuery}
                             />
                         </div>
                     </div>

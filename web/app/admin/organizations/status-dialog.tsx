@@ -49,7 +49,7 @@ export function StatusDialog({open, onOpenChange, organization}: StatusDialogPro
 
             // Note: You likely need to update hooks/use-admin-organizations.ts to accept 'lifecycle' too.
             // For this file context:
-            updateStatus({id: organization.id, data: {status: values.lifecycle}}, {
+            updateStatus({id: organization.id, data: {lifecycle: values.lifecycle}}, {
                 onSuccess: () => onOpenChange(false),
             });
         }
