@@ -102,7 +102,7 @@ class EventRepository @Inject constructor(
                     AttendeeEntity(
                         eventId = eventId,
                         attendeeId = it.attendeeId,
-                        uniqueIdentifier = it.uniqueIdentifier,
+                        identity = it.identity,
                         qrCodeHash = it.qrCodeHash,
                         firstName = it.firstName,
                         lastName = it.lastName
@@ -130,7 +130,7 @@ class EventRepository @Inject constructor(
         val mostRecentEntry = entryDao.findMostRecentEntryForEvent(eventId)
         if (mostRecentEntry != null) {
             val lastAttendee = attendeeDao.findAttendeesByIds(listOf(mostRecentEntry.attendeeId)).firstOrNull()
-            lastScannedIdentifier = lastAttendee?.uniqueIdentifier
+            lastScannedIdentifier = lastAttendee?.identity
         } else {
             lastScannedIdentifier = null
         }
@@ -141,7 +141,7 @@ class EventRepository @Inject constructor(
             return ScanResult.AlreadyScanned
         }
 
-        val attendee = attendeeDao.findAttendeeByIdentifier(eventId, identifier)
+        val attendee = attendeeDao.findAttendeeByIdentity(eventId, identifier)
             ?: return ScanResult.AttendeeNotFound
 
         val entry = EntryEntity(

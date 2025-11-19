@@ -7,14 +7,14 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "attendees",
     indices = [
-        Index(value = ["eventId", "uniqueIdentifier"], unique = true)
+        Index(value = ["eventId", "identity"], unique = true)
     ]
 )
 data class AttendeeEntity(
     @PrimaryKey(autoGenerate = true) val localId: Int = 0,
     val eventId: Long,
     val attendeeId: Long,
-    val uniqueIdentifier: String,
+    val identity: String,
     val qrCodeHash: String,
     val firstName: String,
     val lastName: String

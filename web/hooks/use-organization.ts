@@ -5,10 +5,9 @@ import {toast} from "sonner";
 import {AxiosError} from "axios";
 import {getErrorMessage} from "@/lib/utils";
 
-// This is the corrected type definition
 interface OrganizationUpdateRequest {
     name: string;
-    identifierFormatRegex: string | null;
+    identityFormatRegex: string | null;
 }
 
 export const useOrganization = () => {

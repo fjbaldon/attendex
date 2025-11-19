@@ -12,8 +12,8 @@ interface AttendeeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(attendees: List<AttendeeEntity>)
 
-    @Query("SELECT * FROM attendees WHERE eventId = :eventId AND uniqueIdentifier = :identifier LIMIT 1")
-    suspend fun findAttendeeByIdentifier(eventId: Long, identifier: String): AttendeeEntity?
+    @Query("SELECT * FROM attendees WHERE eventId = :eventId AND identity = :identity LIMIT 1")
+    suspend fun findAttendeeByIdentity(eventId: Long, identity: String): AttendeeEntity?
 
     @Query("DELETE FROM attendees WHERE eventId = :eventId")
     suspend fun clearAttendeesForEvent(eventId: Long)

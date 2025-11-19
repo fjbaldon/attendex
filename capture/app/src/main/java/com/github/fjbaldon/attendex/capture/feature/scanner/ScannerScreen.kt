@@ -230,7 +230,7 @@ private fun ScannedAttendeesSheetContent(
                                 fontWeight = FontWeight.Medium
                             )
                         },
-                        supportingContent = { Text(attendee.uniqueIdentifier) }
+                        supportingContent = { Text(attendee.identity) }
                     )
                     HorizontalDivider()
                 }

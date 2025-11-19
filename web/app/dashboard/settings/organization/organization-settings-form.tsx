@@ -21,14 +21,14 @@ export function OrganizationSettingsForm({organization, onSubmit, isLoading}: Or
         resolver: zodResolver(organizationSettingsSchema),
         defaultValues: {
             name: "",
-            identifierFormatRegex: "",
+            identityFormatRegex: "",
         },
     });
 
     useEffect(() => {
         form.reset({
             name: organization.name,
-            identifierFormatRegex: organization.identityFormatRegex || "",
+            identityFormatRegex: organization.identityFormatRegex || "",
         });
     }, [organization, form]);
 
@@ -51,7 +51,7 @@ export function OrganizationSettingsForm({organization, onSubmit, isLoading}: Or
 
                 <FormField
                     control={form.control}
-                    name="identifierFormatRegex"
+                    name="identityFormatRegex"
                     render={({field}) => (
                         <FormItem>
                             <FormLabel>Attendee Identifier Pattern (Optional)</FormLabel>

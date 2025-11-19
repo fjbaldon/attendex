@@ -13,7 +13,7 @@ export default function OrganizationSettingsPage() {
     const handleSubmit = (values: z.infer<typeof organizationSettingsSchema>) => {
         const payload = {
             ...values,
-            identifierFormatRegex: values.identifierFormatRegex || null,
+            identityFormatRegex: values.identityFormatRegex || null,
         };
         updateOrganization(payload);
     };
