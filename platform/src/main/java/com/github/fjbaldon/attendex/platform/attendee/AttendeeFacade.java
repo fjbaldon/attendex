@@ -2,6 +2,8 @@ package com.github.fjbaldon.attendex.platform.attendee;
 
 import com.github.fjbaldon.attendex.platform.attendee.dto.*;
 import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeCreatedEvent;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
+import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.csv.CSVFormat;
@@ -31,10 +33,16 @@ public class AttendeeFacade {
 
     private final AttendeeRepository attendeeRepository;
     private final AttributeRepository attributeRepository;
+    private final OrganizationFacade organizationFacade;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public AttendeeDto createAttendee(Long organizationId, CreateAttendeeDto dto) {
+        Assert.isTrue(!attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, dto.identity()),
+                "An attendee with this identity already exists.");
+
+        validateIdentityFormat(organizationId, dto.identity());
+
         Assert.isTrue(!attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, dto.identity()),
                 "An attendee with this identity already exists in your organization.");
 
@@ -125,6 +133,9 @@ public class AttendeeFacade {
 
     @Transactional(readOnly = true)
     public AttendeeImportAnalysisDto analyzeAttendeeImport(Long organizationId, MultipartFile file) throws IOException {
+        OrganizationDto organization = organizationFacade.findOrganizationById(organizationId);
+        String regex = organization.identityFormatRegex();
+
         List<Attribute> attributes = attributeRepository.findAllByOrganizationId(organizationId);
         Map<String, Attribute> attributeMap = attributes.stream()
                 .collect(Collectors.toMap(attr -> attr.getName().toLowerCase(), Function.identity()));
@@ -134,36 +145,59 @@ public class AttendeeFacade {
         Set<String> identifiersInThisFile = new HashSet<>();
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setTrim(true).get();
+            CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
+                    .setHeader()
+                    .setSkipHeaderRecord(true)
+                    .setTrim(true)
+                    .setIgnoreEmptyLines(true)
+                    .get();
+
             CSVParser csvParser = CSVParser.parse(reader, csvFormat);
 
             for (CSVRecord record : csvParser) {
                 try {
-                    String identity = record.get("identity");
-                    Assert.hasText(identity, "Identity is a required field.");
+                    String identity = record.isMapped("identity") ? record.get("identity") : null;
+                    String firstName = record.isMapped("firstName") ? record.get("firstName") : null;
+                    String lastName = record.isMapped("lastName") ? record.get("lastName") : null;
 
-                    if (attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, identity) || identifiersInThisFile.contains(identity)) {
-                        throw new IllegalStateException("Identity '" + identity + "' already exists or is duplicated in the file.");
+                    if (!StringUtils.hasText(identity)) throw new IllegalArgumentException("Missing 'identity'.");
+                    if (!StringUtils.hasText(firstName)) throw new IllegalArgumentException("Missing 'firstName'.");
+                    if (!StringUtils.hasText(lastName)) throw new IllegalArgumentException("Missing 'lastName'.");
+
+                    if (regex != null && !regex.isBlank() && !identity.matches(regex)) {
+                        throw new IllegalArgumentException("Identity does not match required format: " + regex);
+                    }
+
+                    if (attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, identity)) {
+                        throw new IllegalArgumentException("Identity '" + identity + "' already exists in the system.");
+                    }
+                    if (identifiersInThisFile.contains(identity)) {
+                        throw new IllegalArgumentException("Duplicate identity '" + identity + "' found in this file.");
                     }
                     identifiersInThisFile.add(identity);
 
                     Map<String, Object> attributeValues = new HashMap<>();
                     for (String header : csvParser.getHeaderNames()) {
                         Attribute attribute = attributeMap.get(header.toLowerCase());
-                        if (attribute != null && record.isMapped(header) && StringUtils.hasText(record.get(header))) {
+
+                        if (attribute != null && record.isMapped(header)) {
                             String value = record.get(header);
-                            Assert.isTrue(attribute.getOptions().contains(value),
-                                    "Value '" + value + "' is not a valid option for attribute '" + attribute.getName() + "'.");
-                            attributeValues.put(attribute.getName(), value);
+                            if (StringUtils.hasText(value)) {
+                                if (attribute.getOptions() != null && !attribute.getOptions().contains(value)) {
+                                    throw new IllegalStateException("Value '" + value + "' is invalid for attribute '" + attribute.getName() + "'. Allowed: " + attribute.getOptions());
+                                }
+                                attributeValues.put(attribute.getName(), value);
+                            }
                         }
                     }
 
                     validAttendees.add(new CreateAttendeeDto(
                             identity,
-                            record.get("firstName"),
-                            record.get("lastName"),
+                            firstName,
+                            lastName,
                             attributeValues
                     ));
+
                 } catch (Exception e) {
                     invalidRows.add(new AttendeeImportAnalysisDto.InvalidRow(
                             record.getRecordNumber(),
@@ -173,6 +207,7 @@ public class AttendeeFacade {
                 }
             }
         }
+
         return new AttendeeImportAnalysisDto(validAttendees, invalidRows);
     }
 
@@ -206,6 +241,22 @@ public class AttendeeFacade {
         csv.append("\n");
 
         return csv.toString();
+    }
+
+    private void validateIdentityFormat(Long organizationId, String identity) {
+        var org = organizationFacade.findOrganizationById(organizationId);
+        // Note: 'identityFormatRegex' might be null/empty in DTO if not set
+        String regex = null;
+        // You might need to expose regex in OrganizationDto if not already there.
+        // Assuming OrganizationDto has it (it does in your code).
+        try {
+            // Accessing private field via reflection or getter in DTO record
+            regex = org.identityFormatRegex(); // Ensure OrganizationDto has this accessor
+        } catch (Exception e) { /* handle or ignore */ }
+
+        if (regex != null && !regex.isBlank() && !identity.matches(regex)) {
+            throw new IllegalArgumentException("Identity '" + identity + "' does not match the required format: " + regex);
+        }
     }
 
     private AttendeeDto toDto(Attendee attendee) {

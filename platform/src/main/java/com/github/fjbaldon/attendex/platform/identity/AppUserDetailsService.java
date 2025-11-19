@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.platform.identity;
 import com.github.fjbaldon.attendex.platform.admin.AdminFacade;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +48,17 @@ class AppUserDetailsService implements UserDetailsService {
         Optional<com.github.fjbaldon.attendex.platform.organization.dto.UserAuthDto> userAuth = organizationFacade.findUserAuthByEmail(email);
         if (userAuth.isPresent()) {
             var authDto = userAuth.get();
+
+            var orgDto = organizationFacade.findOrganizationById(authDto.organizationId());
+
+            if (!"ACTIVE".equals(orgDto.lifecycle())) {
+                throw new DisabledException("Organization account is " + orgDto.lifecycle());
+            }
+
+            if (orgDto.subscriptionExpiresAt() != null && orgDto.subscriptionExpiresAt().isBefore(Instant.now())) {
+                throw new DisabledException("Organization subscription has expired.");
+            }
+
             List<GrantedAuthority> authorities = new ArrayList<>();
             authorities.add(new SimpleGrantedAuthority(authDto.role()));
             if (authDto.forcePasswordChange()) {

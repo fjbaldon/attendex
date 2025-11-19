@@ -8,6 +8,7 @@ import com.github.fjbaldon.attendex.platform.organization.events.OrganizationLif
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -85,5 +86,22 @@ class AuditEventListener {
                 null
         );
         auditRepository.save(audit);
+    }
+
+    @Async
+    @EventListener
+    public void onLoginFailure(AuthenticationFailureBadCredentialsEvent event) {
+        String email = (String) event.getAuthentication().getPrincipal();
+        // Getting IP from event is tricky in async; normally passed via WebAuthenticationDetails
+        // For simplicity, we might log "N/A" or need a synchronous approach.
+        // Or, assume 'details' contains IP if WebAuthenticationDetailsSource was used.
+
+        Audit audit = Audit.record(
+                email,
+                "USER_LOGIN_FAILURE",
+                "FAILURE",
+                "N/A", // extracting IP from async event requires extraction in Controller or Filter
+                Map.of("error", event.getException().getMessage())
+        );
     }
 }

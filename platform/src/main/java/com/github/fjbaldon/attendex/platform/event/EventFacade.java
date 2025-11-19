@@ -149,7 +149,26 @@ public class EventFacade {
     @Transactional(readOnly = true)
     public List<EventSyncDto> getEventsForSync(Long organizationId) {
         List<EventForSyncDto> events = findActiveEventsForSync(organizationId);
-        return events.stream().map(this::toEventSyncDto).collect(Collectors.toList());
+
+        return events.stream().map(e -> {
+            List<EventSyncDto.SessionSyncDto> sessionSyncDtos = e.sessions().stream()
+                    .map(s -> new EventSyncDto.SessionSyncDto(
+                            s.id(),
+                            s.activityName(),
+                            s.targetTime(),
+                            s.intent()
+                    ))
+                    .collect(Collectors.toList());
+
+            return new EventSyncDto(
+                    e.id(),
+                    e.name(),
+                    e.startDate(),
+                    e.endDate(),
+                    sessionSyncDtos,
+                    List.of()
+            );
+        }).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

@@ -59,6 +59,7 @@ class Organization {
         return new OrganizationDto(
                 this.id,
                 this.name,
+                this.identityFormatRegex,
                 this.lifecycle,
                 this.subscriptionType,
                 this.subscriptionExpiresAt
