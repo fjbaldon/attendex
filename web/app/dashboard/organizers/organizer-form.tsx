@@ -20,7 +20,7 @@ export function OrganizerForm({onSubmit, isLoading, onClose}: OrganizerFormProps
         resolver: zodResolver(userCreateSchema),
         defaultValues: {
             email: "",
-            temporaryPassword: "",
+            password: "",
         },
     });
 
@@ -48,7 +48,7 @@ export function OrganizerForm({onSubmit, isLoading, onClose}: OrganizerFormProps
 
                 <FormField
                     control={form.control}
-                    name="temporaryPassword"
+                    name="password"
                     render={({field}) => (
                         <FormItem>
                             <FormLabel>Temporary Password</FormLabel>

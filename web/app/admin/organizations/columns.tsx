@@ -30,10 +30,10 @@ export const columns: ColumnDef<Organization>[] = [
         cell: ({row}) => <div className="pl-4 font-medium">{row.original.name}</div>,
     },
     {
-        accessorKey: "status",
+        accessorKey: "lifecycle",
         header: "Status",
         cell: ({row}) => {
-            const statusInfo = statusMap[row.original.status as string] || statusMap.INACTIVE;
+            const statusInfo = statusMap[row.original.lifecycle] || statusMap.INACTIVE;
             return <Badge variant="outline"
                           className={cn("capitalize", statusInfo.className)}>{statusInfo.text}</Badge>;
         },

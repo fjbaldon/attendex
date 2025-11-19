@@ -1,14 +1,14 @@
 "use client";
 
 import {Control, FieldValues, Path} from "react-hook-form";
-import {CustomFieldDefinition} from "@/types";
+import {Attribute} from "@/types";
 import {FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
 import {Input} from "@/components/ui/input";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {IconHash, IconUser} from "@tabler/icons-react";
 
 interface DynamicFormFieldProps<TFormValues extends FieldValues> {
-    fieldDef: CustomFieldDefinition;
+    fieldDef: Attribute;
     control: Control<TFormValues>;
     name: string;
 }
@@ -24,15 +24,15 @@ export function DynamicFormField<TFormValues extends FieldValues>({
             name={name as Path<TFormValues>}
             render={({field}) => (
                 <FormItem className="flex flex-col gap-1.5">
-                    <FormLabel>{fieldDef.fieldName}</FormLabel>
+                    <FormLabel>{fieldDef.name}</FormLabel>
                     <FormControl>
                         <Select onValueChange={field.onChange}
                                 value={field.value ? String(field.value) : ""}>
                             <SelectTrigger><SelectValue
-                                placeholder={`Select ${fieldDef.fieldName}`}/></SelectTrigger>
+                                placeholder={`Select ${fieldDef.name}`}/></SelectTrigger>
                             <SelectContent>
-                                {fieldDef.options?.map(opt => <SelectItem key={opt}
-                                                                          value={opt}>{opt}</SelectItem>)}
+                                {fieldDef.options?.map((opt: string) => <SelectItem key={opt}
+                                                                                    value={opt}>{opt}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </FormControl>

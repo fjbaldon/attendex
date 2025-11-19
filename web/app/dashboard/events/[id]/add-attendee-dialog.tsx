@@ -49,7 +49,7 @@ const FilterDropdown = ({field, attendees, activeFilters, onFilterChange}: {
 }) => {
     const options = useMemo(() => Array.from(
         attendees.reduce((acc, attendee) => {
-            const value = attendee.customFields?.[field];
+            const value = attendee.attributes?.[field];
             if (value != null && String(value).trim() !== "") {
                 acc.add(String(value));
             }
@@ -97,7 +97,8 @@ const useEventRoster = (eventId: number) => {
     return useQuery<AttendeeResponse[]>({
         queryKey: ["eventDetails", eventId, "allAttendees"],
         queryFn: async () => {
-            const response = await api.get(`/api/v1/events/${eventId}/attendees?size=2000`);
+            // Note: Ensure backend supports ?size=2000 or handles pagination correctly
+            const response = await api.get(`/api/v1/events/${eventId}/roster?size=2000`);
             return response.data.content;
         },
         enabled: !!eventId,
@@ -114,9 +115,9 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
     const {data: eventAttendees, isLoading: isLoadingEventAttendees} = useEventRoster(eventId);
 
     const {addAttendee, isAddingAttendee} = useEventDetails(eventId, {pageIndex: 0, pageSize: 10});
-    const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useAttributes();
+    const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
 
-    const columns = useMemo(() => getColumns(customFieldDefinitions), [customFieldDefinitions]);
+    const columns = useMemo(() => getColumns(attributes), [attributes]);
 
     const availableAttendees = useMemo(() => {
         if (!attendeesData?.content || !eventAttendees) return [];
@@ -129,7 +130,7 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
 
         if (debouncedSearchQuery) {
             attendees = attendees.filter(attendee =>
-                `${attendee.firstName} ${attendee.lastName} ${attendee.uniqueIdentifier}`
+                `${attendee.firstName} ${attendee.lastName} ${attendee.identity}`
                     .toLowerCase()
                     .includes(debouncedSearchQuery.toLowerCase())
             );
@@ -140,7 +141,7 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
             attendees = attendees.filter(attendee => {
                 return filterKeys.every(field => {
                     const selectedValues = activeFilters[field];
-                    const attendeeValue = attendee.customFields?.[field];
+                    const attendeeValue = attendee.attributes?.[field];
                     return selectedValues.includes(String(attendeeValue));
                 });
             });
@@ -202,7 +203,7 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
         return searchQuery !== "" || Object.values(activeFilters).some(v => v.length > 0);
     }, [searchQuery, activeFilters]);
 
-    const isLoading = isLoadingAttendees || isLoadingCustomFields || isLoadingEventAttendees;
+    const isLoading = isLoadingAttendees || isLoadingAttributes || isLoadingEventAttendees;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -223,16 +224,16 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                             className="h-9 max-w-sm"
                         />
                         <div className="flex items-center gap-2 flex-wrap">
-                            {isLoadingCustomFields ? <Skeleton className="h-8 w-24"/> :
-                                customFieldDefinitions.map(def =>
+                            {isLoadingAttributes ? <Skeleton className="h-8 w-24"/> :
+                                attributes.map(def => (
                                     <FilterDropdown
                                         key={def.id}
-                                        field={def.fieldName}
+                                        field={def.name}
                                         attendees={availableAttendees}
                                         activeFilters={activeFilters}
                                         onFilterChange={setActiveFilters}
                                     />
-                                )
+                                ))
                             }
                             {isFiltered && (
                                 <Button

@@ -17,6 +17,7 @@ import {format} from "date-fns";
 import {useOrganization} from "@/hooks/use-organization";
 import {Separator} from "@/components/ui/separator";
 import {toast} from "sonner";
+import {EntryDetailsDto} from "@/types";
 
 export default function ReportsPage() {
     const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -28,10 +29,12 @@ export default function ReportsPage() {
     const {eventsData, isLoadingEvents} = useEvents(0, 9999);
     const events = eventsData?.content ?? [];
 
-    const {checkedInData, isLoadingCheckedIn} = useEventDetails(selectedEventId, pagination);
+    // FIXED: Use arrivalsData instead of checkedInData
+    const {arrivalsData, isLoadingArrivals} = useEventDetails(selectedEventId, pagination);
     const {organization} = useOrganization();
 
-    const checkedInAttendees = checkedInData?.content ?? [];
+    // FIXED: Data is now a list of EntryDetailsDto
+    const checkedInEntries = arrivalsData?.content ?? [];
 
     const selectedEvent = events.find(e => e.id === selectedEventId);
     const generationDate = new Date().toLocaleString();
@@ -47,7 +50,8 @@ export default function ReportsPage() {
 
         try {
             const {exportToPdf} = await import("@/lib/pdf-exporter");
-            const fileName = `report-${selectedEvent.eventName.replace(/ /g, '_')}`;
+            // FIXED: eventName -> name
+            const fileName = `report-${selectedEvent.name.replace(/ /g, '_')}`;
             await exportToPdf(reportContentRef.current, fileName);
         } catch (error) {
             console.error("Failed to export PDF:", error);
@@ -81,8 +85,9 @@ export default function ReportsPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             {events.map(event => (
+                                                // FIXED: eventName -> name
                                                 <SelectItem key={event.id}
-                                                            value={String(event.id)}>{event.eventName}</SelectItem>
+                                                            value={String(event.id)}>{event.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -98,22 +103,23 @@ export default function ReportsPage() {
                         <div className="pt-2">
                             {selectedEventId ? (
                                 <>
-                                    {isLoadingCheckedIn ? (
+                                    {/* FIXED: isLoadingCheckedIn -> isLoadingArrivals */}
+                                    {isLoadingArrivals ? (
                                         <div className="flex items-center justify-center h-96">
                                             <IconLoader className="h-8 w-8 animate-spin" stroke={1.5}/>
                                         </div>
                                     ) : (
                                         <Card ref={reportContentRef} className="p-8 bg-white text-black">
                                             <header className="mb-6">
-                                                <h2 className="text-3xl font-bold">{selectedEvent?.eventName}</h2>
-                                                <p className="text-lg text-gray-500">Checked-in Attendee
-                                                    Report</p>
+                                                {/* FIXED: eventName -> name */}
+                                                <h2 className="text-3xl font-bold">{selectedEvent?.name}</h2>
+                                                <p className="text-lg text-gray-500">Arrivals Report</p>
                                             </header>
 
                                             <section className="grid grid-cols-3 gap-4 mb-6 text-sm">
                                                 <div className="space-y-1">
-                                                    <p className="font-semibold">Total Checked-in:</p>
-                                                    <p className="text-gray-600">{checkedInAttendees.length}</p>
+                                                    <p className="font-semibold">Total Arrivals:</p>
+                                                    <p className="text-gray-600">{checkedInEntries.length}</p>
                                                 </div>
                                             </section>
 
@@ -122,25 +128,27 @@ export default function ReportsPage() {
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow className="border-b-gray-300">
-                                                        <TableHead className="text-black">Identifier</TableHead>
+                                                        <TableHead className="text-black">Identity</TableHead>
                                                         <TableHead className="text-black">Last Name</TableHead>
                                                         <TableHead className="text-black">First Name</TableHead>
-                                                        <TableHead className="text-right text-black">Check-in
+                                                        <TableHead className="text-right text-black">Arrival
                                                             Time</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {checkedInAttendees.length > 0 ? (
-                                                        checkedInAttendees.map(attendee => (
-                                                            <TableRow key={attendee.id} className="border-b-gray-200">
+                                                    {checkedInEntries.length > 0 ? (
+                                                        // FIXED: iterate over EntryDetailsDto and access .attendee
+                                                        checkedInEntries.map((entry: EntryDetailsDto) => (
+                                                            <TableRow key={entry.entryId} className="border-b-gray-200">
                                                                 <TableCell
-                                                                    className="font-mono text-xs">{attendee.uniqueIdentifier}</TableCell>
+                                                                    className="font-mono text-xs">{entry.attendee.identity}</TableCell>
                                                                 <TableCell
-                                                                    className="font-medium">{attendee.lastName}</TableCell>
-                                                                <TableCell>{attendee.firstName}</TableCell>
+                                                                    className="font-medium">{entry.attendee.lastName}</TableCell>
+                                                                <TableCell>{entry.attendee.firstName}</TableCell>
                                                                 <TableCell
                                                                     className="text-right text-gray-500 text-sm">
-                                                                    {format(new Date(attendee.checkInTimestamp), "h:mm:ss a")}
+                                                                    {/* FIXED: checkInTimestamp -> scanTimestamp */}
+                                                                    {format(new Date(entry.scanTimestamp), "h:mm:ss a")}
                                                                 </TableCell>
                                                             </TableRow>
                                                         ))
@@ -148,7 +156,7 @@ export default function ReportsPage() {
                                                         <TableRow>
                                                             <TableCell colSpan={4}
                                                                        className="h-24 text-center text-gray-500">
-                                                                No attendees have checked into this event yet.
+                                                                No attendees have arrived yet.
                                                             </TableCell>
                                                         </TableRow>
                                                     )}
@@ -169,7 +177,7 @@ export default function ReportsPage() {
                                                          stroke={1.5}/>
                                     <h2 className="text-xl font-semibold">Select an Event to Generate a Report</h2>
                                     <p className="text-muted-foreground mt-2">
-                                        Choose an event to view its checked-in attendee list.
+                                        Choose an event to view its arrivals report.
                                     </p>
                                 </div>
                             )}

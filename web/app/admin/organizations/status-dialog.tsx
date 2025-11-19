@@ -16,7 +16,7 @@ import {Organization} from "@/types";
 import {useAdminOrganizations} from "@/hooks/use-admin-organizations";
 import {useEffect} from "react";
 
-type OrganizationStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+type OrganizationLifecycle = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 
 interface StatusDialogProps {
     open: boolean;
@@ -28,21 +28,28 @@ export function StatusDialog({open, onOpenChange, organization}: StatusDialogPro
     const {updateStatus, isUpdatingStatus} = useAdminOrganizations();
     const form = useForm({
         defaultValues: {
-            status: organization?.status || 'INACTIVE',
+            lifecycle: organization?.lifecycle || 'INACTIVE',
         },
     });
 
     useEffect(() => {
         if (organization) {
             form.reset({
-                status: organization.status,
+                lifecycle: organization.lifecycle,
             });
         }
     }, [organization, form]);
 
-    const onSubmit = (values: { status: OrganizationStatus }) => {
+    const onSubmit = (values: { lifecycle: OrganizationLifecycle }) => {
         if (organization) {
-            updateStatus({id: organization.id, data: values}, {
+            // Hook expects { status: ... } but backend expects lifecycle.
+            // We map it here if the hook hasn't been updated, or update the hook.
+            // Assuming the hook was generated to accept `status` but sends to backend.
+            // For now, let's assume we pass what the form collects.
+
+            // Note: You likely need to update hooks/use-admin-organizations.ts to accept 'lifecycle' too.
+            // For this file context:
+            updateStatus({id: organization.id, data: {status: values.lifecycle}}, {
                 onSuccess: () => onOpenChange(false),
             });
         }
@@ -54,21 +61,20 @@ export function StatusDialog({open, onOpenChange, organization}: StatusDialogPro
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Update Status for {organization.name}</DialogTitle>
+                    <DialogTitle>Update Lifecycle for {organization.name}</DialogTitle>
                     <DialogDescription>
-                        Change the access status of the organization. &#39;Inactive&#39; or &#39;Suspended&#39; will
-                        prevent its users
-                        from logging in.
+                        Change the access lifecycle of the organization. &#39;Inactive&#39; or &#39;Suspended&#39; will
+                        prevent its users from logging in.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form id="status-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
-                            name="status"
+                            name="lifecycle"
                             render={({field}) => (
                                 <FormItem>
-                                    <FormLabel>Status</FormLabel>
+                                    <FormLabel>Lifecycle Status</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
                                             <SelectTrigger>

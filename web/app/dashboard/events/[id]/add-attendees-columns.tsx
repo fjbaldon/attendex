@@ -1,10 +1,10 @@
 "use client";
 
 import {ColumnDef} from "@tanstack/react-table";
-import {AttendeeResponse, CustomFieldDefinition} from "@/types";
+import {AttendeeResponse, Attribute} from "@/types";
 import {Checkbox} from "@/components/ui/checkbox";
 
-export const getColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<AttendeeResponse>[] => {
+export const getColumns = (attributes: Attribute[]): ColumnDef<AttendeeResponse>[] => {
     const standardColumns: ColumnDef<AttendeeResponse>[] = [
         {
             id: "select",
@@ -26,8 +26,8 @@ export const getColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<
             enableHiding: false,
         },
         {
-            accessorKey: "uniqueIdentifier",
-            header: "Identifier",
+            accessorKey: "identity",
+            header: "Identity",
         },
         {
             accessorKey: "lastName",
@@ -39,9 +39,9 @@ export const getColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<
         },
     ];
 
-    const customFieldColumns: ColumnDef<AttendeeResponse>[] = customFieldDefs.map(def => ({
-        accessorKey: `customFields.${def.fieldName}`,
-        header: def.fieldName,
+    const attributeColumns: ColumnDef<AttendeeResponse>[] = attributes.map(def => ({
+        accessorKey: `attributes.${def.name}`,
+        header: def.name,
         cell: ({getValue}) => {
             const value = getValue<unknown>();
             if (value === null || value === undefined || value === '') {
@@ -51,5 +51,5 @@ export const getColumns = (customFieldDefs: CustomFieldDefinition[]): ColumnDef<
         }
     }));
 
-    return [...standardColumns, ...customFieldColumns];
+    return [...standardColumns, ...attributeColumns];
 };
