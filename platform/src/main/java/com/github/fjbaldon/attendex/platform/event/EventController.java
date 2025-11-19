@@ -27,9 +27,9 @@ class EventController {
     public ResponseEntity<EventDto> createEvent(
             @Valid @RequestBody CreateEventRequestDto request,
             @AuthenticationPrincipal CustomUserDetails user) {
-        // Assuming organizerId is the same as the user's ID, which we don't store yet.
-        // Passing null for now, a real implementation might fetch an Organizer entity.
-        EventDto event = eventFacade.createEvent(user.getOrganizationId(), null, request);
+
+        EventDto event = eventFacade.createEvent(user.getOrganizationId(), user.getId(), request);
+
         return new ResponseEntity<>(event, HttpStatus.CREATED);
     }
 

@@ -20,12 +20,22 @@ import com.github.fjbaldon.attendex.capture.R
 
 @Composable
 fun LoginScreen(
+    onLoginSuccess: (Boolean) -> Unit, // Added parameter
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+
+    // Watch for state changes to trigger navigation
+    LaunchedEffect(uiState.isLoggedIn, uiState.requirePasswordChange) {
+        if (uiState.requirePasswordChange) {
+            onLoginSuccess(true) // Navigate to Change Password
+        } else if (uiState.isLoggedIn) {
+            onLoginSuccess(false) // Navigate to Event List
+        }
+    }
 
     Scaffold { padding ->
         Column(

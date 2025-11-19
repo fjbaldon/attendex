@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
+import com.github.fjbaldon.attendex.capture.core.data.remote.SessionResponse
 import com.github.fjbaldon.attendex.capture.core.services.TtsService
 import com.github.fjbaldon.attendex.capture.data.event.EventRepository
 import com.github.fjbaldon.attendex.capture.data.event.ScanResult
@@ -19,6 +20,7 @@ sealed class ScanUiResult {
     data class Error(val message: String) : ScanUiResult()
     data class AlreadyScanned(val identifier: String) : ScanUiResult()
     data object ScanningInactive : ScanUiResult()
+    data object SessionNotSelected : ScanUiResult()
 }
 
 data class ScannerUiState(
@@ -28,7 +30,9 @@ data class ScannerUiState(
     val scannedAttendees: List<AttendeeEntity> = emptyList(),
     val hasFlashUnit: Boolean = false,
     val isTorchOn: Boolean = false,
-    val isEventActive: Boolean = true
+    val isEventActive: Boolean = true,
+    val availableSessions: List<SessionResponse> = emptyList(),
+    val selectedSession: SessionResponse? = null
 )
 
 @HiltViewModel
@@ -45,6 +49,9 @@ class ScannerViewModel @Inject constructor(
     private val _eventName = MutableStateFlow<String?>(null)
     private val _isEventActive = MutableStateFlow(true)
 
+    private val _availableSessions = MutableStateFlow<List<SessionResponse>>(emptyList())
+    private val _selectedSession = MutableStateFlow<SessionResponse?>(null)
+
     private val scannedAttendeesFlow: Flow<List<AttendeeEntity>> =
         eventRepository.getScannedAttendeesStream(eventId)
 
@@ -55,7 +62,9 @@ class ScannerViewModel @Inject constructor(
         scannedAttendeesFlow,
         _torchState,
         _eventName,
-        _isEventActive
+        _isEventActive,
+        _availableSessions,
+        _selectedSession
     ) { flows: Array<Any?> ->
         ScannerUiState(
             isLoading = flows[0] as Boolean,
@@ -64,7 +73,9 @@ class ScannerViewModel @Inject constructor(
             hasFlashUnit = (flows[3] as Pair<Boolean, Boolean>).first,
             isTorchOn = (flows[3] as Pair<Boolean, Boolean>).second,
             eventName = flows[4] as String?,
-            isEventActive = flows[5] as Boolean
+            isEventActive = flows[5] as Boolean,
+            availableSessions = flows[6] as List<SessionResponse>,
+            selectedSession = flows[7] as SessionResponse?
         )
     }.stateIn(
         scope = viewModelScope,
@@ -83,29 +94,49 @@ class ScannerViewModel @Inject constructor(
             _isLoading.value = true
             _eventName.value = eventRepository.getEventNameById(eventId)
             _isEventActive.value = eventRepository.isEventActive(eventId)
+
+            val sessions = eventRepository.getSessionsForEvent(eventId)
+            _availableSessions.value = sessions
+
+            if (sessions.isNotEmpty()) {
+                _selectedSession.value = sessions.first()
+            }
+
             eventRepository.primeLastScannedIdentifier(eventId)
             _isLoading.value = false
         }
     }
 
+    fun selectSession(session: SessionResponse) {
+        _selectedSession.value = session
+    }
+
     fun processScannedText(scannedText: String) {
+        val currentSession = _selectedSession.value
+        if (currentSession == null) {
+            _lastScanResult.value = ScanUiResult.SessionNotSelected
+            resetScanResultAfterDelay()
+            return
+        }
+
         if (isProcessing || !_isEventActive.value) return
         isProcessing = true
 
         viewModelScope.launch {
-            when (val result = eventRepository.processScan(eventId, scannedText)) {
+            when (val result = eventRepository.processScan(eventId, currentSession.id, scannedText)) {
                 is ScanResult.Success -> {
                     ttsService.speak(result.attendee.lastName)
                     _lastScanResult.value = ScanUiResult.Success(
-                        attendeeDetails = "${result.attendee.firstName} ${result.attendee.lastName} (${result.attendee.uniqueIdentifier})"
+                        attendeeDetails = "${result.attendee.firstName} ${result.attendee.lastName}"
                     )
-                }
-
-                is ScanResult.AttendeeNotFound -> {
                 }
 
                 is ScanResult.AlreadyScanned -> {
                     _lastScanResult.value = ScanUiResult.AlreadyScanned(scannedText)
+                }
+
+                is ScanResult.AttendeeNotFound -> {
+                    // Optional: Handle "Not on Roster" specific UI state
                 }
             }
             resetScanResultAfterDelay()

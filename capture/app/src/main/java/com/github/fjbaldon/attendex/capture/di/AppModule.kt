@@ -3,8 +3,8 @@ package com.github.fjbaldon.attendex.capture.di
 import android.content.Context
 import androidx.room.Room
 import com.github.fjbaldon.attendex.capture.core.data.local.AppDatabase
-import com.github.fjbaldon.attendex.capture.core.data.local.dao.AttendanceRecordDao
 import com.github.fjbaldon.attendex.capture.core.data.local.dao.AttendeeDao
+import com.github.fjbaldon.attendex.capture.core.data.local.dao.EntryDao
 import com.github.fjbaldon.attendex.capture.core.data.local.dao.EventDao
 import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
 import com.github.fjbaldon.attendex.capture.data.auth.AuthInterceptor
@@ -53,7 +53,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAttendanceRecordDao(appDatabase: AppDatabase) = appDatabase.attendanceRecordDao()
+    fun provideEntryDao(appDatabase: AppDatabase) = appDatabase.entryDao()
 
     @Provides
     @Singleton
@@ -107,8 +107,8 @@ object AppModule {
         appDatabase: AppDatabase,
         eventDao: EventDao,
         attendeeDao: AttendeeDao,
-        attendanceRecordDao: AttendanceRecordDao
+        entryDao: EntryDao
     ): EventRepository {
-        return EventRepository(apiService, appDatabase, eventDao, attendeeDao, attendanceRecordDao)
+        return EventRepository(apiService, appDatabase, eventDao, attendeeDao, entryDao)
     }
 }

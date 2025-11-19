@@ -217,7 +217,7 @@ export function EventForm({event, onSubmit}: EventFormProps) {
                                     className="text-muted-foreground hover:text-destructive absolute top-2 right-2 h-7 w-7">
                                 <IconTrash className="h-4 w-4"/>
                             </Button>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 items-start">
                                 <FormField control={form.control}
                                            name={`sessions.${index}.activityName`}
                                            render={({field}) => (

@@ -4,12 +4,15 @@ import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.attendee.dto.AttendeeDto;
 import com.github.fjbaldon.attendex.platform.capture.CaptureFacade;
 import com.github.fjbaldon.attendex.platform.event.dto.CreateEventRequestDto;
-import com.github.fjbaldon.attendex.platform.event.dto.EventDto;
 import com.github.fjbaldon.attendex.platform.event.dto.SessionDto;
+import com.github.fjbaldon.attendex.platform.event.events.EventCreatedEvent;
+import com.github.fjbaldon.attendex.platform.event.events.RosterEntryAddedEvent;
 import jakarta.persistence.EntityNotFoundException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Instant;
@@ -18,80 +21,107 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class EventFacadeTest {
 
-    private EventFacade eventFacade;
-    private AttendeeFacade attendeeFacade; // Mocked external dependency
-    private CaptureFacade captureFacade;   // Mocked external dependency
+    @Mock
+    private EventRepository eventRepository;
+    @Mock
     private RosterRepository rosterRepository;
+    @Mock
+    private SessionRepository sessionRepository;
+    @Mock
+    private AttendeeFacade attendeeFacade; // Mocking the other module's Facade
+    @Mock
+    private CaptureFacade captureFacade;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
-    @BeforeEach
-    void setUp() {
-        // Mocks for dependencies from other modules
-        attendeeFacade = Mockito.mock(AttendeeFacade.class);
-        captureFacade = Mockito.mock(CaptureFacade.class);
-        ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
+    @InjectMocks
+    private EventFacade eventFacade;
 
-        // Real in-memory fakes for this module's repositories
-        EventRepository eventRepository = new InMemoryEventRepository();
-        rosterRepository = new InMemoryRosterRepository();
-        SessionRepository sessionRepository = new InMemorySessionRepository();
-
-        // Construct the facade with the correct dependencies in the correct order
-        eventFacade = new EventFacade(
-                eventRepository,
-                rosterRepository,
-                sessionRepository,
-                attendeeFacade,
-                captureFacade,
-                eventPublisher
-        );
-    }
-
-    private EventDto createTestEvent() {
-        var sessionDto = new SessionDto("Test Session", Instant.now(), "Arrival");
-        var eventRequest = new CreateEventRequestDto(
-                "Test Event",
+    @Test
+    void createEvent_shouldPersistAndPublishEvent() {
+        // Given
+        var sessionDto = new SessionDto("Session A", Instant.now(), "Arrival");
+        var request = new CreateEventRequestDto(
+                "My Event",
                 Instant.now(),
                 Instant.now().plusSeconds(3600),
-                15,
-                15,
+                15, 15,
                 List.of(sessionDto)
         );
-        return eventFacade.createEvent(1L, 1L, eventRequest);
+
+        when(eventRepository.save(any(Event.class))).thenAnswer(inv -> {
+            Event e = inv.getArgument(0);
+            // Simulate DB ID assignment
+            var idField = Event.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(e, 100L);
+            return e;
+        });
+
+        // When
+        eventFacade.createEvent(1L, 1L, request);
+
+        // Then
+        verify(eventRepository).save(any(Event.class));
+        verify(eventPublisher).publishEvent(any(EventCreatedEvent.class));
     }
 
     @Test
-    void shouldAddAttendeeToRosterWhenAttendeeExists() {
+    void addAttendeeToRoster_shouldSucceed_whenAttendeeExists() throws Exception {
         // Given
-        EventDto event = createTestEvent();
-        AttendeeDto attendee = new AttendeeDto(100L, "ID123", "John", "Doe", null, Instant.now());
-        when(attendeeFacade.findAttendeeById(100L, 1L)).thenReturn(Optional.of(attendee));
+        Long eventId = 100L;
+        Long attendeeId = 500L;
+        Long orgId = 1L;
+
+        // Mock Attendee existence (Cross-module call)
+        when(attendeeFacade.findAttendeeById(attendeeId, orgId))
+                .thenReturn(Optional.of(new AttendeeDto(attendeeId, "ID", "John", "Doe", null, Instant.now())));
+
+        // Mock Event existence
+        // We need to create a dummy Event entity to return
+        var eventConstructor = Event.class.getDeclaredConstructor(Long.class, Long.class, String.class, Instant.class, Instant.class, int.class, int.class);
+        eventConstructor.setAccessible(true);
+        Event mockEvent = eventConstructor.newInstance(orgId, 1L, "Test Event", Instant.now(), Instant.now(), 15, 15);
+
+        // Set ID via reflection
+        var idField = Event.class.getDeclaredField("id");
+        idField.setAccessible(true);
+        idField.set(mockEvent, eventId);
+
+        when(eventRepository.findByIdAndOrganizationId(eventId, orgId)).thenReturn(Optional.of(mockEvent));
+        when(rosterRepository.existsById(new RosterEntryId(eventId, attendeeId))).thenReturn(false);
 
         // When
-        eventFacade.addAttendeeToRoster(event.id(), 100L, 1L);
+        eventFacade.addAttendeeToRoster(eventId, attendeeId, orgId);
 
         // Then
-        assertThat(rosterRepository.count()).isEqualTo(1);
-        RosterEntry savedEntry = rosterRepository.findAll().iterator().next();
-        assertThat(savedEntry.getId().getAttendeeId()).isEqualTo(100L);
-        assertThat(savedEntry.getId().getEventId()).isEqualTo(event.id());
+        verify(rosterRepository).save(any(RosterEntry.class));
+        verify(eventPublisher).publishEvent(any(RosterEntryAddedEvent.class));
     }
 
     @Test
-    void shouldFailToAddAttendeeToRosterWhenAttendeeDoesNotExist() {
+    void addAttendeeToRoster_shouldFail_whenAttendeeDoesNotExist() {
         // Given
-        EventDto event = createTestEvent();
-        when(attendeeFacade.findAttendeeById(999L, 1L)).thenReturn(Optional.empty());
+        Long eventId = 100L;
+        Long attendeeId = 999L;
+        Long orgId = 1L;
+
+        when(attendeeFacade.findAttendeeById(attendeeId, orgId)).thenReturn(Optional.empty());
 
         // When
-        Throwable thrown = catchThrowable(() -> eventFacade.addAttendeeToRoster(event.id(), 999L, 1L));
+        Throwable thrown = catchThrowable(() -> eventFacade.addAttendeeToRoster(eventId, attendeeId, orgId));
 
         // Then
-        assertThat(thrown).isInstanceOf(EntityNotFoundException.class)
+        assertThat(thrown)
+                .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage("Attendee not found in this organization.");
-        assertThat(rosterRepository.count()).isZero();
+
+        verify(rosterRepository, never()).save(any());
     }
 }

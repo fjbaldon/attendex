@@ -2,17 +2,18 @@ package com.github.fjbaldon.attendex.capture.feature.scanner
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
+import com.github.fjbaldon.attendex.capture.core.data.remote.SessionResponse
 import com.github.fjbaldon.attendex.capture.core.ui.camera.CameraPreview
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,7 +33,47 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    var showSessionSheet by remember { mutableStateOf(false) }
+    val sessionSheetState = rememberModalBottomSheetState()
     val scaffoldState = rememberBottomSheetScaffoldState()
+
+    if (showSessionSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSessionSheet = false },
+            sheetState = sessionSheetState
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "Select Session",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                if (uiState.availableSessions.isEmpty()) {
+                    Text(
+                        "No sessions found for this event.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    LazyColumn {
+                        items(uiState.availableSessions) { session ->
+                            SessionListItem(
+                                session = session,
+                                isSelected = session.id == uiState.selectedSession?.id,
+                                onClick = {
+                                    viewModel.selectSession(session)
+                                    showSessionSheet = false
+                                }
+                            )
+                            HorizontalDivider()
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+    }
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
@@ -40,23 +82,41 @@ fun ScannerScreen(
                 modifier = Modifier
                     .navigationBarsPadding()
                     .fillMaxWidth()
+                    .heightIn(max = 400.dp)
             ) {
                 ScannedAttendeesSheetContent(
                     attendees = uiState.scannedAttendees
                 )
             }
         },
-        sheetPeekHeight = 64.dp,
+        sheetPeekHeight = 80.dp,
         sheetDragHandle = { BottomSheetDefaults.DragHandle() },
         topBar = {
             TopAppBar(
-                title = { Text(uiState.eventName ?: "Scanner") },
+                title = {
+                    Column(modifier = Modifier.clickable { showSessionSheet = true }) {
+                        Text(
+                            text = uiState.eventName ?: "Scanner",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = uiState.selectedSession?.activityName ?: "Select Session",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            "Back"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
@@ -87,11 +147,41 @@ fun ScannerScreen(
                 )
                 ScannerOverlay(
                     result = uiState.lastScanResult,
-                    isEventActive = uiState.isEventActive
+                    isEventActive = uiState.isEventActive,
+                    hasSessionSelected = uiState.selectedSession != null
                 )
             }
         }
     }
+}
+
+@Composable
+fun SessionListItem(
+    session: SessionResponse,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    ListItem(
+        headlineContent = {
+            Text(
+                session.activityName,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
+        },
+        supportingContent = {
+            Text("${session.intent} • ${session.targetTime}")
+        },
+        trailingContent = {
+            if (isSelected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        },
+        modifier = Modifier.clickable(onClick = onClick)
+    )
 }
 
 @Composable
@@ -106,45 +196,47 @@ private fun ScannedAttendeesSheetContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Scanned Log", style = MaterialTheme.typography.titleMedium)
+            Text("Recent Scans", style = MaterialTheme.typography.titleMedium)
             Badge(containerColor = MaterialTheme.colorScheme.primary) {
-                Text(text = attendees.size.toString(), color = MaterialTheme.colorScheme.onPrimary)
+                Text(
+                    text = attendees.size.toString(),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             }
         }
+
         if (attendees.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 200.dp),
+                    .height(100.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Scan an ID to begin.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "No scans yet.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         } else {
-            LazyColumn {
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
                 items(attendees, key = { it.localId }) { attendee ->
-                    ScannedAttendeeItem(attendee)
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                "${attendee.lastName}, ${attendee.firstName}",
+                                fontWeight = FontWeight.Medium
+                            )
+                        },
+                        supportingContent = { Text(attendee.uniqueIdentifier) }
+                    )
                     HorizontalDivider()
                 }
             }
         }
     }
-}
-
-@Composable
-private fun ScannedAttendeeItem(attendee: AttendeeEntity) {
-    ListItem(
-        headlineContent = {
-            Text(
-                "${attendee.lastName}, ${attendee.firstName}",
-                fontWeight = FontWeight.Medium
-            )
-        },
-        supportingContent = { Text(attendee.uniqueIdentifier) }
-    )
 }
 
 private data class OverlayState(
@@ -154,15 +246,25 @@ private data class OverlayState(
 )
 
 @Composable
-private fun ScannerOverlay(result: ScanUiResult, isEventActive: Boolean) {
-    val overlayState = if (!isEventActive) {
-        OverlayState(
-            text = "This event is not currently active.",
+private fun ScannerOverlay(
+    result: ScanUiResult,
+    isEventActive: Boolean,
+    hasSessionSelected: Boolean
+) {
+    val overlayState = when {
+        !isEventActive -> OverlayState(
+            text = "Event is not active",
             textColor = Color(0xFFFFC107),
-            overlayColor = Color.Black.copy(alpha = 0.5f)
+            overlayColor = Color.Black.copy(alpha = 0.6f)
         )
-    } else {
-        when (result) {
+
+        !hasSessionSelected -> OverlayState(
+            text = "Select a Session above",
+            textColor = Color(0xFFFFC107),
+            overlayColor = Color.Black.copy(alpha = 0.6f)
+        )
+
+        else -> when (result) {
             is ScanUiResult.Success -> OverlayState(
                 text = result.attendeeDetails,
                 textColor = Color(0xFF4CAF50),
@@ -175,14 +277,20 @@ private fun ScannerOverlay(result: ScanUiResult, isEventActive: Boolean) {
                 overlayColor = Color(0xFFFFC107).copy(alpha = 0.5f)
             )
 
-            is ScanUiResult.ScanningInactive -> OverlayState(
-                text = "Scanning Inactive",
+            is ScanUiResult.SessionNotSelected -> OverlayState(
+                text = "Select a Session first",
                 textColor = Color(0xFFFFC107),
+                overlayColor = Color.Black.copy(alpha = 0.5f)
+            )
+
+            is ScanUiResult.ScanningInactive -> OverlayState(
+                text = "Processing...",
+                textColor = Color.White,
                 overlayColor = Color.Transparent
             )
 
             is ScanUiResult.Idle, is ScanUiResult.Error -> OverlayState(
-                text = "Point camera at an ID",
+                text = "",
                 textColor = Color.White,
                 overlayColor = Color.Transparent
             )
@@ -194,33 +302,36 @@ private fun ScannerOverlay(result: ScanUiResult, isEventActive: Boolean) {
             .fillMaxSize()
             .background(overlayState.overlayColor)
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth(0.8f)
-                .aspectRatio(4f)
-        ) {
-            OutlinedCard(
-                border = BorderStroke(4.dp, Color.White.copy(alpha = 0.7f)),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                modifier = Modifier.fillMaxSize()
-            ) {}
+        if (isEventActive && hasSessionSelected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.8f)
+                    .aspectRatio(4f)
+            ) {
+                OutlinedCard(
+                    border = BorderStroke(3.dp, Color.White.copy(alpha = 0.8f)),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    modifier = Modifier.fillMaxSize()
+                ) {}
+            }
         }
-        if (result !is ScanUiResult.Idle || !isEventActive) {
+
+        if (overlayState.text.isNotEmpty()) {
             Column(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .align(Alignment.Center)
+                    .padding(top = 150.dp)
             ) {
                 Text(
                     text = overlayState.text,
                     color = overlayState.textColor,
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.small)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
         }

@@ -8,6 +8,8 @@ import com.github.fjbaldon.attendex.platform.event.dto.SessionEventDto;
 import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -32,6 +34,16 @@ class CaptureController {
     public ResponseEntity<List<EventSyncDto>> getEventsForSync(@AuthenticationPrincipal CustomUserDetails user) {
         List<EventSyncDto> events = eventFacade.getEventsForSync(user.getOrganizationId());
         return ResponseEntity.ok(events);
+    }
+
+    @GetMapping("/events/{eventId}/attendees")
+    public ResponseEntity<Page<EventSyncDto.RosterSyncDto>> getAttendeesForEvent(
+            @PathVariable Long eventId,
+            Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        Page<EventSyncDto.RosterSyncDto> attendees = eventFacade.getFormattedRosterForSync(eventId, user.getOrganizationId(), pageable);
+        return ResponseEntity.ok(attendees);
     }
 
     @PostMapping("/sync")

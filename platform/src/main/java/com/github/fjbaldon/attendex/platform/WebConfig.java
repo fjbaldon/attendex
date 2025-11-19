@@ -1,4 +1,3 @@
-// platform/src/main/java/com/github/fjbaldon/attendex/platform/WebConfig.java
 package com.github.fjbaldon.attendex.platform;
 
 import org.springframework.context.annotation.Bean;
@@ -15,8 +14,11 @@ public class WebConfig {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(@NonNull CorsRegistry registry) {
-                registry.addMapping("/api/**") // Apply to all API routes
-                        .allowedOrigins("http://localhost:3000") // Allow your Next.js app
+                registry.addMapping("/api/**")
+                        .allowedOrigins(
+                                "http://localhost:3000",
+                                "http://127.0.0.1:3000"
+                        )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);

@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.github.fjbaldon.attendex.capture.feature.changepassword.ChangePasswordScreen
 import com.github.fjbaldon.attendex.capture.feature.eventlist.EventListScreen
 import com.github.fjbaldon.attendex.capture.feature.login.LoginScreen
 import com.github.fjbaldon.attendex.capture.feature.scanner.ScannerScreen
@@ -52,7 +53,17 @@ fun AppNavigation(
             )
         }
         composable(Screen.Login.route) {
-            LoginScreen()
+            LoginScreen(
+                onLoginSuccess = { requireChange ->
+                    if (requireChange) {
+                        navController.navigate(Screen.ChangePassword.route)
+                    } else {
+                        navController.navigate(Screen.EventList.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    }
+                }
+            )
         }
         composable(Screen.EventList.route) {
             EventListScreen(
@@ -72,6 +83,15 @@ fun AppNavigation(
         ) {
             ScannerScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.ChangePassword.route) {
+            ChangePasswordScreen(
+                onPasswordChanged = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0)
+                    }
+                }
             )
         }
     }

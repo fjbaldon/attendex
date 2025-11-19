@@ -5,12 +5,36 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.lang.NonNull;
 
 interface RosterRepository extends PagingAndSortingRepository<RosterEntry, RosterEntryId>, CrudRepository<RosterEntry, RosterEntryId> {
 
     @Query("SELECT re.id.attendeeId FROM RosterEntry re WHERE re.id.eventId = :eventId")
-    Page<Long> findAttendeeIdsByEventId(Long eventId, Pageable pageable);
+    Page<Long> findAttendeeIdsByEventId(@Param("eventId") Long eventId, Pageable pageable);
+
+    record RosterSyncProjection(
+            Long attendeeId,
+            String identity,
+            String firstName,
+            String lastName,
+            String qrCodeHash
+    ) {
+    }
+
+    @Query("""
+                SELECT new com.github.fjbaldon.attendex.platform.event.RosterRepository$RosterSyncProjection(
+                    re.id.attendeeId,
+                    a.identity,
+                    a.firstName,
+                    a.lastName,
+                    re.qrCodeHash
+                )
+                FROM RosterEntry re
+                JOIN com.github.fjbaldon.attendex.platform.attendee.Attendee a ON re.id.attendeeId = a.id
+                WHERE re.id.eventId = :eventId
+            """)
+    Page<RosterSyncProjection> findRosterProjectionsByEventId(@Param("eventId") Long eventId, Pageable pageable);
 
     long countByEventId(Long eventId);
 

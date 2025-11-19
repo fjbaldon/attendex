@@ -3,14 +3,15 @@ package com.github.fjbaldon.attendex.capture.data.event
 import android.util.Log
 import androidx.room.withTransaction
 import com.github.fjbaldon.attendex.capture.core.data.local.AppDatabase
-import com.github.fjbaldon.attendex.capture.core.data.local.dao.AttendanceRecordDao
 import com.github.fjbaldon.attendex.capture.core.data.local.dao.AttendeeDao
+import com.github.fjbaldon.attendex.capture.core.data.local.dao.EntryDao
 import com.github.fjbaldon.attendex.capture.core.data.local.dao.EventDao
-import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendanceRecordEntity
 import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
+import com.github.fjbaldon.attendex.capture.core.data.local.model.EntryEntity
 import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
-import com.github.fjbaldon.attendex.capture.core.data.remote.AttendanceSyncRequest
+import com.github.fjbaldon.attendex.capture.core.data.remote.EntrySyncRequest
+import com.github.fjbaldon.attendex.capture.core.data.remote.SessionResponse
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -24,29 +25,33 @@ class EventRepository @Inject constructor(
     private val appDatabase: AppDatabase,
     private val eventDao: EventDao,
     private val attendeeDao: AttendeeDao,
-    private val attendanceRecordDao: AttendanceRecordDao
+    private val entryDao: EntryDao
 ) {
     private var lastScannedIdentifier: String? = null
 
-    val hasUnsyncedRecords: Flow<Boolean> = attendanceRecordDao.getUnsyncedRecordCount()
+    val hasUnsyncedRecords: Flow<Boolean> = entryDao.getUnsyncedEntryCount()
         .map { count -> count > 0 }
 
     fun getEvents(): Flow<List<EventEntity>> = eventDao.getAllEvents()
 
     suspend fun getEventNameById(eventId: Long): String? {
-        return eventDao.getEventById(eventId)?.eventName
+        return eventDao.getEventById(eventId)?.name
+    }
+
+    suspend fun getSessionsForEvent(eventId: Long): List<SessionResponse> {
+        return eventDao.getEventById(eventId)?.sessions ?: emptyList()
     }
 
     suspend fun isEventActive(eventId: Long): Boolean {
         val event = eventDao.getEventById(eventId) ?: return false
         val now = Instant.now()
-        try {
+        return try {
             val start = Instant.parse(event.startDate)
             val end = Instant.parse(event.endDate)
-            return now.isAfter(start) && now.isBefore(end)
+            now.isAfter(start.minusSeconds(3600)) && now.isBefore(end.plusSeconds(3600))
         } catch (e: Exception) {
-            Log.e("EventRepository", "Failed to parse event start/end dates", e)
-            return false
+            Log.e("EventRepository", "Failed to parse event dates", e)
+            true
         }
     }
 
@@ -54,7 +59,13 @@ class EventRepository @Inject constructor(
         try {
             val remoteEvents = apiService.getActiveEvents()
             val eventEntities = remoteEvents.map {
-                EventEntity(it.id, it.eventName, it.startDate, it.endDate, it.timeSlots)
+                EventEntity(
+                    id = it.id,
+                    name = it.name,
+                    startDate = it.startDate,
+                    endDate = it.endDate,
+                    sessions = it.sessions
+                )
             }
 
             appDatabase.withTransaction {
@@ -68,47 +79,64 @@ class EventRepository @Inject constructor(
 
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e("EventRepository", "Failed to refresh events and rosters", e)
+            Log.e("EventRepository", "Failed to refresh events", e)
             Result.failure(e)
         }
     }
 
-    suspend fun refreshAttendeesForEvent(eventId: Long): Result<Unit> {
+    private suspend fun refreshAttendeesForEvent(eventId: Long): Result<Unit> {
         return try {
-            val remoteAttendees = apiService.getAttendeesForEvent(eventId)
-            val attendeeEntities = remoteAttendees.map {
-                AttendeeEntity(
-                    eventId = eventId,
-                    attendeeId = it.attendeeId,
-                    uniqueIdentifier = it.uniqueIdentifier,
-                    qrCodeHash = it.qrCodeHash,
-                    firstName = it.firstName,
-                    lastName = it.lastName
-                )
-            }
+            var page = 0
+            val pageSize = 500 // Safe batch size for mobile memory
+            var isLastPage = false
 
+            // Clear existing data first
             appDatabase.withTransaction {
                 attendeeDao.clearAttendeesForEvent(eventId)
-                attendeeDao.insertAll(attendeeEntities)
+            }
+
+            while (!isLastPage) {
+                val response = apiService.getAttendeesForEvent(eventId, page, pageSize)
+
+                val attendeeEntities = response.content.map {
+                    AttendeeEntity(
+                        eventId = eventId,
+                        attendeeId = it.attendeeId,
+                        uniqueIdentifier = it.uniqueIdentifier,
+                        qrCodeHash = it.qrCodeHash,
+                        firstName = it.firstName,
+                        lastName = it.lastName
+                    )
+                }
+
+                if (attendeeEntities.isNotEmpty()) {
+                    appDatabase.withTransaction {
+                        attendeeDao.insertAll(attendeeEntities)
+                    }
+                }
+
+                isLastPage = response.last
+                page++
             }
 
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.w("EventRepository", "Failed to fetch attendees for event $eventId", e)
             Result.failure(e)
         }
     }
 
     suspend fun primeLastScannedIdentifier(eventId: Long) {
-        val mostRecentRecord = attendanceRecordDao.findMostRecentRecordForEvent(eventId)
-        if (mostRecentRecord != null) {
-            val lastAttendee = attendeeDao.findAttendeesByIds(listOf(mostRecentRecord.attendeeId)).firstOrNull()
+        val mostRecentEntry = entryDao.findMostRecentEntryForEvent(eventId)
+        if (mostRecentEntry != null) {
+            val lastAttendee = attendeeDao.findAttendeesByIds(listOf(mostRecentEntry.attendeeId)).firstOrNull()
             lastScannedIdentifier = lastAttendee?.uniqueIdentifier
         } else {
             lastScannedIdentifier = null
         }
     }
 
-    suspend fun processScan(eventId: Long, identifier: String): ScanResult {
+    suspend fun processScan(eventId: Long, sessionId: Long, identifier: String): ScanResult {
         if (identifier == lastScannedIdentifier) {
             return ScanResult.AlreadyScanned
         }
@@ -116,59 +144,58 @@ class EventRepository @Inject constructor(
         val attendee = attendeeDao.findAttendeeByIdentifier(eventId, identifier)
             ?: return ScanResult.AttendeeNotFound
 
-        val record = AttendanceRecordEntity(
+        val entry = EntryEntity(
             eventId = eventId,
+            sessionId = sessionId,
             attendeeId = attendee.attendeeId,
-            checkInTimestamp = Instant.now(),
+            scanTimestamp = Instant.now(),
             isSynced = false
         )
-        attendanceRecordDao.insert(record)
 
+        entryDao.insert(entry)
         lastScannedIdentifier = identifier
 
         return ScanResult.Success(attendee)
     }
 
-    suspend fun syncAttendanceRecords(): Result<Int> {
+    suspend fun syncEntries(): Result<Int> = withContext(Dispatchers.IO) {
         var totalSynced = 0
-        val batchSize = 100
+        val batchSize = 50
 
         try {
             while (true) {
-                val batch = attendanceRecordDao.getUnsyncedRecordsBatch(batchSize)
+                val batch = entryDao.getUnsyncedEntriesBatch(batchSize)
                 if (batch.isEmpty()) {
                     break
                 }
 
-                val request = AttendanceSyncRequest(
+                val request = EntrySyncRequest(
                     records = batch.map {
-                        AttendanceSyncRequest.Record(
-                            eventId = it.eventId,
+                        EntrySyncRequest.EntryRecord(
+                            sessionId = it.sessionId,
                             attendeeId = it.attendeeId,
-                            checkInTimestamp = it.checkInTimestamp.toString()
+                            // FIXED: Changed from checkInTimestamp to scanTimestamp
+                            scanTimestamp = it.scanTimestamp.toString()
                         )
                     }
                 )
 
-                apiService.syncAttendance(request)
-
-                attendanceRecordDao.markAsSynced(batch.map { it.id })
-
+                apiService.syncEntries(request)
+                entryDao.markAsSynced(batch.map { it.id })
                 totalSynced += batch.size
             }
-            return Result.success(totalSynced)
+            Result.success(totalSynced)
         } catch (e: Exception) {
-            Log.e("EventRepository", "Sync failed after syncing $totalSynced records.", e)
-            return Result.failure(e)
+            Log.e("EventRepository", "Sync failed", e)
+            Result.failure(e)
         }
     }
 
-
     @OptIn(ExperimentalCoroutinesApi::class)
     fun getScannedAttendeesStream(eventId: Long): Flow<List<AttendeeEntity>> {
-        return attendanceRecordDao.getRecordsForEventStream(eventId)
-            .flatMapLatest { records ->
-                val attendeeIds = records.map { it.attendeeId }.distinct()
+        return entryDao.getEntriesForEventStream(eventId)
+            .flatMapLatest { entries ->
+                val attendeeIds = entries.map { it.attendeeId }.distinct()
                 if (attendeeIds.isEmpty()) {
                     flowOf(emptyList())
                 } else {

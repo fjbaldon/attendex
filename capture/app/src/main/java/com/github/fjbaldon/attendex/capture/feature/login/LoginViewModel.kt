@@ -13,9 +13,10 @@ import javax.inject.Inject
 
 data class LoginUiState(
     val isLoading: Boolean = false,
+    val isLoggedIn: Boolean = false,
+    val requirePasswordChange: Boolean = false,
     val error: String? = null
 )
-
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository
@@ -35,7 +36,11 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = authRepository.login(email, password)) {
                 is LoginResult.Success -> {
-                    _uiState.update { it.copy(isLoading = false) }
+                    if (authRepository.isPasswordChangeRequired()) {
+                        _uiState.update { it.copy(isLoading = false, requirePasswordChange = true) }
+                    } else {
+                        _uiState.update { it.copy(isLoading = false, isLoggedIn = true) }
+                    }
                 }
 
                 is LoginResult.InvalidCredentials -> {

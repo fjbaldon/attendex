@@ -1,21 +1,35 @@
 package com.github.fjbaldon.attendex.capture.core.data.remote
 
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Path
+import retrofit2.http.*
 
 interface ApiService {
 
     @POST("api/v1/auth/login")
     suspend fun login(@Body authRequest: AuthRequest): AuthResponse
 
-    @GET("api/v1/app/events")
+    @POST("api/v1/users/me/change-password")
+    suspend fun changePassword(@Body request: ChangePasswordRequest)
+
+    @GET("api/v1/capture/events")
     suspend fun getActiveEvents(): List<ActiveEventResponse>
 
-    @GET("api/v1/app/events/{eventId}/attendees")
-    suspend fun getAttendeesForEvent(@Path("eventId") eventId: Long): List<EventAttendeeSyncResponse>
+    @GET("api/v1/capture/events/{eventId}/attendees")
+    suspend fun getAttendeesForEvent(
+        @Path("eventId") eventId: Long,
+        @Query("page") page: Int,
+        @Query("size") size: Int
+    ): PaginatedResponse<EventAttendeeSyncResponse>
 
-    @POST("api/v1/app/attendance/sync")
-    suspend fun syncAttendance(@Body syncRequest: AttendanceSyncRequest)
+    @POST("api/v1/capture/sync")
+    suspend fun syncEntries(@Body syncRequest: EntrySyncRequest)
 }
+
+@kotlinx.serialization.Serializable
+data class PaginatedResponse<T>(
+    val content: List<T>,
+    val totalPages: Int,
+    val last: Boolean
+)
+
+@kotlinx.serialization.Serializable
+data class ChangePasswordRequest(val newPassword: String)

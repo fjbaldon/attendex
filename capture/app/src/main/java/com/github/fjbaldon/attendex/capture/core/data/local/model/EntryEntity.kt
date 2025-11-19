@@ -4,11 +4,12 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.Instant
 
-@Entity(tableName = "attendance_records")
-data class AttendanceRecordEntity(
+@Entity(tableName = "entries")
+data class EntryEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val eventId: Long,
+    val sessionId: Long,
     val attendeeId: Long,
-    val checkInTimestamp: Instant,
+    val scanTimestamp: Instant,
     var isSynced: Boolean = false
 )

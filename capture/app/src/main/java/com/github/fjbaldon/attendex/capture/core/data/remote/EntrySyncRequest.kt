@@ -3,13 +3,13 @@ package com.github.fjbaldon.attendex.capture.core.data.remote
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class AttendanceSyncRequest(
-    val records: List<Record>
+data class EntrySyncRequest(
+    val records: List<EntryRecord>
 ) {
     @Serializable
-    data class Record(
-        val eventId: Long,
+    data class EntryRecord(
+        val sessionId: Long,
         val attendeeId: Long,
-        val checkInTimestamp: String
+        val scanTimestamp: String
     )
 }

@@ -33,6 +33,9 @@ export const useAuth = () => {
                     });
                     router.replace("/force-password-change");
                 } else if (isSteward) {
+                    toast.success("Login successful!", {
+                        description: "Welcome back, Admin.",
+                    });
                     router.replace("/admin/dashboard");
                 } else if (isOrganizerOrScanner) {
                     toast.success("Login successful!", {

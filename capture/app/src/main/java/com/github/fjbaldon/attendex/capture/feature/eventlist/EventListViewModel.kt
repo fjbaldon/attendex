@@ -2,9 +2,9 @@ package com.github.fjbaldon.attendex.capture.feature.eventlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.capture.data.auth.AuthRepository
 import com.github.fjbaldon.attendex.capture.data.event.EventRepository
-import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -102,10 +102,10 @@ class EventListViewModel @Inject constructor(
         }
     }
 
-    fun syncAttendance() {
+    fun syncEntries() {
         viewModelScope.launch {
             _isSyncing.value = true
-            val result = eventRepository.syncAttendanceRecords()
+            val result = eventRepository.syncEntries()
             result.onSuccess { count ->
                 _syncResult.value = if (count > 0) {
                     val plural = if (count == 1) "record" else "records"

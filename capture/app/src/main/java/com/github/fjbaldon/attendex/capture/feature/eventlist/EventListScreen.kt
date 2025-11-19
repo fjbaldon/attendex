@@ -107,7 +107,7 @@ fun EventListScreen(
                         }
                     }
                 ) {
-                    FloatingActionButton(onClick = { viewModel.syncAttendance() }) {
+                    FloatingActionButton(onClick = { viewModel.syncEntries() }) {
                         if (uiState.isSyncing) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp))
                         } else {
@@ -154,7 +154,7 @@ fun EventListScreen(
                         } else {
                             items(uiState.events, key = { it.id }) { event ->
                                 EventCard(
-                                    eventName = event.eventName,
+                                    eventName = event.name,
                                     onClick = { onEventSelected(event.id) }
                                 )
                             }

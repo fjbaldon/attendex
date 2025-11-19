@@ -136,12 +136,15 @@ public class OrganizationFacade {
         scannerRepository.delete(scanner);
     }
 
+    // ... inside OrganizationFacade class ...
+
     @Transactional(readOnly = true)
     public Optional<UserAuthDto> findUserAuthByEmail(String email) {
         Optional<Organizer> organizerOpt = organizerRepository.findByEmail(email);
         if (organizerOpt.isPresent()) {
             Organizer organizer = organizerOpt.get();
             return Optional.of(new UserAuthDto(
+                    organizer.getId(),
                     organizer.getEmail(),
                     organizer.getPassword(),
                     "ROLE_ORGANIZER",
@@ -155,6 +158,7 @@ public class OrganizationFacade {
         if (scannerOpt.isPresent()) {
             Scanner scanner = scannerOpt.get();
             return Optional.of(new UserAuthDto(
+                    scanner.getId(),
                     scanner.getEmail(),
                     scanner.getPassword(),
                     "ROLE_SCANNER",

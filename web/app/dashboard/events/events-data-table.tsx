@@ -77,7 +77,7 @@ export function EventsDataTable({
 
     const filteredData = React.useMemo(() =>
         data.filter(event =>
-            event.eventName.toLowerCase().includes(filter.toLowerCase())
+            event.name.toLowerCase().includes(filter.toLowerCase())
         ), [data, filter]);
 
     return (
@@ -94,7 +94,8 @@ export function EventsDataTable({
                 onOpenChange={setIsConfirmDialogOpen}
                 onConfirm={handleDeleteConfirm}
                 title="Are you sure?"
-                description={`This will permanently delete the event "${selectedEvent?.eventName}". This action cannot be undone.`}
+                // FIXED: Changed from selectedEvent?.eventName to selectedEvent?.name
+                description={`This will permanently delete the event "${selectedEvent?.name}". This action cannot be undone.`}
                 isLoading={isDeletingEvent}
             />
             <DataTable

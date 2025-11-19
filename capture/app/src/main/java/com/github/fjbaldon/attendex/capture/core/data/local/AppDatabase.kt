@@ -3,25 +3,25 @@ package com.github.fjbaldon.attendex.capture.core.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.github.fjbaldon.attendex.capture.core.data.local.dao.AttendanceRecordDao
 import com.github.fjbaldon.attendex.capture.core.data.local.dao.AttendeeDao
+import com.github.fjbaldon.attendex.capture.core.data.local.dao.EntryDao
 import com.github.fjbaldon.attendex.capture.core.data.local.dao.EventDao
-import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendanceRecordEntity
 import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
+import com.github.fjbaldon.attendex.capture.core.data.local.model.EntryEntity
 import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 
 @Database(
     entities = [
         EventEntity::class,
         AttendeeEntity::class,
-        AttendanceRecordEntity::class
+        EntryEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
-@TypeConverters(Converters::class, TimeSlotListConverter::class)
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
     abstract fun attendeeDao(): AttendeeDao
-    abstract fun attendanceRecordDao(): AttendanceRecordDao
+    abstract fun entryDao(): EntryDao
 }

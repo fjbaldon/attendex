@@ -2,13 +2,13 @@ package com.github.fjbaldon.attendex.capture.core.data.local.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.github.fjbaldon.attendex.capture.core.data.remote.TimeSlotResponse
+import com.github.fjbaldon.attendex.capture.core.data.remote.SessionResponse
 
 @Entity(tableName = "events")
 data class EventEntity(
     @PrimaryKey val id: Long,
-    val eventName: String,
+    val name: String,
     val startDate: String,
     val endDate: String,
-    val timeSlots: List<TimeSlotResponse>
+    val sessions: List<SessionResponse>
 )

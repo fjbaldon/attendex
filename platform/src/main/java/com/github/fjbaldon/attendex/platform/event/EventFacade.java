@@ -165,6 +165,21 @@ public class EventFacade {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public Page<EventSyncDto.RosterSyncDto> getFormattedRosterForSync(Long eventId, Long organizationId, Pageable pageable) {
+        eventRepository.findByIdAndOrganizationId(eventId, organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
+
+        return rosterRepository.findRosterProjectionsByEventId(eventId, pageable)
+                .map(proj -> new EventSyncDto.RosterSyncDto(
+                        proj.attendeeId(),
+                        proj.identity(),
+                        proj.firstName(),
+                        proj.lastName(),
+                        proj.qrCodeHash()
+                ));
+    }
+
     private EventDto toDto(Event event) {
         return new EventDto(
                 event.getId(),

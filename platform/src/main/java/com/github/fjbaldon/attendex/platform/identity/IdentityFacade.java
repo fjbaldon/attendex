@@ -32,7 +32,8 @@ public class IdentityFacade {
                 new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
 
-        String jwt = jwtService.generateToken(authentication.getName());
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        String jwt = jwtService.generateToken(userDetails);
 
         eventPublisher.publishEvent(new UserLoggedInEvent(request.email(), getIpAddress()));
 
