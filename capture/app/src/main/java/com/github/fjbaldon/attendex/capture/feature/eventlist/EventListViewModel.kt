@@ -83,14 +83,25 @@ class EventListViewModel @Inject constructor(
             _error.value = null
 
             try {
+                // Try to fetch from network
                 eventRepository.refreshEvents().getOrThrow()
             } catch (_: Exception) {
-                val errorMessage = "Failed to fetch events. Please check your network connection."
-                _error.value = errorMessage
-                if (isInitialLoad) {
-                    _initialLoadFailed.value = true
+                // FIX: Check if we have local data before declaring failure
+                val cachedEvents = eventRepository.getEvents().first()
+
+                if (cachedEvents.isNotEmpty()) {
+                    // We are offline but have data. Show a warning, NOT a blocking error.
+                    _syncResult.value = "You are offline. Showing cached events."
+                    _initialLoadFailed.value = false
                 } else {
-                    _syncResult.value = errorMessage
+                    // No local data AND no network. This is a true failure.
+                    val errorMessage = "Failed to fetch events. Please check your network connection."
+                    _error.value = errorMessage
+                    if (isInitialLoad) {
+                        _initialLoadFailed.value = true
+                    } else {
+                        _syncResult.value = errorMessage
+                    }
                 }
             } finally {
                 if (isInitialLoad) {
