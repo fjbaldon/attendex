@@ -14,6 +14,6 @@ interface AttributeRepository extends CrudRepository<Attribute, Long> {
 
     Optional<Attribute> findByIdAndOrganizationId(Long id, Long organizationId);
 
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM attendee_attendee WHERE organization_id = :organizationId AND attributes ? :attributeName)", nativeQuery = true)
+    @Query(value = "SELECT EXISTS(SELECT 1 FROM attendee_attendee WHERE organization_id = :organizationId AND jsonb_exists(attributes, :attributeName))", nativeQuery = true)
     boolean isAttributeInUse(@Param("organizationId") Long organizationId, @Param("attributeName") String attributeName);
 }
