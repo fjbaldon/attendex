@@ -52,7 +52,7 @@ class AppUserDetailsService implements UserDetailsService {
             var orgDto = organizationFacade.findOrganizationById(authDto.organizationId());
 
             if (!"ACTIVE".equals(orgDto.lifecycle())) {
-                throw new DisabledException("Organization account is " + orgDto.lifecycle());
+                throw new DisabledException("Organization account is not active (" + orgDto.lifecycle() + ")");
             }
 
             if (orgDto.subscriptionExpiresAt() != null && orgDto.subscriptionExpiresAt().isBefore(Instant.now())) {

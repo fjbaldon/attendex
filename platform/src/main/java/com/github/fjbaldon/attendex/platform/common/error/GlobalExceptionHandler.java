@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -132,10 +133,18 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 HttpStatus.FORBIDDEN.value(),
                 "Forbidden",
-                "Account is not verified. Please check your email for the verification link.",
+                ex.getMessage(),
                 request.getRequestURI(),
                 null
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(InternalAuthenticationServiceException.class)
+    public ResponseEntity<ErrorResponse> handleInternalAuthServiceException(InternalAuthenticationServiceException ex, HttpServletRequest request) {
+        if (ex.getCause() instanceof DisabledException) {
+            return handleDisabledUser((DisabledException) ex.getCause(), request);
+        }
+        return handleAllUncaughtException(ex, request);
     }
 }
