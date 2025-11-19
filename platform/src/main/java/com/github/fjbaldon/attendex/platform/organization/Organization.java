@@ -26,12 +26,16 @@ class Organization {
     private String subscriptionType;
     private Instant subscriptionExpiresAt;
 
+    @Column(nullable = false)
+    private Instant createdAt;
+
     private Organization(String name) {
         Assert.hasText(name, "Organization name must not be blank");
         this.name = name;
         this.lifecycle = "INACTIVE";
         this.subscriptionType = "TRIAL";
         this.subscriptionExpiresAt = Instant.now().plus(30, ChronoUnit.DAYS);
+        this.createdAt = Instant.now();
     }
 
     void updateLifecycle(String newLifecycle) {
@@ -62,7 +66,8 @@ class Organization {
                 this.identityFormatRegex,
                 this.lifecycle,
                 this.subscriptionType,
-                this.subscriptionExpiresAt
+                this.subscriptionExpiresAt,
+                this.createdAt
         );
     }
 }

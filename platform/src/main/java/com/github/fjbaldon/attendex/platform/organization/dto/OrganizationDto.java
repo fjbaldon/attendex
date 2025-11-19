@@ -8,6 +8,7 @@ public record OrganizationDto(
         String identityFormatRegex,
         String lifecycle,
         String subscriptionType,
-        Instant subscriptionExpiresAt
+        Instant subscriptionExpiresAt,
+        Instant createdAt
 ) {
 }

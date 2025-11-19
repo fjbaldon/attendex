@@ -111,8 +111,8 @@ export function ForcePasswordChangeForm() {
                 </div>
                 <div className="bg-muted relative hidden md:block">
                     <Image
-                        src="https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?q=80&w=2787&auto=format&fit=crop"
-                        alt="A person securing their account"
+                        src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?q=80&w=2940&auto=format&fit=crop"
+                        alt="Security lock on keyboard"
                         fill
                         className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
                     />

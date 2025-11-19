@@ -19,7 +19,7 @@ import {NavUser} from "@/components/navigation/nav-user";
 const navAdmin = [
     {title: "Dashboard", url: "/admin/dashboard", icon: IconDashboard},
     {title: "Organizations", url: "/admin/organizations", icon: IconBuilding},
-    {title: "Administrators", url: "/admin/administrators", icon: IconUserShield},
+    {title: "Stewards", url: "/admin/stewards", icon: IconUserShield},
 ];
 
 export function AdminSidebar({...props}: React.ComponentProps<typeof Sidebar>) {

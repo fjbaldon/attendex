@@ -25,7 +25,8 @@ CREATE TABLE organization_organization
     identity_format_regex   VARCHAR(255),
     lifecycle               VARCHAR(50)         NOT NULL,
     subscription_type       VARCHAR(50)         NOT NULL,
-    subscription_expires_at TIMESTAMP WITH TIME ZONE
+    subscription_expires_at TIMESTAMP WITH TIME ZONE,
+    created_at              TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 CREATE TABLE organization_organizer

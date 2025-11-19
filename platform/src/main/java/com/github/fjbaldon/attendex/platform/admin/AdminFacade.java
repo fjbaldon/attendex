@@ -76,7 +76,7 @@ public class AdminFacade {
 
     public void createDefaultStewardIfNeeded() {
         if (stewardRepository.count() == 0) {
-            Steward defaultSteward = Steward.create("admin@attendex.com", passwordEncoder.encode("admin"));
+            Steward defaultSteward = Steward.create("admin@attendex.com", passwordEncoder.encode("password"));
             stewardRepository.save(defaultSteward);
         }
     }

@@ -137,8 +137,6 @@ public class OrganizationFacade {
         scannerRepository.delete(scanner);
     }
 
-    // ... inside OrganizationFacade class ...
-
     @Transactional(readOnly = true)
     public Optional<UserAuthDto> findUserAuthByEmail(String email) {
         Optional<Organizer> organizerOpt = organizerRepository.findByEmail(email);
@@ -252,6 +250,16 @@ public class OrganizationFacade {
     public List<OrganizationDto> findOrganizationsByLifecycle(List<String> lifecycles, Pageable pageable) {
         return organizationRepository.findByLifecycleIn(lifecycles, pageable)
                 .stream().map(this::toOrganizationDto).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrganizationDto> findAllOrganizations(Pageable pageable) {
+        return organizationRepository.findAll(pageable).map(this::toOrganizationDto);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DailyRegistration> getDailyRegistrations(Instant startDate) {
+        return organizationRepository.findDailyRegistrationsSince(startDate);
     }
 
     private void assertEmailIsUniqueInOrganization(String email, Long organizationId) {
