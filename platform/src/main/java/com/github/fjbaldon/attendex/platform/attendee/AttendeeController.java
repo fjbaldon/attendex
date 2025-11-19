@@ -6,7 +6,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -72,6 +74,16 @@ class AttendeeController {
     @GetMapping("/attributes")
     public List<AttributeDto> getAttributes(@AuthenticationPrincipal CustomUserDetails user) {
         return attendeeFacade.findAttributes(user.getOrganizationId());
+    }
+
+    @GetMapping("/import-template")
+    public ResponseEntity<String> getImportTemplate(@AuthenticationPrincipal CustomUserDetails user) {
+        String csvContent = attendeeFacade.generateImportTemplate(user.getOrganizationId());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=attendee_template.csv")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csvContent);
     }
 
     @PutMapping("/attributes/{attributeId}")

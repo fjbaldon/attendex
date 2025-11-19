@@ -189,6 +189,25 @@ public class AttendeeFacade {
         return attendeeRepository.countByOrganizationId(organizationId);
     }
 
+    @Transactional(readOnly = true)
+    public String generateImportTemplate(Long organizationId) {
+        List<Attribute> attributes = attributeRepository.findAllByOrganizationId(organizationId);
+
+        StringBuilder csv = new StringBuilder("identity,firstName,lastName");
+        for (Attribute attr : attributes) {
+            csv.append(",").append(attr.getName());
+        }
+        csv.append("\n");
+
+        csv.append("2025001,John,Doe");
+        for (Attribute attr : attributes) {
+            csv.append(",").append("SampleValue");
+        }
+        csv.append("\n");
+
+        return csv.toString();
+    }
+
     private AttendeeDto toDto(Attendee attendee) {
         return new AttendeeDto(
                 attendee.getId(),

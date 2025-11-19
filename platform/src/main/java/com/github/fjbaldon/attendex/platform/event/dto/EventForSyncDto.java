@@ -7,6 +7,8 @@ public record EventForSyncDto(
         Long id,
         Long organizationId,
         String name,
+        Instant startDate,
+        Instant endDate,
         List<SessionForSyncDto> sessions,
         List<RosterEntryForSyncDto> rosterEntries
 ) {

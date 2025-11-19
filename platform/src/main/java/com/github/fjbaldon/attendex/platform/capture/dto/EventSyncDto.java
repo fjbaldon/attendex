@@ -6,6 +6,8 @@ import java.util.List;
 public record EventSyncDto(
         Long id,
         String name,
+        Instant startDate,
+        Instant endDate,
         List<SessionSyncDto> sessions,
         List<RosterSyncDto> roster
 ) {

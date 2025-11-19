@@ -236,7 +236,15 @@ public class EventFacade {
                 .map(re -> new EventForSyncDto.RosterEntryForSyncDto(re.getId().getAttendeeId(), re.getQrCodeHash()))
                 .toList();
 
-        return new EventForSyncDto(event.getId(), event.getOrganizationId(), event.getName(), sessions, roster);
+        return new EventForSyncDto(
+                event.getId(),
+                event.getOrganizationId(),
+                event.getName(),
+                event.getStartDate(),
+                event.getEndDate(),
+                sessions,
+                roster
+        );
     }
 
     private EventSyncDto toEventSyncDto(EventForSyncDto event) {
@@ -257,6 +265,13 @@ public class EventFacade {
                 })
                 .toList();
 
-        return new EventSyncDto(event.id(), event.name(), sessions, roster);
+        return new EventSyncDto(
+                event.id(),
+                event.name(),
+                event.startDate(),
+                event.endDate(),
+                sessions,
+                roster
+        );
     }
 }
