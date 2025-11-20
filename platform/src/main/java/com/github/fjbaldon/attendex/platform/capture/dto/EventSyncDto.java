@@ -23,8 +23,7 @@ public record EventSyncDto(
             Long attendeeId,
             String identity,
             String firstName,
-            String lastName,
-            String qrCodeHash
+            String lastName
     ) {
     }
 }

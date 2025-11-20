@@ -17,8 +17,7 @@ interface RosterRepository extends PagingAndSortingRepository<RosterEntry, Roste
             Long attendeeId,
             String identity,
             String firstName,
-            String lastName,
-            String qrCodeHash
+            String lastName
     ) {
     }
 
@@ -27,8 +26,7 @@ interface RosterRepository extends PagingAndSortingRepository<RosterEntry, Roste
                     re.id.attendeeId,
                     a.identity,
                     a.firstName,
-                    a.lastName,
-                    re.qrCodeHash
+                    a.lastName
                 )
                 FROM RosterEntry re
                 JOIN com.github.fjbaldon.attendex.platform.attendee.Attendee a ON re.id.attendeeId = a.id

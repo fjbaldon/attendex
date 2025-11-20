@@ -111,7 +111,6 @@ class EventRepository @Inject constructor(
                     eventId = eventId,
                     attendeeId = it.attendeeId,
                     identity = it.identity,
-                    qrCodeHash = it.qrCodeHash,
                     firstName = it.firstName,
                     lastName = it.lastName
                 )
@@ -142,7 +141,6 @@ class EventRepository @Inject constructor(
                         eventId = eventId,
                         attendeeId = it.attendeeId,
                         identity = it.identity,
-                        qrCodeHash = it.qrCodeHash,
                         firstName = it.firstName,
                         lastName = it.lastName
                     )

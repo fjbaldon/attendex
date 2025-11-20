@@ -107,6 +107,9 @@ dependencies {
     // ML Kit for Text Recognition (OCR)
     implementation(libs.play.services.mlkit.text.recognition)
 
+    // ML Kit Barcode
+    implementation(libs.play.services.mlkit.barcode.scanning)
+
     // Coroutines & Flow
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)

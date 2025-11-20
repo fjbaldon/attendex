@@ -18,6 +18,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlin.math.abs
 
+enum class ScanMode {
+    OCR, QR
+}
+
 sealed class ScanUiResult {
     data object Idle : ScanUiResult()
     data class Success(val attendeeDetails: String) : ScanUiResult()
@@ -36,7 +40,8 @@ data class ScannerUiState(
     val isTorchOn: Boolean = false,
     val isEventActive: Boolean = true,
     val availableSessions: List<SessionResponse> = emptyList(),
-    val selectedSession: SessionResponse? = null
+    val selectedSession: SessionResponse? = null,
+    val scanMode: ScanMode = ScanMode.OCR
 )
 
 @HiltViewModel
@@ -56,6 +61,8 @@ class ScannerViewModel @Inject constructor(
     private val _availableSessions = MutableStateFlow<List<SessionResponse>>(emptyList())
     private val _selectedSession = MutableStateFlow<SessionResponse?>(null)
 
+    private val _scanMode = MutableStateFlow(ScanMode.OCR)
+
     private val scannedAttendeesFlow: Flow<List<AttendeeEntity>> =
         eventRepository.getScannedAttendeesStream(eventId)
 
@@ -68,7 +75,8 @@ class ScannerViewModel @Inject constructor(
         _eventName,
         _isEventActive,
         _availableSessions,
-        _selectedSession
+        _selectedSession,
+        _scanMode
     ) { flows: Array<Any?> ->
         ScannerUiState(
             isLoading = flows[0] as Boolean,
@@ -79,7 +87,8 @@ class ScannerViewModel @Inject constructor(
             eventName = flows[4] as String?,
             isEventActive = flows[5] as Boolean,
             availableSessions = flows[6] as List<SessionResponse>,
-            selectedSession = flows[7] as SessionResponse?
+            selectedSession = flows[7] as SessionResponse?,
+            scanMode = flows[8] as ScanMode
         )
     }.stateIn(
         scope = viewModelScope,
@@ -102,7 +111,6 @@ class ScannerViewModel @Inject constructor(
             val sessions = eventRepository.getSessionsForEvent(eventId)
             _availableSessions.value = sessions
 
-            // Automatically select the session closest to the current time
             updateSelectedSessionBasedOnTime(sessions)
 
             eventRepository.primeLastScannedIdentifier(eventId)
@@ -118,17 +126,20 @@ class ScannerViewModel @Inject constructor(
 
         val now = Instant.now()
 
-        // Logic: Find the session where the absolute difference between NOW and TargetTime is smallest
         val bestSession = sessions.minByOrNull { session ->
             try {
                 val target = Instant.parse(session.targetTime)
                 abs(ChronoUnit.SECONDS.between(target, now))
             } catch (_: Exception) {
-                Long.MAX_VALUE // Push invalid dates to the end
+                Long.MAX_VALUE
             }
         }
 
         _selectedSession.value = bestSession
+    }
+
+    fun toggleScanMode(mode: ScanMode) {
+        _scanMode.value = mode
     }
 
     fun processScannedText(scannedText: String) {
@@ -157,7 +168,7 @@ class ScannerViewModel @Inject constructor(
                 }
 
                 is ScanResult.AttendeeNotFound -> {
-                    // Optional: Handle "Not on Roster" specific UI state
+                    // Optional: Handle "Not on Roster"
                 }
             }
             resetScanResultAfterDelay()

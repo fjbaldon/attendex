@@ -83,7 +83,6 @@ CREATE TABLE event_rosterentry
 (
     event_id     BIGINT              NOT NULL,
     attendee_id  BIGINT              NOT NULL,
-    qr_code_hash VARCHAR(255) UNIQUE NOT NULL,
     PRIMARY KEY (event_id, attendee_id),
     CONSTRAINT fk_roster_event FOREIGN KEY (event_id) REFERENCES event_event (id) ON DELETE CASCADE
 );

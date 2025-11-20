@@ -13,12 +13,13 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import com.github.fjbaldon.attendex.capture.feature.scanner.ScanMode
 
 @Composable
 fun CameraOverlay(
+    scanMode: ScanMode,
     modifier: Modifier = Modifier
 ) {
-    // Animation for the red laser line
     val infiniteTransition = rememberInfiniteTransition(label = "scanner_laser")
     val animatedLineY by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -29,19 +30,25 @@ fun CameraOverlay(
         ), label = "line_position"
     )
 
+    // Animate the aspect ratio change for a smooth transition
+    val aspectRatio by animateFloatAsState(
+        targetValue = if (scanMode == ScanMode.QR) 1.0f else 0.6f,
+        label = "box_aspect_ratio"
+    )
+
     Canvas(modifier = modifier.fillMaxSize()) {
         val canvasWidth = size.width
         val canvasHeight = size.height
 
-        // Match these dimensions with TextRecognitionAnalyzer
-        val scanAreaSize = 0.7f // 70% width
+        // Box Logic: QR is wider/square, OCR is rectangular
+        val scanAreaSize = 0.7f
         val boxWidth = canvasWidth * scanAreaSize
-        val boxHeight = boxWidth * 0.6f // Aspect ratio typical for ID cards
+        val boxHeight = boxWidth * aspectRatio // Use animated aspect ratio
 
         val left = (canvasWidth - boxWidth) / 2
         val top = (canvasHeight - boxHeight) / 2
         val right = left + boxWidth
-        val bottom = top + boxHeight
+        // bottom calculated implicitly
 
         // 1. Draw Darkened Background with "Hole"
         with(drawContext.canvas.nativeCanvas) {
@@ -62,7 +69,7 @@ fun CameraOverlay(
             restoreToCount(checkPoint)
         }
 
-        // 2. Draw White Border Corners
+        // 2. Draw White Border
         drawRoundRect(
             topLeft = Offset(left, top),
             size = Size(boxWidth, boxHeight),
@@ -74,7 +81,6 @@ fun CameraOverlay(
         // 3. Draw Red Laser Line
         val lineY = top + (boxHeight * animatedLineY)
 
-        // Add a fade effect to the ends of the line
         drawLine(
             color = Color.Red.copy(alpha = 0.8f),
             start = Offset(left + 20f, lineY),

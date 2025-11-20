@@ -4,10 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -41,9 +44,7 @@ fun ScannerScreen(
                     .fillMaxWidth()
                     .heightIn(max = 400.dp)
             ) {
-                ScannedAttendeesSheetContent(
-                    attendees = uiState.scannedAttendees
-                )
+                ScannedAttendeesSheetContent(attendees = uiState.scannedAttendees)
             }
         },
         sheetPeekHeight = 80.dp,
@@ -89,19 +90,80 @@ fun ScannerScreen(
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
+                // 1. Camera Preview
                 CameraPreview(
+                    scanMode = uiState.scanMode,
                     onTextFound = { text -> viewModel.processScannedText(text) },
                     torchEnabled = uiState.isTorchOn,
                     onTorchToggle = { hasFlash -> viewModel.onFlashUnitAvailabilityChange(hasFlash) }
                 )
 
+                // 2. Status Overlay (Text)
                 ScannerOverlay(
                     result = uiState.lastScanResult,
                     isEventActive = uiState.isEventActive,
                     hasSessionSelected = uiState.selectedSession != null
                 )
+
+                // 3. Scan Mode Toggles (Bottom Center)
+                ScanModeSelector(
+                    currentMode = uiState.scanMode,
+                    onModeSelected = { viewModel.toggleScanMode(it) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 100.dp) // Position above the BottomSheet
+                )
             }
         }
+    }
+}
+
+@Composable
+fun ScanModeSelector(
+    currentMode: ScanMode,
+    onModeSelected: (ScanMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ModeButton(
+            text = "Text ID",
+            icon = Icons.Default.TextFields,
+            isSelected = currentMode == ScanMode.OCR,
+            onClick = { onModeSelected(ScanMode.OCR) }
+        )
+        ModeButton(
+            text = "QR Code",
+            icon = Icons.Default.QrCodeScanner,
+            isSelected = currentMode == ScanMode.QR,
+            onClick = { onModeSelected(ScanMode.QR) }
+        )
+    }
+}
+
+@Composable
+fun ModeButton(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.White
+        ),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.height(40.dp)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
 

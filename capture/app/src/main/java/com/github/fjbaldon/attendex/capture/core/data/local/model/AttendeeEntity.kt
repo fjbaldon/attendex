@@ -15,7 +15,6 @@ data class AttendeeEntity(
     val eventId: Long,
     val attendeeId: Long,
     val identity: String,
-    val qrCodeHash: String,
     val firstName: String,
     val lastName: String
 )

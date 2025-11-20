@@ -20,19 +20,15 @@ class RosterEntry {
     @JoinColumn(name = "event_id")
     private Event event;
 
-    private String qrCodeHash;
-
-    private RosterEntry(Event event, Long attendeeId, String qrCodeHash) {
+    private RosterEntry(Event event, Long attendeeId) {
         Assert.notNull(event, "Event must not be null");
         Assert.notNull(attendeeId, "Attendee ID must not be null");
-        Assert.hasText(qrCodeHash, "QR code hash must not be blank");
 
         this.id = new RosterEntryId(event.getId(), attendeeId);
         this.event = event;
-        this.qrCodeHash = qrCodeHash;
     }
 
-    static RosterEntry create(Event event, Long attendeeId, String qrCodeHash) {
-        return new RosterEntry(event, attendeeId, qrCodeHash);
+    static RosterEntry create(Event event, Long attendeeId) {
+        return new RosterEntry(event, attendeeId);
     }
 }

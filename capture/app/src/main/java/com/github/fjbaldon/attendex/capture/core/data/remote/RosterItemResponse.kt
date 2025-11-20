@@ -6,7 +6,6 @@ import kotlinx.serialization.Serializable
 data class RosterItemResponse(
     val attendeeId: Long,
     val identity: String,
-    val qrCodeHash: String,
     val firstName: String,
     val lastName: String,
 )

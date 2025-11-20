@@ -20,10 +20,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.github.fjbaldon.attendex.capture.feature.scanner.ScanMode
 import java.util.concurrent.Executors
 
 @Composable
 fun CameraPreview(
+    scanMode: ScanMode,
     onTextFound: (String) -> Unit,
     torchEnabled: Boolean,
     onTorchToggle: (Boolean) -> Unit
@@ -33,10 +35,7 @@ fun CameraPreview(
 
     var hasCamPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
 
@@ -57,48 +56,55 @@ fun CameraPreview(
         }
     }
 
-    // Use a Box to stack the Camera View and the Overlay
     Box(modifier = Modifier.fillMaxSize()) {
         if (hasCamPermission) {
-            AndroidView(
-                factory = { context ->
-                    val previewView = PreviewView(context)
-                    val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-                    val cameraExecutor = Executors.newSingleThreadExecutor()
+            // KEY: Recompose AndroidView when scanMode changes to re-bind the correct Analyzer
+            key(scanMode) {
+                AndroidView(
+                    factory = { ctx ->
+                        val previewView = PreviewView(ctx)
+                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                        val cameraExecutor = Executors.newSingleThreadExecutor()
 
-                    cameraProviderFuture.addListener({
-                        val cameraProvider = cameraProviderFuture.get()
-
-                        val preview = Preview.Builder().build().also {
-                            it.surfaceProvider = previewView.surfaceProvider
-                        }
-
-                        val imageAnalyzer = ImageAnalysis.Builder()
-                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                            .build()
-                            .also {
-                                it.setAnalyzer(cameraExecutor, TextRecognitionAnalyzer(onTextFound))
+                        cameraProviderFuture.addListener({
+                            val cameraProvider = cameraProviderFuture.get()
+                            val preview = Preview.Builder().build().also {
+                                it.surfaceProvider = previewView.surfaceProvider
                             }
 
-                        val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                            // SWAP ANALYZER BASED ON MODE
+                            val analyzer = if (scanMode == ScanMode.QR) {
+                                BarcodeScanningAnalyzer(onTextFound)
+                            } else {
+                                TextRecognitionAnalyzer(onTextFound)
+                            }
 
-                        try {
-                            cameraProvider.unbindAll()
-                            camera = cameraProvider.bindToLifecycle(
-                                lifecycleOwner, cameraSelector, preview, imageAnalyzer
-                            )
-                            onTorchToggle(camera?.cameraInfo?.hasFlashUnit() ?: false)
-                        } catch (_: Exception) {
-                            // Log error
-                        }
-                    }, ContextCompat.getMainExecutor(context))
-                    previewView
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+                            val imageAnalyzer = ImageAnalysis.Builder()
+                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                .build()
+                                .also {
+                                    it.setAnalyzer(cameraExecutor, analyzer)
+                                }
 
-            // The Visual Overlay sits ON TOP of the camera view
-            CameraOverlay(modifier = Modifier.fillMaxSize())
+                            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                            try {
+                                cameraProvider.unbindAll()
+                                camera = cameraProvider.bindToLifecycle(
+                                    lifecycleOwner, cameraSelector, preview, imageAnalyzer
+                                )
+                                onTorchToggle(camera?.cameraInfo?.hasFlashUnit() ?: false)
+                            } catch (_: Exception) {
+                            }
+                        }, ContextCompat.getMainExecutor(ctx))
+                        previewView
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Pass scanMode to overlay to change the box shape
+            CameraOverlay(scanMode = scanMode, modifier = Modifier.fillMaxSize())
 
         } else {
             PermissionRequiredScreen(onRequestPermission = {

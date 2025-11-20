@@ -21,8 +21,7 @@ public record EventForSyncDto(
     }
 
     public record RosterEntryForSyncDto(
-            Long attendeeId,
-            String qrCodeHash
+            Long attendeeId
     ) {
     }
 }

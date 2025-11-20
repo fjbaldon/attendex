@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -86,8 +85,7 @@ public class EventFacade {
         RosterEntryId id = new RosterEntryId(eventId, attendeeId);
         Assert.isTrue(!rosterRepository.existsById(id), "Attendee is already on the roster for this event.");
 
-        String qrCodeHash = UUID.randomUUID().toString();
-        RosterEntry rosterEntry = RosterEntry.create(event, attendeeId, qrCodeHash);
+        RosterEntry rosterEntry = RosterEntry.create(event, attendeeId);
         rosterRepository.save(rosterEntry);
 
         eventPublisher.publishEvent(new RosterEntryAddedEvent(eventId, organizationId, attendeeId));
@@ -200,8 +198,7 @@ public class EventFacade {
                         proj.attendeeId(),
                         proj.identity(),
                         proj.firstName(),
-                        proj.lastName(),
-                        proj.qrCodeHash()
+                        proj.lastName()
                 ));
     }
 
@@ -252,7 +249,7 @@ public class EventFacade {
                 .toList();
 
         var roster = event.getRosterEntries().stream()
-                .map(re -> new EventForSyncDto.RosterEntryForSyncDto(re.getId().getAttendeeId(), re.getQrCodeHash()))
+                .map(re -> new EventForSyncDto.RosterEntryForSyncDto(re.getId().getAttendeeId()))
                 .toList();
 
         return new EventForSyncDto(
@@ -278,8 +275,7 @@ public class EventFacade {
                             re.attendeeId(),
                             attendee != null ? attendee.identity() : "N/A",
                             attendee != null ? attendee.firstName() : "N/A",
-                            attendee != null ? attendee.lastName() : "N/A",
-                            re.qrCodeHash()
+                            attendee != null ? attendee.lastName() : "N/A"
                     );
                 })
                 .toList();
