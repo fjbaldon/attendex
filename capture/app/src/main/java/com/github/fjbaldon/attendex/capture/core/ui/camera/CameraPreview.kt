@@ -36,7 +36,10 @@ fun CameraPreview(
 
     var hasCamPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(
+                context, // This usage makes the initializer NOT redundant
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
         )
     }
 
@@ -45,37 +48,40 @@ fun CameraPreview(
         onResult = { granted -> hasCamPermission = granted }
     )
 
-    // Hold reference to the provider so we can re-bind when mode changes
+    // Hold references to re-bind camera when ScanMode changes
     var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
-
-    // Keep reference to the PreviewView to attach surface provider
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
 
-    // 1. Permission Check
+    // 1. Check Permissions
     LaunchedEffect(key1 = true) {
         if (!hasCamPermission) {
             launcher.launch(Manifest.permission.CAMERA)
         }
     }
 
-    // 2. Torch Control
+    // 2. Handle Torch
     LaunchedEffect(camera, torchEnabled) {
         camera?.cameraControl?.enableTorch(torchEnabled)
     }
 
-    // 3. Bind Camera Logic (Runs when Provider, View, or Mode changes)
+    // 3. Bind Camera (Runs when Provider, View, or ScanMode changes)
+    // This replaces the 'key(scanMode)' wrapper
     LaunchedEffect(cameraProvider, previewView, scanMode) {
         val provider = cameraProvider
         val view = previewView
 
         if (provider != null && view != null) {
             val cameraExecutor = Executors.newSingleThreadExecutor()
+
+            // Unbind previous use cases (e.g. the old analyzer)
+            provider.unbindAll()
+
             val preview = Preview.Builder().build().also {
                 it.surfaceProvider = view.surfaceProvider
             }
 
-            // DYNAMICALLY CHOOSE ANALYZER
+            // Switch Analyzer based on Mode
             val analyzer = if (scanMode == ScanMode.QR) {
                 BarcodeScanningAnalyzer(onTextFound)
             } else {
@@ -92,12 +98,13 @@ fun CameraPreview(
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             try {
-                provider.unbindAll()
                 camera = provider.bindToLifecycle(
                     lifecycleOwner, cameraSelector, preview, imageAnalyzer
                 )
+                // Restore torch state after re-binding
                 onTorchToggle(camera?.cameraInfo?.hasFlashUnit() ?: false)
-            } catch (e: Exception) {
+                camera?.cameraControl?.enableTorch(torchEnabled)
+            } catch (_: Exception) {
                 // Log error
             }
         }
@@ -105,7 +112,8 @@ fun CameraPreview(
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (hasCamPermission) {
-            // FIXED: Explicitly type AndroidView to <PreviewView>
+            // REMOVED: key(scanMode) wrapper
+            // ADDED: <PreviewView> explicit type
             AndroidView<PreviewView>(
                 factory = { ctx ->
                     val view = PreviewView(ctx).apply {
@@ -114,17 +122,13 @@ fun CameraPreview(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                     }
+                    previewView = view // Capture for LaunchedEffect
 
-                    // Capture the view reference for the LaunchedEffect
-                    previewView = view
-
-                    // Initialize the Provider once
-                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                    cameraProviderFuture.addListener({
+                    val providerFuture = ProcessCameraProvider.getInstance(ctx)
+                    providerFuture.addListener({
                         try {
-                            cameraProvider = cameraProviderFuture.get()
-                        } catch (e: Exception) {
-                            // Handle initialization error
+                            cameraProvider = providerFuture.get()
+                        } catch (_: Exception) {
                         }
                     }, ContextCompat.getMainExecutor(ctx))
 
@@ -133,7 +137,7 @@ fun CameraPreview(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Visual Overlay sits on top
+            // Visual Overlay
             CameraOverlay(scanMode = scanMode, modifier = Modifier.fillMaxSize())
 
         } else {
