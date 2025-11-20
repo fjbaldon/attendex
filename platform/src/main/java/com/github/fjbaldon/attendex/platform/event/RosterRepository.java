@@ -1,5 +1,6 @@
 package com.github.fjbaldon.attendex.platform.event;
 
+import com.github.fjbaldon.attendex.platform.event.dto.RosterSyncProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
@@ -13,16 +14,8 @@ interface RosterRepository extends PagingAndSortingRepository<RosterEntry, Roste
     @Query("SELECT re.id.attendeeId FROM RosterEntry re WHERE re.id.eventId = :eventId")
     Page<Long> findAttendeeIdsByEventId(@Param("eventId") Long eventId, Pageable pageable);
 
-    record RosterSyncProjection(
-            Long attendeeId,
-            String identity,
-            String firstName,
-            String lastName
-    ) {
-    }
-
     @Query("""
-                SELECT new com.github.fjbaldon.attendex.platform.event.RosterRepository$RosterSyncProjection(
+                SELECT new com.github.fjbaldon.attendex.platform.event.dto.RosterSyncProjection(
                     re.id.attendeeId,
                     a.identity,
                     a.firstName,
@@ -33,8 +26,6 @@ interface RosterRepository extends PagingAndSortingRepository<RosterEntry, Roste
                 WHERE re.id.eventId = :eventId
             """)
     Page<RosterSyncProjection> findRosterProjectionsByEventId(@Param("eventId") Long eventId, Pageable pageable);
-
-    long countByEventId(Long eventId);
 
     @Override
     boolean existsById(@NonNull RosterEntryId id);
