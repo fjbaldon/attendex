@@ -1,6 +1,5 @@
 package com.github.fjbaldon.attendex.capture.feature.scanner
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -57,7 +56,6 @@ fun ScannerScreen(
                             text = uiState.eventName ?: "Scanner",
                             style = MaterialTheme.typography.titleMedium
                         )
-                        // Display the automatically selected session
                         Text(
                             text = uiState.selectedSession?.activityName ?: "No Active Session",
                             style = MaterialTheme.typography.bodyMedium,
@@ -96,6 +94,7 @@ fun ScannerScreen(
                     torchEnabled = uiState.isTorchOn,
                     onTorchToggle = { hasFlash -> viewModel.onFlashUnitAvailabilityChange(hasFlash) }
                 )
+
                 ScannerOverlay(
                     result = uiState.lastScanResult,
                     isEventActive = uiState.isEventActive,
@@ -181,7 +180,7 @@ private fun ScannerOverlay(
         )
 
         !hasSessionSelected -> OverlayState(
-            text = "No active session found",
+            text = "No active session",
             textColor = Color(0xFFFFC107),
             overlayColor = Color.Black.copy(alpha = 0.6f)
         )
@@ -219,31 +218,12 @@ private fun ScannerOverlay(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(overlayState.overlayColor)
-    ) {
-        if (isEventActive && hasSessionSelected) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth(0.8f)
-                    .aspectRatio(4f)
-            ) {
-                OutlinedCard(
-                    border = BorderStroke(3.dp, Color.White.copy(alpha = 0.8f)),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    modifier = Modifier.fillMaxSize()
-                ) {}
-            }
-        }
-
+    Box(modifier = Modifier.fillMaxSize()) {
         if (overlayState.text.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(top = 150.dp)
+                    .padding(top = 180.dp)
             ) {
                 Text(
                     text = overlayState.text,
@@ -252,8 +232,8 @@ private fun ScannerOverlay(
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.small)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .background(Color.Black.copy(alpha = 0.8f), shape = MaterialTheme.shapes.medium)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 )
             }
         }

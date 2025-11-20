@@ -30,6 +30,7 @@ fun CameraPreview(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
     var hasCamPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -38,11 +39,10 @@ fun CameraPreview(
             ) == PackageManager.PERMISSION_GRANTED
         )
     }
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            hasCamPermission = granted
-        }
+        onResult = { granted -> hasCamPermission = granted }
     )
 
     var camera by remember { mutableStateOf<Camera?>(null) }
@@ -57,47 +57,54 @@ fun CameraPreview(
         }
     }
 
-    if (hasCamPermission) {
-        AndroidView(
-            factory = { context ->
-                val previewView = PreviewView(context)
-                val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-                val cameraExecutor = Executors.newSingleThreadExecutor()
+    // Use a Box to stack the Camera View and the Overlay
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (hasCamPermission) {
+            AndroidView(
+                factory = { context ->
+                    val previewView = PreviewView(context)
+                    val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+                    val cameraExecutor = Executors.newSingleThreadExecutor()
 
-                cameraProviderFuture.addListener({
-                    val cameraProvider = cameraProviderFuture.get()
+                    cameraProviderFuture.addListener({
+                        val cameraProvider = cameraProviderFuture.get()
 
-                    val preview = Preview.Builder().build().also {
-                        it.surfaceProvider = previewView.surfaceProvider
-                    }
-
-                    val imageAnalyzer = ImageAnalysis.Builder()
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .build()
-                        .also {
-                            it.setAnalyzer(cameraExecutor, TextRecognitionAnalyzer(onTextFound))
+                        val preview = Preview.Builder().build().also {
+                            it.surfaceProvider = previewView.surfaceProvider
                         }
 
-                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                        val imageAnalyzer = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build()
+                            .also {
+                                it.setAnalyzer(cameraExecutor, TextRecognitionAnalyzer(onTextFound))
+                            }
 
-                    try {
-                        cameraProvider.unbindAll()
-                        camera = cameraProvider.bindToLifecycle(
-                            lifecycleOwner, cameraSelector, preview, imageAnalyzer
-                        )
-                        onTorchToggle(camera?.cameraInfo?.hasFlashUnit() ?: false)
-                    } catch (_: Exception) {
-                        // Log errors
-                    }
-                }, ContextCompat.getMainExecutor(context))
-                previewView
-            },
-            modifier = Modifier.fillMaxSize()
-        )
-    } else {
-        PermissionRequiredScreen(onRequestPermission = {
-            launcher.launch(Manifest.permission.CAMERA)
-        })
+                        val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                        try {
+                            cameraProvider.unbindAll()
+                            camera = cameraProvider.bindToLifecycle(
+                                lifecycleOwner, cameraSelector, preview, imageAnalyzer
+                            )
+                            onTorchToggle(camera?.cameraInfo?.hasFlashUnit() ?: false)
+                        } catch (_: Exception) {
+                            // Log error
+                        }
+                    }, ContextCompat.getMainExecutor(context))
+                    previewView
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // The Visual Overlay sits ON TOP of the camera view
+            CameraOverlay(modifier = Modifier.fillMaxSize())
+
+        } else {
+            PermissionRequiredScreen(onRequestPermission = {
+                launcher.launch(Manifest.permission.CAMERA)
+            })
+        }
     }
 }
 
