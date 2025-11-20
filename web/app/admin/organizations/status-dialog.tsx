@@ -74,7 +74,7 @@ export function StatusDialog({open, onOpenChange, organization}: StatusDialogPro
                             name="lifecycle"
                             render={({field}) => (
                                 <FormItem>
-                                    <FormLabel>Lifecycle Status</FormLabel>
+                                    <FormLabel>Lifecycle</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
