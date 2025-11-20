@@ -2,18 +2,17 @@ package com.github.fjbaldon.attendex.capture.feature.scanner
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
-import com.github.fjbaldon.attendex.capture.core.data.remote.SessionResponse
 import com.github.fjbaldon.attendex.capture.core.ui.camera.CameraPreview
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,47 +31,7 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
-    var showSessionSheet by remember { mutableStateOf(false) }
-    val sessionSheetState = rememberModalBottomSheetState()
     val scaffoldState = rememberBottomSheetScaffoldState()
-
-    if (showSessionSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSessionSheet = false },
-            sheetState = sessionSheetState
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    "Select Session",
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                if (uiState.availableSessions.isEmpty()) {
-                    Text(
-                        "No sessions found for this event.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                } else {
-                    LazyColumn {
-                        items(uiState.availableSessions) { session ->
-                            SessionListItem(
-                                session = session,
-                                isSelected = session.id == uiState.selectedSession?.id,
-                                onClick = {
-                                    viewModel.selectSession(session)
-                                    showSessionSheet = false
-                                }
-                            )
-                            HorizontalDivider()
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-        }
-    }
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
@@ -94,24 +52,17 @@ fun ScannerScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column(modifier = Modifier.clickable { showSessionSheet = true }) {
+                    Column {
                         Text(
                             text = uiState.eventName ?: "Scanner",
                             style = MaterialTheme.typography.titleMedium
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = uiState.selectedSession?.activityName ?: "Select Session",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                        // Display the automatically selected session
+                        Text(
+                            text = uiState.selectedSession?.activityName ?: "No Active Session",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
                 navigationIcon = {
@@ -153,35 +104,6 @@ fun ScannerScreen(
             }
         }
     }
-}
-
-@Composable
-fun SessionListItem(
-    session: SessionResponse,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    ListItem(
-        headlineContent = {
-            Text(
-                session.activityName,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-            )
-        },
-        supportingContent = {
-            Text("${session.intent} • ${session.targetTime}")
-        },
-        trailingContent = {
-            if (isSelected) {
-                Icon(
-                    Icons.Default.Check,
-                    contentDescription = "Selected",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        },
-        modifier = Modifier.clickable(onClick = onClick)
-    )
 }
 
 @Composable
@@ -259,7 +181,7 @@ private fun ScannerOverlay(
         )
 
         !hasSessionSelected -> OverlayState(
-            text = "Select a Session above",
+            text = "No active session found",
             textColor = Color(0xFFFFC107),
             overlayColor = Color.Black.copy(alpha = 0.6f)
         )
@@ -278,7 +200,7 @@ private fun ScannerOverlay(
             )
 
             is ScanUiResult.SessionNotSelected -> OverlayState(
-                text = "Select a Session first",
+                text = "No active session",
                 textColor = Color(0xFFFFC107),
                 overlayColor = Color.Black.copy(alpha = 0.5f)
             )

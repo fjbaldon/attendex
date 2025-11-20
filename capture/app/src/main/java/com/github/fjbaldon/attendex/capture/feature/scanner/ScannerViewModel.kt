@@ -12,8 +12,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import kotlin.math.abs
 
 sealed class ScanUiResult {
     data object Idle : ScanUiResult()
@@ -99,20 +102,39 @@ class ScannerViewModel @Inject constructor(
             val sessions = eventRepository.getSessionsForEvent(eventId)
             _availableSessions.value = sessions
 
-            if (sessions.isNotEmpty()) {
-                _selectedSession.value = sessions.first()
-            }
+            // Automatically select the session closest to the current time
+            updateSelectedSessionBasedOnTime(sessions)
 
             eventRepository.primeLastScannedIdentifier(eventId)
             _isLoading.value = false
         }
     }
 
-    fun selectSession(session: SessionResponse) {
-        _selectedSession.value = session
+    private fun updateSelectedSessionBasedOnTime(sessions: List<SessionResponse>) {
+        if (sessions.isEmpty()) {
+            _selectedSession.value = null
+            return
+        }
+
+        val now = Instant.now()
+
+        // Logic: Find the session where the absolute difference between NOW and TargetTime is smallest
+        val bestSession = sessions.minByOrNull { session ->
+            try {
+                val target = Instant.parse(session.targetTime)
+                abs(ChronoUnit.SECONDS.between(target, now))
+            } catch (e: Exception) {
+                Long.MAX_VALUE // Push invalid dates to the end
+            }
+        }
+
+        _selectedSession.value = bestSession
     }
 
     fun processScannedText(scannedText: String) {
+        // Recalculate best session immediately before processing to ensure accuracy
+        updateSelectedSessionBasedOnTime(_availableSessions.value)
+
         val currentSession = _selectedSession.value
         if (currentSession == null) {
             _lastScanResult.value = ScanUiResult.SessionNotSelected
