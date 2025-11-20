@@ -123,7 +123,7 @@ class ScannerViewModel @Inject constructor(
             try {
                 val target = Instant.parse(session.targetTime)
                 abs(ChronoUnit.SECONDS.between(target, now))
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 Long.MAX_VALUE // Push invalid dates to the end
             }
         }
@@ -132,7 +132,6 @@ class ScannerViewModel @Inject constructor(
     }
 
     fun processScannedText(scannedText: String) {
-        // Recalculate best session immediately before processing to ensure accuracy
         updateSelectedSessionBasedOnTime(_availableSessions.value)
 
         val currentSession = _selectedSession.value
