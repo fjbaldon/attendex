@@ -7,6 +7,7 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Optional;
 
 interface EventRepository extends PagingAndSortingRepository<Event, Long>, CrudRepository<Event, Long> {
@@ -18,4 +19,6 @@ interface EventRepository extends PagingAndSortingRepository<Event, Long>, CrudR
     Page<Event> searchByOrganizationId(@Param("organizationId") Long organizationId, @Param("query") String query, Pageable pageable);
 
     Optional<Event> findByIdAndOrganizationId(Long id, Long organizationId);
+
+    Page<Event> findByOrganizationIdAndStartDateAfterOrderByStartDateAsc(Long organizationId, Instant date, Pageable pageable);
 }

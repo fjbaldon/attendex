@@ -122,47 +122,6 @@ class EventRepository @Inject constructor(
         return allAttendees
     }
 
-    private suspend fun refreshAttendeesForEvent(eventId: Long): Result<Unit> {
-        return try {
-            var page = 0
-            val pageSize = 500 // Safe batch size for mobile memory
-            var isLastPage = false
-
-            // Clear existing data first
-            appDatabase.withTransaction {
-                attendeeDao.clearAttendeesForEvent(eventId)
-            }
-
-            while (!isLastPage) {
-                val response = apiService.getAttendeesForEvent(eventId, page, pageSize)
-
-                val attendeeEntities = response.content.map {
-                    AttendeeEntity(
-                        eventId = eventId,
-                        attendeeId = it.attendeeId,
-                        identity = it.identity,
-                        firstName = it.firstName,
-                        lastName = it.lastName
-                    )
-                }
-
-                if (attendeeEntities.isNotEmpty()) {
-                    appDatabase.withTransaction {
-                        attendeeDao.insertAll(attendeeEntities)
-                    }
-                }
-
-                isLastPage = response.last
-                page++
-            }
-
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.w("EventRepository", "Failed to fetch attendees for event $eventId", e)
-            Result.failure(e)
-        }
-    }
-
     suspend fun primeLastScannedIdentifier(eventId: Long) {
         val mostRecentEntry = entryDao.findMostRecentEntryForEvent(eventId)
         if (mostRecentEntry != null) {
@@ -211,7 +170,6 @@ class EventRepository @Inject constructor(
                         EntrySyncRequest.EntryRecord(
                             sessionId = it.sessionId,
                             attendeeId = it.attendeeId,
-                            // FIXED: Changed from checkInTimestamp to scanTimestamp
                             scanTimestamp = it.scanTimestamp.toString()
                         )
                     }

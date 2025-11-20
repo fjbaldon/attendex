@@ -117,23 +117,12 @@ public class EventFacade {
     }
 
     @Transactional(readOnly = true)
-    public long countEvents(Long organizationId) {
-        return eventRepository.count();
-    }
-
-    @Transactional(readOnly = true)
     public Page<EventDto> findUpcomingEvents(Long organizationId, Pageable pageable) {
-        return Page.empty();
-    }
-
-    @Transactional(readOnly = true)
-    public Page<EventDto> findRecentEvents(Long organizationId, Pageable pageable) {
-        return Page.empty();
-    }
-
-    @Transactional(readOnly = true)
-    public long countRosterByEventId(Long eventId) {
-        return rosterRepository.countByEventId(eventId);
+        return eventRepository.findByOrganizationIdAndStartDateAfterOrderByStartDateAsc(
+                organizationId,
+                Instant.now(),
+                pageable
+        ).map(this::toDto);
     }
 
     @Transactional(readOnly = true)
@@ -211,7 +200,7 @@ public class EventFacade {
                 event.getGraceMinutesBefore(),
                 event.getGraceMinutesAfter(),
                 event.getCreatedAt(),
-                calculateEventStatus(event), // ADDED CALL
+                calculateEventStatus(event),
                 event.getSessions().stream().map(this::toDto).collect(Collectors.toList())
         );
     }
@@ -225,7 +214,6 @@ public class EventFacade {
             return "UPCOMING";
         }
 
-        // Check if currently within a session's active window (Target +/- Grace)
         boolean isActive = event.getSessions().stream().anyMatch(session -> {
             Instant startWindow = session.getTargetTime().minus(event.getGraceMinutesBefore(), ChronoUnit.MINUTES);
             Instant endWindow = session.getTargetTime().plus(event.getGraceMinutesAfter(), ChronoUnit.MINUTES);
@@ -258,33 +246,6 @@ public class EventFacade {
                 event.getName(),
                 event.getStartDate(),
                 event.getEndDate(),
-                sessions,
-                roster
-        );
-    }
-
-    private EventSyncDto toEventSyncDto(EventForSyncDto event) {
-        var sessions = event.sessions().stream()
-                .map(s -> new EventSyncDto.SessionSyncDto(s.id(), s.activityName(), s.targetTime(), s.intent()))
-                .toList();
-
-        var roster = event.rosterEntries().stream()
-                .map(re -> {
-                    var attendee = attendeeFacade.findAttendeeById(re.attendeeId(), event.organizationId()).orElse(null);
-                    return new EventSyncDto.RosterSyncDto(
-                            re.attendeeId(),
-                            attendee != null ? attendee.identity() : "N/A",
-                            attendee != null ? attendee.firstName() : "N/A",
-                            attendee != null ? attendee.lastName() : "N/A"
-                    );
-                })
-                .toList();
-
-        return new EventSyncDto(
-                event.id(),
-                event.name(),
-                event.startDate(),
-                event.endDate(),
                 sessions,
                 roster
         );

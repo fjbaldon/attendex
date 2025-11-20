@@ -2,6 +2,7 @@ package com.github.fjbaldon.attendex.capture.core.ui.camera
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
@@ -44,66 +45,95 @@ fun CameraPreview(
         onResult = { granted -> hasCamPermission = granted }
     )
 
+    // Hold reference to the provider so we can re-bind when mode changes
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
 
-    LaunchedEffect(camera, torchEnabled) {
-        camera?.cameraControl?.enableTorch(torchEnabled)
-    }
+    // Keep reference to the PreviewView to attach surface provider
+    var previewView by remember { mutableStateOf<PreviewView?>(null) }
 
+    // 1. Permission Check
     LaunchedEffect(key1 = true) {
         if (!hasCamPermission) {
             launcher.launch(Manifest.permission.CAMERA)
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (hasCamPermission) {
-            // KEY: Recompose AndroidView when scanMode changes to re-bind the correct Analyzer
-            key(scanMode) {
-                AndroidView(
-                    factory = { ctx ->
-                        val previewView = PreviewView(ctx)
-                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                        val cameraExecutor = Executors.newSingleThreadExecutor()
+    // 2. Torch Control
+    LaunchedEffect(camera, torchEnabled) {
+        camera?.cameraControl?.enableTorch(torchEnabled)
+    }
 
-                        cameraProviderFuture.addListener({
-                            val cameraProvider = cameraProviderFuture.get()
-                            val preview = Preview.Builder().build().also {
-                                it.surfaceProvider = previewView.surfaceProvider
-                            }
+    // 3. Bind Camera Logic (Runs when Provider, View, or Mode changes)
+    LaunchedEffect(cameraProvider, previewView, scanMode) {
+        val provider = cameraProvider
+        val view = previewView
 
-                            // SWAP ANALYZER BASED ON MODE
-                            val analyzer = if (scanMode == ScanMode.QR) {
-                                BarcodeScanningAnalyzer(onTextFound)
-                            } else {
-                                TextRecognitionAnalyzer(onTextFound)
-                            }
-
-                            val imageAnalyzer = ImageAnalysis.Builder()
-                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                .build()
-                                .also {
-                                    it.setAnalyzer(cameraExecutor, analyzer)
-                                }
-
-                            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-                            try {
-                                cameraProvider.unbindAll()
-                                camera = cameraProvider.bindToLifecycle(
-                                    lifecycleOwner, cameraSelector, preview, imageAnalyzer
-                                )
-                                onTorchToggle(camera?.cameraInfo?.hasFlashUnit() ?: false)
-                            } catch (_: Exception) {
-                            }
-                        }, ContextCompat.getMainExecutor(ctx))
-                        previewView
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+        if (provider != null && view != null) {
+            val cameraExecutor = Executors.newSingleThreadExecutor()
+            val preview = Preview.Builder().build().also {
+                it.surfaceProvider = view.surfaceProvider
             }
 
-            // Pass scanMode to overlay to change the box shape
+            // DYNAMICALLY CHOOSE ANALYZER
+            val analyzer = if (scanMode == ScanMode.QR) {
+                BarcodeScanningAnalyzer(onTextFound)
+            } else {
+                TextRecognitionAnalyzer(onTextFound)
+            }
+
+            val imageAnalyzer = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also {
+                    it.setAnalyzer(cameraExecutor, analyzer)
+                }
+
+            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+            try {
+                provider.unbindAll()
+                camera = provider.bindToLifecycle(
+                    lifecycleOwner, cameraSelector, preview, imageAnalyzer
+                )
+                onTorchToggle(camera?.cameraInfo?.hasFlashUnit() ?: false)
+            } catch (e: Exception) {
+                // Log error
+            }
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (hasCamPermission) {
+            // FIXED: Explicitly type AndroidView to <PreviewView>
+            AndroidView<PreviewView>(
+                factory = { ctx ->
+                    val view = PreviewView(ctx).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    }
+
+                    // Capture the view reference for the LaunchedEffect
+                    previewView = view
+
+                    // Initialize the Provider once
+                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                    cameraProviderFuture.addListener({
+                        try {
+                            cameraProvider = cameraProviderFuture.get()
+                        } catch (e: Exception) {
+                            // Handle initialization error
+                        }
+                    }, ContextCompat.getMainExecutor(ctx))
+
+                    view
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Visual Overlay sits on top
             CameraOverlay(scanMode = scanMode, modifier = Modifier.fillMaxSize())
 
         } else {
