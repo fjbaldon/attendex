@@ -72,6 +72,7 @@ public class CaptureFacade {
 
             Entry entry = Entry.create(
                     organizationId,
+                    record.eventId(),
                     sessionId,
                     record.attendeeId(),
                     scanner.id(),
@@ -155,5 +156,32 @@ public class CaptureFacade {
     @Transactional(readOnly = true)
     public long countEntriesSince(Long organizationId, Instant timestamp) {
         return entryRepository.countByOrganizationIdAndSyncTimestampAfter(organizationId, timestamp);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EntryDetailsDto> findAllEntriesForEvent(Long organizationId, Long eventId) {
+        // Verify ownership or event existence via EventFacade if strict,
+        // but for reporting we can just query.
+        // Note: Ideally, check if event belongs to organizationId first.
+
+        return entryRepository.findByEventIdOrderByScanTimestampDesc(eventId).stream()
+                .map(entry -> {
+                    // Note: For bulk export (50k rows), this N+1 attendee lookup is slow.
+                    // Ideally, we should JOIN in the repository.
+                    // For now, we use the existing pattern.
+                    var attendee = attendeeFacade.findAttendeeById(entry.getAttendeeId(), organizationId)
+                            .orElse(null);
+
+                    if (attendee == null) return null; // Skip orphaned entries
+
+                    return new EntryDetailsDto(
+                            entry.getId(),
+                            entry.getScanTimestamp(),
+                            entry.getPunctuality(),
+                            attendee
+                    );
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
     }
 }

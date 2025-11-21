@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Arrivals Report</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm;
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-family: sans-serif;
+                font-size: 10pt;
+            }
+        }
+
+        body {
+            font-family: sans-serif;
+            color: #333;
+        }
+
+        h1 {
+            font-size: 24pt;
+            margin-bottom: 5mm;
+            color: #000;
+        }
+
+        .meta {
+            font-size: 12pt;
+            margin-bottom: 10mm;
+            color: #666;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            border-bottom: 2px solid #000;
+            text-align: left;
+            padding: 10px 5px;
+            font-weight: bold;
+        }
+
+        td {
+            border-bottom: 1px solid #ddd;
+            padding: 8px 5px;
+            font-size: 11pt;
+        }
+
+        /* Ensure headers repeat on every page */
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+<h1 th:text="${eventName}">Event Name</h1>
+
+<div class="meta">
+    <p>Report: <strong>Arrivals Log</strong></p>
+    <p>Total Records: <strong th:text="${totalCount}">0</strong></p>
+    <p>Generated: <span th:text="${generatedDate}">Date</span></p>
+</div>
+
+<table>
+    <thead>
+    <tr>
+        <th style="width: 25%">Identity</th>
+        <th style="width: 25%">Last Name</th>
+        <th style="width: 25%">First Name</th>
+        <th style="width: 25%; text-align: right;">Time</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="entry : ${entries}">
+        <td th:text="${entry.attendee.identity}">ID</td>
+        <td th:text="${entry.attendee.lastName}">Doe</td>
+        <td th:text="${entry.attendee.firstName}">John</td>
+        <!-- Format timestamp cleanly -->
+        <td style="text-align: right;"
+            th:text="${#temporals.format(entry.scanTimestamp, 'h:mm:ss a')}">10:00 AM
+        </td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

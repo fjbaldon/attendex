@@ -15,4 +15,6 @@ interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRe
     long countByOrganizationIdAndSyncTimestampAfter(Long organizationId, Instant timestamp);
 
     Page<Entry> findBySessionIdIn(List<Long> sessionIds, Pageable pageable);
+
+    List<Entry> findByEventIdOrderByScanTimestampDesc(Long eventId);
 }

@@ -18,27 +18,29 @@ class Entry {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // NEW: Idempotency Key
     @Column(unique = true)
     private String scanUuid;
 
     private Long organizationId;
-    private Long sessionId; // Now Nullable
+    private Long eventId; // <--- ADDED THIS FIELD
+    private Long sessionId;
     private Long attendeeId;
     private Long scannerId;
     private Instant scanTimestamp;
     private String punctuality;
     private Instant syncTimestamp;
 
-    private Entry(Long organizationId, Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality, String scanUuid) {
+    // Updated Constructor
+    private Entry(Long organizationId, Long eventId, Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality, String scanUuid) {
         Assert.notNull(organizationId, "Organization ID must not be null");
-        // Removed SessionID NotNull check
+        Assert.notNull(eventId, "Event ID must not be null"); // <--- ADDED ASSERTION
         Assert.notNull(attendeeId, "Attendee ID must not be null");
         Assert.notNull(scannerId, "Scanner ID must not be null");
         Assert.notNull(scanTimestamp, "Scan timestamp must not be null");
         Assert.hasText(punctuality, "Punctuality must not be blank");
 
         this.organizationId = organizationId;
+        this.eventId = eventId; // <--- SET IT
         this.sessionId = sessionId;
         this.attendeeId = attendeeId;
         this.scannerId = scannerId;
@@ -48,7 +50,8 @@ class Entry {
         this.syncTimestamp = Instant.now();
     }
 
-    static Entry create(Long organizationId, Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality, String scanUuid) {
-        return new Entry(organizationId, sessionId, attendeeId, scannerId, scanTimestamp, punctuality, scanUuid);
+    // Updated Factory Method
+    static Entry create(Long organizationId, Long eventId, Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality, String scanUuid) {
+        return new Entry(organizationId, eventId, sessionId, attendeeId, scannerId, scanTimestamp, punctuality, scanUuid);
     }
 }
