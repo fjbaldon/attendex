@@ -15,13 +15,16 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE eventId = :eventId ORDER BY scanTimestamp DESC")
     fun getEntriesForEventStream(eventId: Long): Flow<List<EntryEntity>>
 
-    @Query("SELECT * FROM entries WHERE isSynced = 0 LIMIT :limit")
-    suspend fun getUnsyncedEntriesBatch(limit: Int): List<EntryEntity>
+    @Query("SELECT * FROM entries WHERE syncStatus = 'PENDING' LIMIT :limit")
+    suspend fun getPendingEntriesBatch(limit: Int): List<EntryEntity>
 
-    @Query("UPDATE entries SET isSynced = 1 WHERE id IN (:ids)")
+    @Query("UPDATE entries SET syncStatus = 'SYNCED', syncErrorMessage = null WHERE id IN (:ids)")
     suspend fun markAsSynced(ids: List<Int>)
 
-    @Query("SELECT COUNT(id) FROM entries WHERE isSynced = 0")
+    @Query("UPDATE entries SET syncStatus = 'FAILED', syncErrorMessage = :message WHERE id IN (:ids)")
+    suspend fun markAsFailed(ids: List<Int>, message: String)
+
+    @Query("SELECT COUNT(id) FROM entries WHERE syncStatus = 'PENDING'")
     fun getUnsyncedEntryCount(): Flow<Int>
 
     @Query("SELECT * FROM entries WHERE eventId = :eventId ORDER BY scanTimestamp DESC LIMIT 1")

@@ -15,7 +15,7 @@ class TtsService @Inject constructor(
 
     private var tts: TextToSpeech? = TextToSpeech(context, this)
     private var isInitialized = false
-    private var speechRate = 1f
+    private var speechRate = 1.2f
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {

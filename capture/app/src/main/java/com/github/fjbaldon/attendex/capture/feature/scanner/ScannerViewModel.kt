@@ -4,7 +4,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
-import com.github.fjbaldon.attendex.capture.core.data.remote.SessionResponse
 import com.github.fjbaldon.attendex.capture.core.services.TtsService
 import com.github.fjbaldon.attendex.capture.data.event.EventRepository
 import com.github.fjbaldon.attendex.capture.data.event.ScanResult
@@ -12,11 +11,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
-import kotlin.math.abs
 
 enum class ScanMode {
     OCR, QR
@@ -24,11 +20,11 @@ enum class ScanMode {
 
 sealed class ScanUiResult {
     data object Idle : ScanUiResult()
+
+    // Simplified: Just success. No "Late/Early" warning.
     data class Success(val attendeeDetails: String) : ScanUiResult()
     data class Error(val message: String) : ScanUiResult()
     data class AlreadyScanned(val identifier: String) : ScanUiResult()
-    data object ScanningInactive : ScanUiResult()
-    data object SessionNotSelected : ScanUiResult()
 }
 
 data class ScannerUiState(
@@ -39,9 +35,8 @@ data class ScannerUiState(
     val hasFlashUnit: Boolean = false,
     val isTorchOn: Boolean = false,
     val isEventActive: Boolean = true,
-    val availableSessions: List<SessionResponse> = emptyList(),
-    val selectedSession: SessionResponse? = null,
     val scanMode: ScanMode = ScanMode.OCR
+    // REMOVED: availableSessions, selectedSession
 )
 
 @HiltViewModel
@@ -57,10 +52,6 @@ class ScannerViewModel @Inject constructor(
     private val _torchState = MutableStateFlow(Pair(false, false))
     private val _eventName = MutableStateFlow<String?>(null)
     private val _isEventActive = MutableStateFlow(true)
-
-    private val _availableSessions = MutableStateFlow<List<SessionResponse>>(emptyList())
-    private val _selectedSession = MutableStateFlow<SessionResponse?>(null)
-
     private val _scanMode = MutableStateFlow(ScanMode.OCR)
 
     private val scannedAttendeesFlow: Flow<List<AttendeeEntity>> =
@@ -74,8 +65,6 @@ class ScannerViewModel @Inject constructor(
         _torchState,
         _eventName,
         _isEventActive,
-        _availableSessions,
-        _selectedSession,
         _scanMode
     ) { flows: Array<Any?> ->
         ScannerUiState(
@@ -86,9 +75,7 @@ class ScannerViewModel @Inject constructor(
             isTorchOn = (flows[3] as Pair<Boolean, Boolean>).second,
             eventName = flows[4] as String?,
             isEventActive = flows[5] as Boolean,
-            availableSessions = flows[6] as List<SessionResponse>,
-            selectedSession = flows[7] as SessionResponse?,
-            scanMode = flows[8] as ScanMode
+            scanMode = flows[6] as ScanMode
         )
     }.stateIn(
         scope = viewModelScope,
@@ -107,35 +94,9 @@ class ScannerViewModel @Inject constructor(
             _isLoading.value = true
             _eventName.value = eventRepository.getEventNameById(eventId)
             _isEventActive.value = eventRepository.isEventActive(eventId)
-
-            val sessions = eventRepository.getSessionsForEvent(eventId)
-            _availableSessions.value = sessions
-
-            updateSelectedSessionBasedOnTime(sessions)
-
             eventRepository.primeLastScannedIdentifier(eventId)
             _isLoading.value = false
         }
-    }
-
-    private fun updateSelectedSessionBasedOnTime(sessions: List<SessionResponse>) {
-        if (sessions.isEmpty()) {
-            _selectedSession.value = null
-            return
-        }
-
-        val now = Instant.now()
-
-        val bestSession = sessions.minByOrNull { session ->
-            try {
-                val target = Instant.parse(session.targetTime)
-                abs(ChronoUnit.SECONDS.between(target, now))
-            } catch (_: Exception) {
-                Long.MAX_VALUE
-            }
-        }
-
-        _selectedSession.value = bestSession
     }
 
     fun toggleScanMode(mode: ScanMode) {
@@ -143,32 +104,28 @@ class ScannerViewModel @Inject constructor(
     }
 
     fun processScannedText(scannedText: String) {
-        updateSelectedSessionBasedOnTime(_availableSessions.value)
-
-        val currentSession = _selectedSession.value
-        if (currentSession == null) {
-            _lastScanResult.value = ScanUiResult.SessionNotSelected
-            resetScanResultAfterDelay()
-            return
-        }
-
         if (!_isEventActive.value || !isProcessing.compareAndSet(false, true)) return
 
         viewModelScope.launch {
-            when (val result = eventRepository.processScan(eventId, currentSession.id, scannedText)) {
+            // THIN CLIENT: We pass only EventID and Identity. No Session ID.
+            when (val result = eventRepository.processScan(eventId, scannedText)) {
                 is ScanResult.Success -> {
-                    ttsService.speak(result.attendee.lastName)
+                    // FEEDBACK: Speak First Name Only (Positive Reinforcement)
+                    ttsService.speak(result.attendee.firstName)
+
                     _lastScanResult.value = ScanUiResult.Success(
                         attendeeDetails = "${result.attendee.firstName} ${result.attendee.lastName}"
                     )
                 }
 
                 is ScanResult.AlreadyScanned -> {
+                    // Distinct sound or phrase for duplicate
+                    ttsService.speak("Already Scanned")
                     _lastScanResult.value = ScanUiResult.AlreadyScanned(scannedText)
                 }
 
                 is ScanResult.AttendeeNotFound -> {
-                    // Optional: Handle "Not on Roster"
+                    // Optional: Handle Not Found
                 }
             }
             resetScanResultAfterDelay()
@@ -177,7 +134,8 @@ class ScannerViewModel @Inject constructor(
 
     private fun resetScanResultAfterDelay() {
         viewModelScope.launch {
-            delay(250)
+            // CHANGED: 750 -> 150 for high-speed throughput
+            delay(150)
             _lastScanResult.value = ScanUiResult.Idle
             isProcessing.set(false)
         }

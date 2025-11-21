@@ -16,7 +16,7 @@ import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
         AttendeeEntity::class,
         EntryEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

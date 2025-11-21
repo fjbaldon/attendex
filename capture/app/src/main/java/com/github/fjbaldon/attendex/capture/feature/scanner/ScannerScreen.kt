@@ -44,7 +44,9 @@ fun ScannerScreen(
                     .fillMaxWidth()
                     .heightIn(max = 400.dp)
             ) {
-                ScannedAttendeesSheetContent(attendees = uiState.scannedAttendees)
+                ScannedAttendeesSheetContent(
+                    attendees = uiState.scannedAttendees
+                )
             }
         },
         sheetPeekHeight = 80.dp,
@@ -58,9 +60,12 @@ fun ScannerScreen(
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text(
-                            text = uiState.selectedSession?.activityName ?: "No Active Session",
+                            text = if (uiState.isEventActive) "Ready to Scan" else "Event Inactive",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (uiState.isEventActive)
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            else
+                                MaterialTheme.colorScheme.error
                         )
                     }
                 },
@@ -90,7 +95,7 @@ fun ScannerScreen(
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
-                // 1. Camera Preview
+                // 1. Camera Preview with Hot-Swappable Analyzer
                 CameraPreview(
                     scanMode = uiState.scanMode,
                     onTextFound = { text -> viewModel.processScannedText(text) },
@@ -98,20 +103,19 @@ fun ScannerScreen(
                     onTorchToggle = { hasFlash -> viewModel.onFlashUnitAvailabilityChange(hasFlash) }
                 )
 
-                // 2. Status Overlay (Text)
+                // 2. Visual Feedback Overlay (Text)
                 ScannerOverlay(
                     result = uiState.lastScanResult,
-                    isEventActive = uiState.isEventActive,
-                    hasSessionSelected = uiState.selectedSession != null
+                    isEventActive = uiState.isEventActive
                 )
 
-                // 3. Scan Mode Toggles (Bottom Center)
+                // 3. Scan Mode Toggle Buttons
                 ScanModeSelector(
                     currentMode = uiState.scanMode,
                     onModeSelected = { viewModel.toggleScanMode(it) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 100.dp) // Position above the BottomSheet
+                        .padding(bottom = 100.dp)
                 )
             }
         }
@@ -126,7 +130,7 @@ fun ScanModeSelector(
 ) {
     Row(
         modifier = modifier
-            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+            .background(Color.Black.copy(alpha = 0.6f), CircleShape)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -231,45 +235,26 @@ private data class OverlayState(
 @Composable
 private fun ScannerOverlay(
     result: ScanUiResult,
-    isEventActive: Boolean,
-    hasSessionSelected: Boolean
+    isEventActive: Boolean
 ) {
     val overlayState = when {
         !isEventActive -> OverlayState(
             text = "Event is not active",
-            textColor = Color(0xFFFFC107),
-            overlayColor = Color.Black.copy(alpha = 0.6f)
-        )
-
-        !hasSessionSelected -> OverlayState(
-            text = "No active session",
-            textColor = Color(0xFFFFC107),
+            textColor = Color(0xFFFFC107), // Amber
             overlayColor = Color.Black.copy(alpha = 0.6f)
         )
 
         else -> when (result) {
             is ScanUiResult.Success -> OverlayState(
                 text = result.attendeeDetails,
-                textColor = Color(0xFF4CAF50),
+                textColor = Color(0xFF4CAF50), // Green
                 overlayColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
             )
 
             is ScanUiResult.AlreadyScanned -> OverlayState(
-                text = "Already Scanned: ${result.identifier}",
-                textColor = Color(0xFFFFC107),
+                text = "Already Scanned",
+                textColor = Color(0xFFFFC107), // Amber
                 overlayColor = Color(0xFFFFC107).copy(alpha = 0.5f)
-            )
-
-            is ScanUiResult.SessionNotSelected -> OverlayState(
-                text = "No active session",
-                textColor = Color(0xFFFFC107),
-                overlayColor = Color.Black.copy(alpha = 0.5f)
-            )
-
-            is ScanUiResult.ScanningInactive -> OverlayState(
-                text = "Processing...",
-                textColor = Color.White,
-                overlayColor = Color.Transparent
             )
 
             is ScanUiResult.Idle, is ScanUiResult.Error -> OverlayState(
@@ -280,22 +265,27 @@ private fun ScannerOverlay(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Just the text logic here. Background dimming is handled by CameraOverlay.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(overlayState.overlayColor)
+    ) {
         if (overlayState.text.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(top = 180.dp)
+                    .padding(top = 200.dp) // Push text well below the scanning box
             ) {
                 Text(
                     text = overlayState.text,
                     color = overlayState.textColor,
-                    fontSize = 20.sp,
+                    fontSize = 24.sp, // Larger text for visibility
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .background(Color.Black.copy(alpha = 0.8f), shape = MaterialTheme.shapes.medium)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
                 )
             }
         }

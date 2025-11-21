@@ -9,8 +9,8 @@ import com.github.fjbaldon.attendex.platform.event.dto.*;
 import com.github.fjbaldon.attendex.platform.event.events.EventCreatedEvent;
 import com.github.fjbaldon.attendex.platform.event.events.RosterEntryAddedEvent;
 import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,11 +20,10 @@ import org.springframework.util.Assert;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class EventFacade {
 
     private final EventRepository eventRepository;
@@ -33,6 +32,22 @@ public class EventFacade {
     private final AttendeeFacade attendeeFacade;
     private final CaptureFacade captureFacade;
     private final ApplicationEventPublisher eventPublisher;
+
+    EventFacade(
+            EventRepository eventRepository,
+            RosterRepository rosterRepository,
+            SessionRepository sessionRepository,
+            AttendeeFacade attendeeFacade,
+            @Lazy CaptureFacade captureFacade,
+            ApplicationEventPublisher eventPublisher
+    ) {
+        this.eventRepository = eventRepository;
+        this.rosterRepository = rosterRepository;
+        this.sessionRepository = sessionRepository;
+        this.attendeeFacade = attendeeFacade;
+        this.captureFacade = captureFacade;
+        this.eventPublisher = eventPublisher;
+    }
 
     @Transactional
     public EventDto createEvent(Long organizationId, Long organizerId, CreateEventRequestDto dto) {
@@ -159,25 +174,6 @@ public class EventFacade {
     }
 
     @Transactional(readOnly = true)
-    public List<SessionEventDto> findEventsForSessionIds(Set<Long> sessionIds) {
-        return sessionRepository.findSessionsWithEventByIdIn(sessionIds).stream()
-                .map(session -> new SessionEventDto(session.getId(), session.getEvent().getId()))
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public List<SessionDetailsDto> findSessionDetailsByIds(Set<Long> sessionIds) {
-        return sessionRepository.findSessionsWithEventByIdIn(sessionIds).stream()
-                .map(session -> new SessionDetailsDto(
-                        session.getId(),
-                        session.getTargetTime(),
-                        session.getEvent().getGraceMinutesBefore(),
-                        session.getEvent().getGraceMinutesAfter()
-                ))
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
     public Page<EventSyncDto.RosterSyncDto> getFormattedRosterForSync(Long eventId, Long organizationId, Pageable pageable) {
         eventRepository.findByIdAndOrganizationId(eventId, organizationId)
                 .orElseThrow(() -> new EntityNotFoundException("Event not found"));
@@ -188,6 +184,17 @@ public class EventFacade {
                         proj.identity(),
                         proj.firstName(),
                         proj.lastName()
+                ));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<SessionDetailsDto> findActiveSession(Long eventId, Instant timestamp) {
+        return sessionRepository.findActiveSession(eventId, timestamp)
+                .map(s -> new SessionDetailsDto(
+                        s.getId(),
+                        s.getTargetTime(),
+                        s.getEvent().getGraceMinutesBefore(),
+                        s.getEvent().getGraceMinutesAfter()
                 ));
     }
 
