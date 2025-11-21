@@ -33,6 +33,13 @@ class OrganizationSummary {
         this.totalAttendees++;
     }
 
+    // IMPLEMENTED: Decrement logic with safety check
+    void decrementAttendeeCount() {
+        if (this.totalAttendees > 0) {
+            this.totalAttendees--;
+        }
+    }
+
     void incrementScannerCount() {
         this.totalScanners++;
     }

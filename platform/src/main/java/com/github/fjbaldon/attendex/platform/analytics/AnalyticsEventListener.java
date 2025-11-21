@@ -1,6 +1,7 @@
 package com.github.fjbaldon.attendex.platform.analytics;
 
 import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeCreatedEvent;
+import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeDeletedEvent;
 import com.github.fjbaldon.attendex.platform.capture.events.EntryCreatedEvent;
 import com.github.fjbaldon.attendex.platform.event.events.EventCreatedEvent;
 import com.github.fjbaldon.attendex.platform.event.events.RosterEntryAddedEvent;
@@ -65,5 +66,18 @@ class AnalyticsEventListener {
         OrganizationSummary orgSummary = findOrCreateOrgSummary(event.organizationId());
         orgSummary.incrementScannerCount();
         orgSummaryRepository.save(orgSummary);
+    }
+
+    @Async
+    @EventListener
+    @Transactional
+    public void onAttendeeDeleted(AttendeeDeletedEvent event) {
+        // We use a custom query or find-modify-save to decrement
+        orgSummaryRepository.findById(event.organizationId())
+                .ifPresent(summary -> {
+                    // Assuming you add a decrement method to the Entity
+                    summary.decrementAttendeeCount();
+                    orgSummaryRepository.save(summary);
+                });
     }
 }

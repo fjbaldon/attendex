@@ -16,9 +16,10 @@ const settingsPages = [
         description: "Update your organization's name and settings.",
     },
     {
-        path: "/dashboard/settings/custom-fields",
-        title: "Manage Custom Fields",
-        description: "Add, edit, or remove custom fields for attendees in your organization.",
+        // FIXED: Updated path to match folder name (attributes)
+        path: "/dashboard/settings/attributes",
+        title: "Manage Attributes", // Updated Title to match UL
+        description: "Add, edit, or remove attributes for attendees in your organization.",
     },
 ];
 
@@ -68,8 +69,9 @@ export default function SettingsLayout({children}: { children: React.ReactNode }
                                 <TabsTrigger value="/dashboard/settings/organization" asChild>
                                     <Link href="/dashboard/settings/organization">Organization</Link>
                                 </TabsTrigger>
-                                <TabsTrigger value="/dashboard/settings/custom-fields" asChild>
-                                    <Link href="/dashboard/settings/custom-fields">Custom Fields</Link>
+                                {/* FIXED: Updated value and href */}
+                                <TabsTrigger value="/dashboard/settings/attributes" asChild>
+                                    <Link href="/dashboard/settings/attributes">Attributes</Link>
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>

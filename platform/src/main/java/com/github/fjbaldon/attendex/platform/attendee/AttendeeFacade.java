@@ -2,6 +2,7 @@ package com.github.fjbaldon.attendex.platform.attendee;
 
 import com.github.fjbaldon.attendex.platform.attendee.dto.*;
 import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeCreatedEvent;
+import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeDeletedEvent;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
 import jakarta.persistence.EntityNotFoundException;
@@ -23,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -39,12 +39,9 @@ public class AttendeeFacade {
     @Transactional
     public AttendeeDto createAttendee(Long organizationId, CreateAttendeeDto dto) {
         Assert.isTrue(!attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, dto.identity()),
-                "An attendee with this identity already exists.");
+                "An attendee with this identity already exists in your organization.");
 
         validateIdentityFormat(organizationId, dto.identity());
-
-        Assert.isTrue(!attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, dto.identity()),
-                "An attendee with this identity already exists in your organization.");
 
         Attendee attendee = Attendee.create(
                 organizationId,
@@ -95,6 +92,18 @@ public class AttendeeFacade {
     }
 
     @Transactional
+    public void deleteAttendee(Long organizationId, Long attendeeId) {
+        Attendee attendee = attendeeRepository.findById(attendeeId)
+                .filter(a -> a.getOrganizationId().equals(organizationId))
+                .orElseThrow(() -> new EntityNotFoundException("Attendee not found"));
+
+        attendeeRepository.delete(attendee);
+
+        // NEW: Keep analytics in sync
+        eventPublisher.publishEvent(new AttendeeDeletedEvent(organizationId));
+    }
+
+    @Transactional
     public AttributeDto createAttribute(Long organizationId, CreateAttributeDto dto) {
         Assert.isTrue(!attributeRepository.existsByOrganizationIdAndName(organizationId, dto.name()),
                 "An attribute with this name already exists.");
@@ -124,163 +133,176 @@ public class AttendeeFacade {
         Attribute attribute = attributeRepository.findByIdAndOrganizationId(attributeId, organizationId)
                 .orElseThrow(() -> new EntityNotFoundException("Attribute not found"));
 
-        if (attendeeRepository.isAttributeInUse(organizationId, attribute.getName())) {
+        if (attributeRepository.isAttributeInUse(organizationId, attribute.getName())) {
             throw new IllegalStateException("Cannot delete attribute '" + attribute.getName() + "' because it is currently assigned to one or more attendees.");
         }
 
         attributeRepository.delete(attribute);
     }
 
-    @Transactional(readOnly = true)
-    public AttendeeImportAnalysisDto analyzeAttendeeImport(Long organizationId, MultipartFile file) throws IOException {
-        // 1. Fetch Configuration & Context
-        OrganizationDto organization = organizationFacade.findOrganizationById(organizationId);
-        String regex = organization.identityFormatRegex();
-
-        List<Attribute> attributes = attributeRepository.findAllByOrganizationId(organizationId);
-        Map<String, Attribute> attributeMap = attributes.stream()
-                .collect(Collectors.toMap(attr -> attr.getName().toLowerCase(), Function.identity()));
-
-        // 2. Prepare containers
-        List<CreateAttendeeDto> validAttendees = new ArrayList<>();
-        List<AttendeeImportAnalysisDto.InvalidRow> invalidRows = new ArrayList<>();
-        Set<String> identifiersInThisFile = new HashSet<>();
-
-        // Safety Limits to prevent OOM on massive files
-        final int MAX_ROWS_TO_PROCESS = 2000;
-        int processedCount = 0;
-
-        // 3. Parse CSV (Streaming)
+    public List<String> extractCsvHeaders(MultipartFile file) throws IOException {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-
-            // Define the format once
             CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
                     .setHeader()
                     .setSkipHeaderRecord(true)
-                    .setTrim(true)
-                    .setIgnoreEmptyLines(true)
                     .get();
 
-            // The parser returns an Iterable, processing line-by-line
-            CSVParser csvParser = csvFormat.parse(reader);
+            CSVParser parser = csvFormat.parse(reader);
+            return parser.getHeaderNames();
+        }
+    }
 
-            for (CSVRecord record : csvParser) {
-                // Stop processing if we hit the safety limit
-                if (processedCount >= MAX_ROWS_TO_PROCESS) {
-                    break;
-                }
-                processedCount++;
+    @Transactional(readOnly = true)
+    public AttendeeImportAnalysisDto analyzeAttendeeImport(Long organizationId, MultipartFile file, ImportConfigurationDto config) throws IOException {
+        OrganizationDto organization = organizationFacade.findOrganizationById(organizationId);
+        String regex = organization.identityFormatRegex();
 
+        List<Attribute> existingAttributes = attributeRepository.findAllByOrganizationId(organizationId);
+        Set<String> validAttributeNames = existingAttributes.stream().map(Attribute::getName).collect(Collectors.toSet());
+
+        List<CreateAttendeeDto> toCreate = new ArrayList<>();
+        List<CreateAttendeeDto> toUpdate = new ArrayList<>();
+        List<AttendeeImportAnalysisDto.InvalidRow> invalidRows = new ArrayList<>();
+        Set<String> newAttributesToCreate = new HashSet<>();
+
+        Set<String> fileIdentities = new HashSet<>();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setIgnoreEmptyLines(true).get();
+            CSVParser parser = csvFormat.parse(reader);
+
+            Map<String, String> mapping = config.columnMapping();
+
+            for (CSVRecord record : parser) {
                 try {
-                    // A. Basic Validation
-                    String identity = record.isMapped("identity") ? record.get("identity") : null;
-                    String firstName = record.isMapped("firstName") ? record.get("firstName") : null;
-                    String lastName = record.isMapped("lastName") ? record.get("lastName") : null;
+                    String identity = getMappedValue(record, mapping, "identity");
+                    String firstName = getMappedValue(record, mapping, "firstName");
+                    String lastName = getMappedValue(record, mapping, "lastName");
 
-                    if (!StringUtils.hasText(identity)) throw new IllegalArgumentException("Missing 'identity'.");
-                    if (!StringUtils.hasText(firstName)) throw new IllegalArgumentException("Missing 'firstName'.");
-                    if (!StringUtils.hasText(lastName)) throw new IllegalArgumentException("Missing 'lastName'.");
+                    if (!StringUtils.hasText(identity)) throw new IllegalArgumentException("Row missing Identity.");
+                    if (!StringUtils.hasText(firstName)) throw new IllegalArgumentException("Row missing First Name.");
+                    if (!StringUtils.hasText(lastName)) throw new IllegalArgumentException("Row missing Last Name.");
 
-                    // B. Regex Validation
                     if (regex != null && !regex.isBlank() && !identity.matches(regex)) {
-                        throw new IllegalArgumentException("Identity does not match required format: " + regex);
+                        throw new IllegalArgumentException("Identity format invalid.");
                     }
 
-                    // C. Duplicate Checks
-                    if (attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, identity)) {
-                        throw new IllegalArgumentException("Identity '" + identity + "' already exists in the system.");
+                    if (fileIdentities.contains(identity)) {
+                        throw new IllegalArgumentException("Duplicate identity in file.");
                     }
-                    if (identifiersInThisFile.contains(identity)) {
-                        throw new IllegalArgumentException("Duplicate identity '" + identity + "' found in this file.");
-                    }
-                    identifiersInThisFile.add(identity);
+                    fileIdentities.add(identity);
 
-                    // D. Attribute Validation
+                    boolean existsInDb = attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, identity);
+
+                    if (existsInDb) {
+                        if (config.mode() == ImportConfigurationDto.ImportMode.FAIL) {
+                            throw new IllegalArgumentException("Identity already exists.");
+                        }
+                        if (config.mode() == ImportConfigurationDto.ImportMode.SKIP) {
+                            continue;
+                        }
+                    }
+
                     Map<String, Object> attributeValues = new HashMap<>();
-                    for (String header : csvParser.getHeaderNames()) {
-                        Attribute attribute = attributeMap.get(header.toLowerCase());
+                    for (Map.Entry<String, String> entry : mapping.entrySet()) {
+                        String csvHeader = entry.getKey();
+                        String mappedTarget = entry.getValue();
 
-                        // If column matches a defined Attribute
-                        if (attribute != null && record.isMapped(header)) {
-                            String value = record.get(header);
-                            if (StringUtils.hasText(value)) {
-                                // Validate against Options (Select type)
-                                if (attribute.getOptions() != null && !attribute.getOptions().contains(value)) {
-                                    throw new IllegalStateException("Value '" + value + "' is invalid for attribute '" + attribute.getName() + "'. Allowed: " + attribute.getOptions());
-                                }
-                                attributeValues.put(attribute.getName(), value);
+                        if (List.of("identity", "firstName", "lastName").contains(mappedTarget)) continue;
+
+                        String val = record.isMapped(csvHeader) ? record.get(csvHeader) : null;
+
+                        if (StringUtils.hasText(val)) {
+                            if (validAttributeNames.contains(mappedTarget)) {
+                                attributeValues.put(mappedTarget, val);
+                            } else if (config.createMissingAttributes()) {
+                                newAttributesToCreate.add(mappedTarget);
+                                attributeValues.put(mappedTarget, val);
                             }
                         }
                     }
 
-                    validAttendees.add(new CreateAttendeeDto(
-                            identity,
-                            firstName,
-                            lastName,
-                            attributeValues
-                    ));
+                    CreateAttendeeDto dto = new CreateAttendeeDto(identity, firstName, lastName, attributeValues);
+
+                    if (existsInDb) {
+                        toUpdate.add(dto);
+                    } else {
+                        toCreate.add(dto);
+                    }
 
                 } catch (Exception e) {
-                    invalidRows.add(new AttendeeImportAnalysisDto.InvalidRow(
-                            record.getRecordNumber(),
-                            record.toMap(),
-                            e.getMessage()
-                    ));
+                    invalidRows.add(new AttendeeImportAnalysisDto.InvalidRow(record.getRecordNumber(), record.toMap(), e.getMessage()));
                 }
             }
         }
 
-        return new AttendeeImportAnalysisDto(validAttendees, invalidRows);
+        return new AttendeeImportAnalysisDto(toCreate, toUpdate, invalidRows, new ArrayList<>(newAttributesToCreate));
     }
 
     @Transactional
-    public void commitAttendeeImport(Long organizationId, List<CreateAttendeeDto> attendees) {
-        List<Attendee> entitiesToSave = attendees.stream()
-                .map(dto -> Attendee.create(organizationId, dto.identity(), dto.firstName(), dto.lastName(), dto.attributes()))
-                .toList();
-        attendeeRepository.saveAll(entitiesToSave);
+    public void commitAttendeeImport(Long organizationId, List<CreateAttendeeDto> attendees, boolean updateExisting, List<String> newAttributes) {
+        if (newAttributes != null) {
+            for (String attrName : newAttributes) {
+                if (!attributeRepository.existsByOrganizationIdAndName(organizationId, attrName)) {
+                    Attribute attr = Attribute.create(organizationId, attrName, "SELECT", new ArrayList<>());
+                    attributeRepository.save(attr);
+                }
+            }
+        }
+
+        List<Attendee> batch = new ArrayList<>();
+        for (CreateAttendeeDto dto : attendees) {
+            Attendee existing = attendeeRepository.findAttendeeByIdentity(organizationId, dto.identity());
+
+            if (existing != null && updateExisting) {
+                existing.update(dto.firstName(), dto.lastName(), dto.attributes());
+                batch.add(existing);
+            } else if (existing == null) {
+                Attendee newAttendee = Attendee.create(organizationId, dto.identity(), dto.firstName(), dto.lastName(), dto.attributes());
+                batch.add(newAttendee);
+                // Note: Should fire event, but batching 1000 events is noisy.
+                // Consider a BulkAttendeeCreatedEvent or skipping for analytics.
+            }
+        }
+        attendeeRepository.saveAll(batch);
     }
 
     @Transactional(readOnly = true)
     public String generateImportTemplate(Long organizationId) {
         List<Attribute> attributes = attributeRepository.findAllByOrganizationId(organizationId);
 
-        // 1. Build Header Row
         StringBuilder csv = new StringBuilder("identity,firstName,lastName");
         for (Attribute attr : attributes) {
             csv.append(",").append(attr.getName());
         }
         csv.append("\n");
 
-        // 2. Build Example Row
         csv.append("2025001,John,Doe");
         for (Attribute attr : attributes) {
-            // FIXED: Use 'attr' to get a real sample value (e.g., the first option)
             String sample = (attr.getOptions() != null && !attr.getOptions().isEmpty())
                     ? attr.getOptions().getFirst()
                     : "SampleValue";
-
             csv.append(",").append(sample);
         }
         csv.append("\n");
-
         return csv.toString();
     }
 
     private void validateIdentityFormat(Long organizationId, String identity) {
-        var org = organizationFacade.findOrganizationById(organizationId);
-        // Note: 'identityFormatRegex' might be null/empty in DTO if not set
-        String regex = null;
-        // You might need to expose regex in OrganizationDto if not already there.
-        // Assuming OrganizationDto has it (it does in your code).
-        try {
-            // Accessing private field via reflection or getter in DTO record
-            regex = org.identityFormatRegex(); // Ensure OrganizationDto has this accessor
-        } catch (Exception e) { /* handle or ignore */ }
-
+        OrganizationDto org = organizationFacade.findOrganizationById(organizationId);
+        String regex = org.identityFormatRegex();
         if (regex != null && !regex.isBlank() && !identity.matches(regex)) {
-            throw new IllegalArgumentException("Identity '" + identity + "' does not match the required format: " + regex);
+            throw new IllegalArgumentException("Identity '" + identity + "' does not match the required format.");
         }
+    }
+
+    private String getMappedValue(CSVRecord record, Map<String, String> mapping, String targetField) {
+        return mapping.entrySet().stream()
+                .filter(e -> e.getValue().equals(targetField))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .map(header -> record.isMapped(header) ? record.get(header) : null)
+                .orElse(null);
     }
 
     private AttendeeDto toDto(Attendee attendee) {

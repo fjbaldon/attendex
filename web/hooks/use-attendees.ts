@@ -1,6 +1,14 @@
 import {keepPreviousData, useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import api from "@/lib/api";
-import {ApiErrorResponse, AttendeeImportAnalysis, AttendeeRequest, AttendeeResponse, PaginatedResponse} from "@/types";
+import {
+    ApiErrorResponse,
+    AttendeeImportAnalysis,
+    AttendeeImportCommitRequest,
+    AttendeeRequest,
+    AttendeeResponse,
+    ImportConfiguration,
+    PaginatedResponse
+} from "@/types";
 import {toast} from "sonner";
 import {AxiosError} from "axios";
 import {getErrorMessage} from "@/lib/utils";
@@ -18,12 +26,7 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
         queryKey,
         queryFn: async () => {
             const response = await api.get("/api/v1/attendees", {
-                params: {
-                    page,
-                    size,
-                    sort: "lastName,asc",
-                    query: query || undefined
-                },
+                params: {page, size, sort: "lastName,asc", query: query || undefined},
             });
             return response.data;
         },
@@ -81,40 +84,55 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
         },
     });
 
-    const analyzeAttendeesMutation = useMutation<
-        AttendeeImportAnalysis,
-        AxiosError<ApiErrorResponse>,
-        File
-    >({
+    // 1. Import Step A: Extract Headers
+    const extractHeadersMutation = useMutation<string[], AxiosError<ApiErrorResponse>, File>({
         mutationFn: async (file) => {
             const formData = new FormData();
             formData.append("file", file);
+            const response = await api.post("/api/v1/attendees/import/headers", formData, {
+                headers: {"Content-Type": "multipart/form-data"},
+            });
+            return response.data;
+        },
+        onError: (error) => toast.error("Failed to read CSV headers", {description: getErrorMessage(error, "Unknown error")}),
+    });
+
+    // 2. Import Step B: Analyze with Config
+    const analyzeAttendeesMutation = useMutation<
+        AttendeeImportAnalysis,
+        AxiosError<ApiErrorResponse>,
+        { file: File; config: ImportConfiguration }
+    >({
+        mutationFn: async ({file, config}) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            // Send config object as a Blob with application/json Content-Type
+            // This allows Spring's @RequestPart to bind it correctly along with the file
+            formData.append("config", new Blob([JSON.stringify(config)], {type: "application/json"}));
+
             const response = await api.post("/api/v1/attendees/import/analyze", formData, {
                 headers: {"Content-Type": "multipart/form-data"},
             });
             return response.data;
         },
         onError: (error) => {
-            const errorMessage = getErrorMessage(error, "An unknown error occurred during analysis.");
-            toast.error("Failed to Analyze CSV", {
-                description: errorMessage,
-            });
+            toast.error("Analysis Failed", {description: getErrorMessage(error, "An error occurred during analysis.")});
         },
     });
 
+    // 3. Import Step C: Commit
     const commitAttendeesMutation = useMutation<
         void,
         AxiosError<ApiErrorResponse>,
-        { attendees: AttendeeRequest[] }
+        AttendeeImportCommitRequest
     >({
         mutationFn: (data) => api.post("/api/v1/attendees/import/commit", data),
         onSuccess: async () => {
             await queryClient.invalidateQueries({queryKey: ["attendees"]});
+            await queryClient.invalidateQueries({queryKey: ["attributes"]}); // Refresh attributes in case new ones were created
         },
         onError: (error) => {
-            toast.error("Import Failed", {
-                description: getErrorMessage(error, "An unexpected error occurred while saving the attendees."),
-            });
+            toast.error("Import Failed", {description: getErrorMessage(error, "An unexpected error occurred while saving the attendees.")});
         },
     });
 
@@ -123,7 +141,7 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
         attendeesData: data,
         isLoadingAttendees,
         attendeesError,
-        refetch, // FIXED: Return refetch so components can use it
+        refetch,
 
         createAttendee: createAttendeeMutation.mutate,
         isCreatingAttendee: createAttendeeMutation.isPending,
@@ -133,6 +151,9 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
 
         deleteAttendee: deleteAttendeeMutation.mutate,
         isDeletingAttendee: deleteAttendeeMutation.isPending,
+
+        extractHeaders: extractHeadersMutation.mutateAsync,
+        isExtractingHeaders: extractHeadersMutation.isPending,
 
         analyzeAttendees: analyzeAttendeesMutation.mutateAsync,
         isAnalyzingAttendees: analyzeAttendeesMutation.isPending,

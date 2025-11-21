@@ -21,4 +21,7 @@ interface AttendeeRepository extends PagingAndSortingRepository<Attendee, Long>,
 
     @Query(value = "SELECT EXISTS(SELECT 1 FROM attendee_attendee WHERE organization_id = :organizationId AND jsonb_exists(attributes, :attributeName))", nativeQuery = true)
     boolean isAttributeInUse(@Param("organizationId") Long organizationId, @Param("attributeName") String attributeName);
+
+    @Query("SELECT a FROM Attendee a WHERE a.organizationId = :organizationId AND a.identity = :identity")
+    Attendee findAttendeeByIdentity(@Param("organizationId") Long organizationId, @Param("identity") String identity);
 }

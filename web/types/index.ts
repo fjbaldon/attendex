@@ -182,11 +182,26 @@ export interface InvalidRow {
     error: string;
 }
 
-export interface AttendeeImportAnalysis {
-    validAttendees: AttendeeRequest[];
-    invalidRows: InvalidRow[];
+export type ImportMode = 'SKIP' | 'UPDATE' | 'FAIL';
+
+export interface ImportConfiguration {
+    mode: ImportMode;
+    createMissingAttributes: boolean;
+    columnMapping: Record<string, string>; // CSV Header -> System Field
 }
 
+export interface AttendeeImportAnalysis {
+    attendeesToCreate: AttendeeRequest[];
+    attendeesToUpdate: AttendeeRequest[];
+    invalidRows: InvalidRow[];
+    newAttributesToCreate: string[];
+}
+
+export interface AttendeeImportCommitRequest {
+    attendees: AttendeeRequest[];
+    updateExisting: boolean;
+    newAttributes: string[];
+}
 export interface AdminDashboardStats {
     totalOrganizations: number;
     activeOrganizations: number;

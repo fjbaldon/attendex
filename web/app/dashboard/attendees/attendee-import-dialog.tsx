@@ -1,9 +1,10 @@
 "use client";
 import * as React from "react";
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
-import {AttendeeImportAnalysis} from "@/types";
+import {AttendeeImportAnalysis, ImportConfiguration} from "@/types";
 import {useAttendees} from "@/hooks/use-attendees";
 import {UploadStep} from "./upload-step";
+import {MappingStep} from "./mapping-step";
 import {ReviewStep} from "./review-step";
 import {SuccessStep} from "./success-step";
 
@@ -12,31 +13,48 @@ interface AttendeeImportDialogProps {
     onOpenChange: (open: boolean) => void;
 }
 
+type Step = "upload" | "mapping" | "review" | "success";
+
 export function AttendeeImportDialog({open, onOpenChange}: AttendeeImportDialogProps) {
-    const [step, setStep] = React.useState<"upload" | "review" | "success">("upload");
+    const [step, setStep] = React.useState<Step>("upload");
+    const [file, setFile] = React.useState<File | null>(null);
+    const [csvHeaders, setCsvHeaders] = React.useState<string[]>([]);
     const [analysisResult, setAnalysisResult] = React.useState<AttendeeImportAnalysis | null>(null);
     const [importedCount, setImportedCount] = React.useState(0);
 
-    const {analyzeAttendees, isAnalyzingAttendees} = useAttendees();
+    const {extractHeaders, isExtractingHeaders, analyzeAttendees, isAnalyzingAttendees} = useAttendees();
 
     React.useEffect(() => {
         if (!open) {
             setTimeout(() => {
                 setStep("upload");
+                setFile(null);
+                setCsvHeaders([]);
                 setAnalysisResult(null);
                 setImportedCount(0);
             }, 300);
         }
     }, [open]);
 
-    const handleFileAnalyze = async (file: File) => {
+    const handleFileSelect = async (selectedFile: File) => {
+        setFile(selectedFile);
         try {
-            const result = await analyzeAttendees(file);
+            const headers = await extractHeaders(selectedFile);
+            setCsvHeaders(headers);
+            setStep("mapping");
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleAnalyze = async (config: ImportConfiguration) => {
+        if (!file) return;
+        try {
+            const result = await analyzeAttendees({file, config});
             setAnalysisResult(result);
             setStep("review");
-        } catch (error) {
-            // Error toast is already handled by the hook
-            console.error("Analysis failed:", error);
+        } catch (e) {
+            console.error(e);
         }
     };
 
@@ -45,26 +63,34 @@ export function AttendeeImportDialog({open, onOpenChange}: AttendeeImportDialogP
         setStep("success");
     };
 
-    const handleStartOver = () => {
-        setAnalysisResult(null);
-        setStep("upload");
-    };
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
                 <DialogHeader className="p-6 pb-4">
-                    <DialogTitle>Import Attendees from CSV</DialogTitle>
+                    <DialogTitle>
+                        {step === 'upload' && "Import Attendees"}
+                        {step === 'mapping' && "Map Columns"}
+                        {step === 'review' && "Review Data"}
+                        {step === 'success' && "Import Complete"}
+                    </DialogTitle>
                 </DialogHeader>
                 <div className="flex-grow overflow-y-auto px-6 pb-6">
                     {step === "upload" && (
-                        <UploadStep onFileSelect={handleFileAnalyze} isAnalyzing={isAnalyzingAttendees}/>
+                        <UploadStep onFileSelect={handleFileSelect} isAnalyzing={isExtractingHeaders}/>
+                    )}
+                    {step === "mapping" && (
+                        <MappingStep
+                            csvHeaders={csvHeaders}
+                            onAnalyze={handleAnalyze}
+                            isAnalyzing={isAnalyzingAttendees}
+                            onBack={() => setStep("upload")}
+                        />
                     )}
                     {step === "review" && analysisResult && (
                         <ReviewStep
                             analysisResult={analysisResult}
                             onCommitSuccess={handleCommitSuccess}
-                            onStartOver={handleStartOver}
+                            onStartOver={() => setStep("upload")}
                         />
                     )}
                     {step === "success" && (
