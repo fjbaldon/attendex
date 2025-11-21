@@ -15,9 +15,9 @@ interface EventDao {
     @Query("SELECT * FROM events ORDER BY name ASC")
     fun getAllEvents(): Flow<List<EventEntity>>
 
-    @Query("DELETE FROM events")
-    suspend fun clearAll()
-
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
     suspend fun getEventById(eventId: Long): EventEntity?
+
+    @Query("DELETE FROM events")
+    suspend fun clearAll()
 }

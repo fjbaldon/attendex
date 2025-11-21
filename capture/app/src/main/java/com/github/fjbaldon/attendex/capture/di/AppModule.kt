@@ -47,7 +47,9 @@ object AppModule {
             AppDatabase::class.java,
             "attendex"
         )
-            .fallbackToDestructiveMigration(true)
+            // FIXED: Removed fallbackToDestructiveMigration(true)
+            // Now, if schema changes without a migration plan, the app will crash
+            // instead of silently wiping user data. This is safer for production.
             .build()
     }
 

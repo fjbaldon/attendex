@@ -5,7 +5,6 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AttendeeDao {
@@ -18,9 +17,6 @@ interface AttendeeDao {
     @Query("DELETE FROM attendees WHERE eventId = :eventId")
     suspend fun clearAttendeesForEvent(eventId: Long)
 
-    @Query("SELECT * FROM attendees WHERE attendeeId IN (:attendeeIds)")
-    fun getAttendeesByIds(attendeeIds: List<Long>): Flow<List<AttendeeEntity>>
-
-    @Query("SELECT * FROM attendees WHERE attendeeId IN (:attendeeIds)")
-    suspend fun findAttendeesByIds(attendeeIds: List<Long>): List<AttendeeEntity>
+    @Query("DELETE FROM attendees")
+    suspend fun clearAll()
 }

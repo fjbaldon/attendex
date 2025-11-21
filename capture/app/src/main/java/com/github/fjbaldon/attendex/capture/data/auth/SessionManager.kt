@@ -27,12 +27,21 @@ class SessionManager @Inject constructor(@ApplicationContext context: Context) {
             _isLoggedIn.value = hasActiveSession()
         }
 
+    // NEW: Track the last user to prevent data mix-ups
+    var lastUserEmail: String?
+        get() = prefs.getString(KEY_LAST_EMAIL, null)
+        set(value) {
+            prefs.edit { putString(KEY_LAST_EMAIL, value) }
+        }
+
     fun clear() {
-        prefs.edit { clear() }
+        // We DO NOT clear lastUserEmail here. We need it for the next login check.
+        prefs.edit { remove(KEY_AUTH_TOKEN) }
         _isLoggedIn.value = false
     }
 
     companion object {
         private const val KEY_AUTH_TOKEN = "auth_token"
+        private const val KEY_LAST_EMAIL = "last_email"
     }
 }

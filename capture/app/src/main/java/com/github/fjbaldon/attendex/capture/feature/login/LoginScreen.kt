@@ -37,6 +37,29 @@ fun LoginScreen(
         }
     }
 
+    if (uiState.showUserMismatchDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onCancelWipe() },
+            title = { Text("Warning: Data Loss") },
+            text = {
+                Text("You are logging in as a different user. There are unsynced scans on this device from the previous user.\n\nLogging in will PERMANENTLY DELETE those scans.\n\nAre you sure?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.onConfirmWipeData() },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Data & Login")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onCancelWipe() }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold { padding ->
         Column(
             modifier = Modifier

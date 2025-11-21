@@ -3,7 +3,6 @@ package com.github.fjbaldon.attendex.capture.feature.scanner
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
 import com.github.fjbaldon.attendex.capture.core.services.TtsService
 import com.github.fjbaldon.attendex.capture.data.event.EventRepository
 import com.github.fjbaldon.attendex.capture.data.event.ScanResult
@@ -27,16 +26,23 @@ sealed class ScanUiResult {
     data class AlreadyScanned(val identifier: String) : ScanUiResult()
 }
 
+data class ScannedItemUi(
+    val id: Long, // Entry ID
+    val name: String,
+    val identity: String,
+    val isSynced: Boolean,
+    val isFailed: Boolean
+)
+
 data class ScannerUiState(
     val eventName: String? = null,
     val isLoading: Boolean = true,
     val lastScanResult: ScanUiResult = ScanUiResult.Idle,
-    val scannedAttendees: List<AttendeeEntity> = emptyList(),
+    val scannedAttendees: List<ScannedItemUi> = emptyList(),
     val hasFlashUnit: Boolean = false,
     val isTorchOn: Boolean = false,
     val isEventActive: Boolean = true,
     val scanMode: ScanMode = ScanMode.OCR
-    // REMOVED: availableSessions, selectedSession
 )
 
 @HiltViewModel
@@ -54,14 +60,14 @@ class ScannerViewModel @Inject constructor(
     private val _isEventActive = MutableStateFlow(true)
     private val _scanMode = MutableStateFlow(ScanMode.OCR)
 
-    private val scannedAttendeesFlow: Flow<List<AttendeeEntity>> =
-        eventRepository.getScannedAttendeesStream(eventId)
+    private val scannedItemsFlow: Flow<List<ScannedItemUi>> =
+        eventRepository.getScannedItemsStream(eventId)
 
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<ScannerUiState> = combine(
         _isLoading,
         _lastScanResult,
-        scannedAttendeesFlow,
+        scannedItemsFlow,
         _torchState,
         _eventName,
         _isEventActive,
@@ -70,7 +76,7 @@ class ScannerViewModel @Inject constructor(
         ScannerUiState(
             isLoading = flows[0] as Boolean,
             lastScanResult = flows[1] as ScanUiResult,
-            scannedAttendees = flows[2] as List<AttendeeEntity>,
+            scannedAttendees = flows[2] as List<ScannedItemUi>,
             hasFlashUnit = (flows[3] as Pair<Boolean, Boolean>).first,
             isTorchOn = (flows[3] as Pair<Boolean, Boolean>).second,
             eventName = flows[4] as String?,

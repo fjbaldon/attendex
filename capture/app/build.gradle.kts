@@ -116,3 +116,7 @@ dependencies {
 
     implementation(libs.androidx.material.icons.extended)
 }
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}

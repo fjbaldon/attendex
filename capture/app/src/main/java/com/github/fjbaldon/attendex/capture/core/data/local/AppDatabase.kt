@@ -17,7 +17,7 @@ import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
         EntryEntity::class
     ],
     version = 3,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

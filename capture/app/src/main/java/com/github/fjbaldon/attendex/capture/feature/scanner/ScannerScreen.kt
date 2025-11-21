@@ -7,10 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.FlashOff
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,7 +20,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
 import com.github.fjbaldon.attendex.capture.core.ui.camera.CameraPreview
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -173,7 +169,7 @@ fun ModeButton(
 
 @Composable
 private fun ScannedAttendeesSheetContent(
-    attendees: List<AttendeeEntity>,
+    attendees: List<ScannedItemUi>,
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Row(
@@ -209,15 +205,36 @@ private fun ScannedAttendeesSheetContent(
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                items(attendees, key = { it.localId }) { attendee ->
+                items(attendees, key = { it.id }) { item ->
                     ListItem(
                         headlineContent = {
                             Text(
-                                "${attendee.lastName}, ${attendee.firstName}",
+                                item.name,
                                 fontWeight = FontWeight.Medium
                             )
                         },
-                        supportingContent = { Text(attendee.identity) }
+                        supportingContent = { Text(item.identity) },
+                        trailingContent = {
+                            when {
+                                item.isFailed -> Icon(
+                                    Icons.Default.ErrorOutline,
+                                    contentDescription = "Sync Failed",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+
+                                item.isSynced -> Icon(
+                                    Icons.Default.CloudDone,
+                                    contentDescription = "Synced",
+                                    tint = Color(0xFF4CAF50) // Green
+                                )
+
+                                else -> Icon(
+                                    Icons.Default.CloudOff,
+                                    contentDescription = "Pending",
+                                    tint = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
                     )
                     HorizontalDivider()
                 }

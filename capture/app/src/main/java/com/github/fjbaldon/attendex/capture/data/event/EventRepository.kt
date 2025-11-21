@@ -12,6 +12,7 @@ import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.capture.core.data.local.model.SyncStatus
 import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
 import com.github.fjbaldon.attendex.capture.core.data.remote.EntrySyncRequest
+import com.github.fjbaldon.attendex.capture.feature.scanner.ScannedItemUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -201,19 +202,29 @@ class EventRepository @Inject constructor(
         }
     }
 
-    fun getScannedAttendeesStream(eventId: Long): Flow<List<AttendeeEntity>> {
-        // Reads directly from Entry table (Snapshots), so it never breaks on refresh
+    fun getScannedItemsStream(eventId: Long): Flow<List<ScannedItemUi>> {
         return entryDao.getEntriesForEventStream(eventId).map { entries ->
-            entries.map {
-                AttendeeEntity(
-                    localId = 0,
-                    eventId = it.eventId,
-                    attendeeId = it.attendeeId,
-                    identity = it.snapshotIdentity,
-                    firstName = it.snapshotFirstName,
-                    lastName = it.snapshotLastName
+            entries.map { entry ->
+                ScannedItemUi(
+                    id = entry.id.toLong(),
+                    name = "${entry.snapshotLastName}, ${entry.snapshotFirstName}",
+                    identity = entry.snapshotIdentity,
+                    isSynced = entry.syncStatus == SyncStatus.SYNCED,
+                    isFailed = entry.syncStatus == SyncStatus.FAILED
                 )
             }
+        }
+    }
+
+    // NEW: Check if data exists
+    suspend fun getUnsyncedCount(): Int = entryDao.getUnsyncedCountSnapshot()
+
+    // NEW: Nuclear wipe when switching users
+    suspend fun clearAllLocalData() = withContext(Dispatchers.IO) {
+        appDatabase.withTransaction {
+            entryDao.clearAll()
+            attendeeDao.clearAll()
+            eventDao.clearAll()
         }
     }
 }

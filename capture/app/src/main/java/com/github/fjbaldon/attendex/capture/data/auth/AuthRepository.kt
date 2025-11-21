@@ -57,7 +57,7 @@ class AuthRepository @Inject constructor(
             val payload = String(Base64.decode(parts[1], Base64.URL_SAFE))
             val json = JSONObject(payload)
             return json.optBoolean("forcePasswordChange", false)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return false
         }
     }
