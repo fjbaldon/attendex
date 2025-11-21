@@ -18,15 +18,15 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE syncStatus = 'PENDING' LIMIT :limit")
     suspend fun getPendingEntriesBatch(limit: Int): List<EntryEntity>
 
-    @Query("UPDATE entries SET syncStatus = 'SYNCED', syncErrorMessage = null WHERE id IN (:ids)")
-    suspend fun markAsSynced(ids: List<Int>)
-
-    @Query("UPDATE entries SET syncStatus = 'FAILED', syncErrorMessage = :message WHERE id IN (:ids)")
-    suspend fun markAsFailed(ids: List<Int>, message: String)
-
     @Query("SELECT COUNT(id) FROM entries WHERE syncStatus = 'PENDING'")
     fun getUnsyncedEntryCount(): Flow<Int>
 
     @Query("SELECT * FROM entries WHERE eventId = :eventId ORDER BY scanTimestamp DESC LIMIT 1")
     suspend fun findMostRecentEntryForEvent(eventId: Long): EntryEntity?
+
+    @Query("UPDATE entries SET syncStatus = 'SYNCED', syncErrorMessage = null WHERE scanUuid IN (:uuids)")
+    suspend fun markAsSyncedByUuid(uuids: List<String>)
+
+    @Query("UPDATE entries SET syncStatus = 'FAILED', syncErrorMessage = 'Server Rejected' WHERE scanUuid IN (:uuids)")
+    suspend fun markAsFailedByUuid(uuids: List<String>)
 }

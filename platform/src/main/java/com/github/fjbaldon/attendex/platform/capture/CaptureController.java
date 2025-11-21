@@ -1,5 +1,6 @@
 package com.github.fjbaldon.attendex.platform.capture;
 
+import com.github.fjbaldon.attendex.platform.capture.dto.BatchSyncResponse;
 import com.github.fjbaldon.attendex.platform.capture.dto.EntrySyncRequestDto;
 import com.github.fjbaldon.attendex.platform.capture.dto.EventSyncDto;
 import com.github.fjbaldon.attendex.platform.event.EventFacade;
@@ -41,17 +42,16 @@ class CaptureController {
     }
 
     @PostMapping("/sync")
-    public ResponseEntity<Void> syncEntries(
+    public ResponseEntity<BatchSyncResponse> syncEntries(
             @Valid @RequestBody EntrySyncRequestDto request,
             @AuthenticationPrincipal CustomUserDetails user) {
 
-        // No mapping needed anymore!
-        captureFacade.syncEntries(
+        BatchSyncResponse response = captureFacade.syncEntries(
                 user.getOrganizationId(),
                 user.getUsername(),
                 request
         );
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(response);
     }
 }

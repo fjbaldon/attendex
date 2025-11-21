@@ -21,7 +21,7 @@ interface ApiService {
     ): PaginatedResponse<RosterItemResponse>
 
     @POST("api/v1/capture/sync")
-    suspend fun syncEntries(@Body syncRequest: EntrySyncRequest)
+    suspend fun syncEntries(@Body syncRequest: EntrySyncRequest): BatchSyncResponse
 }
 
 @kotlinx.serialization.Serializable

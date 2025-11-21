@@ -2,6 +2,7 @@ package com.github.fjbaldon.attendex.platform.capture;
 
 import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.attendee.dto.AttendeeDto;
+import com.github.fjbaldon.attendex.platform.capture.dto.BatchSyncResponse;
 import com.github.fjbaldon.attendex.platform.capture.dto.EntryDetailsDto;
 import com.github.fjbaldon.attendex.platform.capture.dto.EntrySyncRequestDto;
 import com.github.fjbaldon.attendex.platform.capture.events.EntryCreatedEvent;
@@ -13,7 +14,6 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,8 +38,7 @@ public class CaptureFacade {
     private final EventFacade eventFacade;
     private final ApplicationEventPublisher eventPublisher;
 
-    @Transactional
-    public void syncEntries(
+    public BatchSyncResponse syncEntries(
             Long organizationId,
             String scannerEmail,
             EntrySyncRequestDto request
@@ -47,53 +47,23 @@ public class CaptureFacade {
                 .filter(s -> s.organizationId().equals(organizationId))
                 .orElseThrow(() -> new EntityNotFoundException("Scanner not found."));
 
-        // Cache schedules to avoid DB hits inside the loop
+        // Cache for In-Memory Session Lookup
         Map<Long, List<SessionDetailsDto>> scheduleCache = new HashMap<>();
 
+        List<String> failedUuids = new ArrayList<>();
+        int successCount = 0;
+
         for (var record : request.records()) {
-            if (entryRepository.existsByScanUuid(record.scanUuid())) {
-                continue;
-            }
-
-            List<SessionDetailsDto> sessions = scheduleCache.computeIfAbsent(
-                    record.eventId(),
-                    eventFacade::findAllSessionsForEvent
-            );
-
-            SessionDetailsDto bestSession = findBestSessionInMemory(sessions, record.scanTimestamp());
-
-            Long sessionId = null;
-            String punctuality = "UNSCHEDULED";
-
-            if (bestSession != null) {
-                sessionId = bestSession.sessionId();
-                punctuality = calculatePunctuality(record.scanTimestamp(), bestSession);
-            }
-
-            Entry entry = Entry.create(
-                    organizationId,
-                    record.eventId(),
-                    sessionId,
-                    record.attendeeId(),
-                    scanner.id(),
-                    record.scanTimestamp(),
-                    punctuality,
-                    record.scanUuid()
-            );
-
             try {
-                entryRepository.saveAndFlush(entry);
-
-                eventPublisher.publishEvent(new EntryCreatedEvent(
-                        entry.getId(),
-                        record.eventId(),
-                        organizationId,
-                        entry.getScanTimestamp()
-                ));
-            } catch (DataIntegrityViolationException e) {
-                log.warn("Duplicate entry ignored: {}", record.scanUuid());
+                processSingleEntry(organizationId, scanner.id(), record, scheduleCache);
+                successCount++;
+            } catch (Exception e) {
+                log.error("Failed to sync entry UUID: {}", record.scanUuid(), e);
+                failedUuids.add(record.scanUuid());
             }
         }
+
+        return new BatchSyncResponse(successCount, failedUuids.size(), failedUuids);
     }
 
     // UPDATED LOGIC: Implements "Past Bias"
@@ -183,5 +153,49 @@ public class CaptureFacade {
                 })
                 .filter(java.util.Objects::nonNull)
                 .toList();
+    }
+
+    private void processSingleEntry(Long organizationId, Long scannerId, EntrySyncRequestDto.EntryRecord record, Map<Long, List<SessionDetailsDto>> scheduleCache) {
+        // 1. Idempotency Check
+        if (entryRepository.existsByScanUuid(record.scanUuid())) {
+            return; // Already saved, treat as success
+        }
+
+        // 2. Find Session (Memory)
+        List<SessionDetailsDto> sessions = scheduleCache.computeIfAbsent(
+                record.eventId(),
+                eventFacade::findAllSessionsForEvent
+        );
+
+        SessionDetailsDto bestSession = findBestSessionInMemory(sessions, record.scanTimestamp());
+
+        Long sessionId = null;
+        String punctuality = "UNSCHEDULED";
+
+        if (bestSession != null) {
+            sessionId = bestSession.sessionId();
+            punctuality = calculatePunctuality(record.scanTimestamp(), bestSession);
+        }
+
+        Entry entry = Entry.create(
+                organizationId,
+                record.eventId(),
+                sessionId,
+                record.attendeeId(),
+                scannerId,
+                record.scanTimestamp(),
+                punctuality,
+                record.scanUuid()
+        );
+
+        // Save immediately
+        entryRepository.saveAndFlush(entry);
+
+        eventPublisher.publishEvent(new EntryCreatedEvent(
+                entry.getId(),
+                record.eventId(),
+                organizationId,
+                entry.getScanTimestamp()
+        ));
     }
 }

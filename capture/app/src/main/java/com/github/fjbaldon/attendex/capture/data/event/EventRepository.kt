@@ -12,7 +12,6 @@ import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.capture.core.data.local.model.SyncStatus
 import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
 import com.github.fjbaldon.attendex.capture.core.data.remote.EntrySyncRequest
-import com.github.fjbaldon.attendex.capture.core.data.remote.SessionResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -42,9 +41,6 @@ class EventRepository @Inject constructor(
     fun getEvents(): Flow<List<EventEntity>> = eventDao.getAllEvents()
 
     suspend fun getEventNameById(eventId: Long): String? = eventDao.getEventById(eventId)?.name
-
-    suspend fun getSessionsForEvent(eventId: Long): List<SessionResponse> =
-        eventDao.getEventById(eventId)?.sessions ?: emptyList()
 
     suspend fun isEventActive(eventId: Long): Boolean {
         val event = eventDao.getEventById(eventId) ?: return false
@@ -154,7 +150,6 @@ class EventRepository @Inject constructor(
     }
 
     suspend fun syncEntries(): Result<Int> = withContext(Dispatchers.IO) {
-        // MUTEX LOCK: Only one sync at a time
         if (syncMutex.isLocked) return@withContext Result.success(0)
 
         syncMutex.withLock {
@@ -162,35 +157,45 @@ class EventRepository @Inject constructor(
                 val batch = entryDao.getPendingEntriesBatch(50)
                 if (batch.isEmpty()) return@withLock Result.success(0)
 
-                // Map to DTO (Including UUID)
                 val request = EntrySyncRequest(
                     records = batch.map {
                         EntrySyncRequest.EntryRecord(
-                            scanUuid = it.scanUuid, // IDEMPOTENCY KEY
-                            eventId = it.eventId,
-                            attendeeId = it.attendeeId,
-                            scanTimestamp = it.scanTimestamp.toString()
+                            it.scanUuid,
+                            it.eventId,
+                            it.attendeeId,
+                            it.scanTimestamp.toString()
                         )
                     }
                 )
 
-                apiService.syncEntries(request)
+                // 1. Call API
+                val response = apiService.syncEntries(request)
 
-                // Optimistic Success: Mark all as synced
-                // (Phase 3 will handle Partial Success logic)
-                entryDao.markAsSynced(batch.map { it.id })
+                // 2. Calculate Lists
+                val allUuids = batch.map { it.scanUuid }
+                val failedUuids = response.failedUuids.toSet()
 
-                if (batch.size == 50) {
-                    // If batch was full, there might be more. 
-                    // We can trigger another sync or just let the next cycle handle it.
-                    // Returning count lets ViewModel decide.
+                // Success = All - Failed
+                val successUuids = allUuids.filter { !failedUuids.contains(it) }
+
+                // 3. Update Local DB
+                if (successUuids.isNotEmpty()) {
+                    entryDao.markAsSyncedByUuid(successUuids)
                 }
 
-                Result.success(batch.size)
+                if (failedUuids.isNotEmpty()) {
+                    // These are Poison Pills. Mark as FAILED so we stop retrying them.
+                    entryDao.markAsFailedByUuid(failedUuids.toList())
+                }
+
+                // 4. Recurse if we had a full successful batch
+                if (batch.size == 50 && failedUuids.isEmpty()) {
+                    syncEntries()
+                }
+
+                Result.success(response.successCount)
             } catch (e: Exception) {
-                // Logic: If network error, keep PENDING. 
-                // If 400/Data error, we should technically mark FAILED, 
-                // but for Phase 2 we will stick to basic retry.
+                // Network error: Everything stays PENDING, will retry next time
                 Result.failure(e)
             }
         }
