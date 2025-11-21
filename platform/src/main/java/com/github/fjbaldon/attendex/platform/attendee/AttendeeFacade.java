@@ -160,6 +160,9 @@ public class AttendeeFacade {
         List<Attribute> existingAttributes = attributeRepository.findAllByOrganizationId(organizationId);
         Set<String> validAttributeNames = existingAttributes.stream().map(Attribute::getName).collect(Collectors.toSet());
 
+        // Map existing options for validation (optional, if we want to allow expansion we skip strict check)
+        // For this implementation, we allow expansion, so we don't fail if an option is new.
+
         List<CreateAttendeeDto> toCreate = new ArrayList<>();
         List<CreateAttendeeDto> toUpdate = new ArrayList<>();
         List<AttendeeImportAnalysisDto.InvalidRow> invalidRows = new ArrayList<>();
@@ -213,6 +216,9 @@ public class AttendeeFacade {
                         String val = record.isMapped(csvHeader) ? record.get(csvHeader) : null;
 
                         if (StringUtils.hasText(val)) {
+                            // DATA HYGIENE FIX: Enforce Upper Case
+                            val = val.trim().toUpperCase();
+
                             if (validAttributeNames.contains(mappedTarget)) {
                                 attributeValues.put(mappedTarget, val);
                             } else if (config.createMissingAttributes()) {
@@ -241,15 +247,56 @@ public class AttendeeFacade {
 
     @Transactional
     public void commitAttendeeImport(Long organizationId, List<CreateAttendeeDto> attendees, boolean updateExisting, List<String> newAttributes) {
+        // 1. Gather all unique options for every attribute in this batch
+        Map<String, Set<String>> batchOptions = new HashMap<>();
+
+        for (CreateAttendeeDto dto : attendees) {
+            if (dto.attributes() != null) {
+                dto.attributes().forEach((key, val) -> {
+                    if (val instanceof String s && StringUtils.hasText(s)) {
+                        batchOptions.computeIfAbsent(key, k -> new HashSet<>()).add(s);
+                    }
+                });
+            }
+        }
+
+        // 2. Update or Create Attributes with new options
+        // A. Handle NEW attributes
         if (newAttributes != null) {
             for (String attrName : newAttributes) {
                 if (!attributeRepository.existsByOrganizationIdAndName(organizationId, attrName)) {
-                    Attribute attr = Attribute.create(organizationId, attrName, "SELECT", new ArrayList<>());
+                    List<String> options = new ArrayList<>(batchOptions.getOrDefault(attrName, Collections.emptySet()));
+                    Collections.sort(options); // Keep it tidy
+                    Attribute attr = Attribute.create(organizationId, attrName, "SELECT", options);
                     attributeRepository.save(attr);
                 }
             }
         }
 
+        // B. Handle EXISTING attributes (Merge new options)
+        List<Attribute> existingAttributes = attributeRepository.findAllByOrganizationId(organizationId);
+        for (Attribute attr : existingAttributes) {
+            if (batchOptions.containsKey(attr.getName())) {
+                Set<String> newOptions = batchOptions.get(attr.getName());
+                List<String> currentOptions = new ArrayList<>(attr.getOptions());
+                boolean changed = false;
+
+                for (String opt : newOptions) {
+                    if (!currentOptions.contains(opt)) {
+                        currentOptions.add(opt);
+                        changed = true;
+                    }
+                }
+
+                if (changed) {
+                    Collections.sort(currentOptions);
+                    attr.updateOptions(currentOptions);
+                    attributeRepository.save(attr);
+                }
+            }
+        }
+
+        // 3. Process Attendees
         List<Attendee> batch = new ArrayList<>();
         for (CreateAttendeeDto dto : attendees) {
             Attendee existing = attendeeRepository.findAttendeeByIdentity(organizationId, dto.identity());
@@ -260,8 +307,7 @@ public class AttendeeFacade {
             } else if (existing == null) {
                 Attendee newAttendee = Attendee.create(organizationId, dto.identity(), dto.firstName(), dto.lastName(), dto.attributes());
                 batch.add(newAttendee);
-                // Note: Should fire event, but batching 1000 events is noisy.
-                // Consider a BulkAttendeeCreatedEvent or skipping for analytics.
+                eventPublisher.publishEvent(new AttendeeCreatedEvent(newAttendee.getId(), organizationId));
             }
         }
         attendeeRepository.saveAll(batch);
