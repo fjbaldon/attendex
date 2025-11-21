@@ -20,7 +20,6 @@ import org.springframework.util.Assert;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -188,14 +187,18 @@ public class EventFacade {
     }
 
     @Transactional(readOnly = true)
-    public Optional<SessionDetailsDto> findActiveSession(Long eventId, Instant timestamp) {
-        return sessionRepository.findActiveSession(eventId, timestamp)
+    public List<SessionDetailsDto> findAllSessionsForEvent(Long eventId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
+
+        return event.getSessions().stream()
                 .map(s -> new SessionDetailsDto(
                         s.getId(),
                         s.getTargetTime(),
-                        s.getEvent().getGraceMinutesBefore(),
-                        s.getEvent().getGraceMinutesAfter()
-                ));
+                        event.getGraceMinutesBefore(),
+                        event.getGraceMinutesAfter()
+                ))
+                .collect(Collectors.toList());
     }
 
     private EventDto toDto(Event event) {

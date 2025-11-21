@@ -19,10 +19,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -45,26 +47,30 @@ public class CaptureFacade {
                 .filter(s -> s.organizationId().equals(organizationId))
                 .orElseThrow(() -> new EntityNotFoundException("Scanner not found."));
 
+        // OPTIMIZATION: Cache schedules to avoid DB hits inside the loop
+        // Map<EventID, List<Session>>
+        Map<Long, List<SessionDetailsDto>> scheduleCache = new HashMap<>();
+
         for (var record : request.records()) {
-            // 1. Idempotency Check
             if (entryRepository.existsByScanUuid(record.scanUuid())) {
-                continue; // Already processed, skip
+                continue;
             }
 
-            // 2. Find Session based on Time (The "Thin Client" Logic)
-            Optional<SessionDetailsDto> sessionOpt = eventFacade.findActiveSession(record.eventId(), record.scanTimestamp());
+            // 1. Get Schedule (Fetch once per event, use cache thereafter)
+            List<SessionDetailsDto> sessions = scheduleCache.computeIfAbsent(
+                    record.eventId(),
+                    eventFacade::findAllSessionsForEvent
+            );
+
+            // 2. In-Memory Logic: Find the active session
+            SessionDetailsDto bestSession = findBestSessionInMemory(sessions, record.scanTimestamp());
 
             Long sessionId = null;
-            String punctuality = "UNSCHEDULED"; // Default if no session matches
+            String punctuality = "UNSCHEDULED";
 
-            if (sessionOpt.isPresent()) {
-                SessionDetailsDto session = sessionOpt.get();
-                sessionId = session.sessionId();
-                punctuality = calculatePunctuality(record.scanTimestamp(), session);
-            } else {
-                // OPTIONAL: Logic for "Late" vs "Unscheduled"
-                // If we can't find an active session, maybe find the *nearest* session
-                // and mark as LATE? For now, we'll just log it as UNSCHEDULED.
+            if (bestSession != null) {
+                sessionId = bestSession.sessionId();
+                punctuality = calculatePunctuality(record.scanTimestamp(), bestSession);
             }
 
             Entry entry = Entry.create(
@@ -78,33 +84,17 @@ public class CaptureFacade {
             );
 
             try {
-                // Save individually to isolate failures
                 entryRepository.saveAndFlush(entry);
 
-                // Publish event for Analytics
                 eventPublisher.publishEvent(new EntryCreatedEvent(
                         entry.getId(),
                         record.eventId(),
                         organizationId,
                         entry.getScanTimestamp()
                 ));
-
             } catch (DataIntegrityViolationException e) {
-                // Swallow duplicate UUID errors that slipped past the check
                 log.warn("Duplicate entry ignored: {}", record.scanUuid());
             }
-        }
-    }
-
-    private String calculatePunctuality(Instant scanTimestamp, SessionDetailsDto details) {
-        long minutesDifference = ChronoUnit.MINUTES.between(details.targetTime(), scanTimestamp);
-
-        if (minutesDifference < -details.graceMinutesBefore()) {
-            return "EARLY";
-        } else if (minutesDifference > details.graceMinutesAfter()) {
-            return "LATE";
-        } else {
-            return "PUNCTUAL";
         }
     }
 
@@ -127,5 +117,39 @@ public class CaptureFacade {
     @Transactional(readOnly = true)
     public long countEntriesSince(Long organizationId, Instant timestamp) {
         return entryRepository.countByOrganizationIdAndSyncTimestampAfter(organizationId, timestamp);
+    }
+
+
+    // PURE JAVA LOGIC: Replaces the complex SQL query
+    private SessionDetailsDto findBestSessionInMemory(List<SessionDetailsDto> sessions, Instant scanTime) {
+        SessionDetailsDto bestMatch = null;
+        long minDiffSeconds = Long.MAX_VALUE;
+        long twelveHoursInSeconds = 12 * 60 * 60;
+
+        for (SessionDetailsDto session : sessions) {
+            long diff = Math.abs(Duration.between(session.targetTime(), scanTime).getSeconds());
+
+            // Filter by the 12-hour window (Sanity check)
+            if (diff <= twelveHoursInSeconds) {
+                // Standard "Find Minimum" algorithm
+                if (diff < minDiffSeconds) {
+                    minDiffSeconds = diff;
+                    bestMatch = session;
+                }
+            }
+        }
+        return bestMatch;
+    }
+
+    private String calculatePunctuality(Instant scanTimestamp, SessionDetailsDto details) {
+        long minutesDifference = ChronoUnit.MINUTES.between(details.targetTime(), scanTimestamp);
+
+        if (minutesDifference < -details.graceMinutesBefore()) {
+            return "EARLY";
+        } else if (minutesDifference > details.graceMinutesAfter()) {
+            return "LATE";
+        } else {
+            return "PUNCTUAL";
+        }
     }
 }

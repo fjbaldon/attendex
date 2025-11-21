@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.capture.data.auth.AuthRepository
 import com.github.fjbaldon.attendex.capture.data.event.EventRepository
+import com.github.fjbaldon.attendex.capture.di.ApplicationScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -23,9 +24,9 @@ data class EventListUiState(
 @HiltViewModel
 class EventListViewModel @Inject constructor(
     private val eventRepository: EventRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    @ApplicationScope private val appScope: CoroutineScope // INJECT HERE
 ) : ViewModel() {
-
     private val _isLoading = MutableStateFlow(true)
     private val _isRefreshing = MutableStateFlow(false)
     private val _isSyncing = MutableStateFlow(false)
@@ -114,9 +115,15 @@ class EventListViewModel @Inject constructor(
     }
 
     fun syncEntries() {
-        viewModelScope.launch {
-            _isSyncing.value = true
+        _isSyncing.value = true
+
+        // FIXED: Use appScope instead of viewModelScope
+        // This ensures sync finishes even if user navigates away
+        appScope.launch {
             val result = eventRepository.syncEntries()
+
+            // We must check if the ViewModel is still active before updating UI state
+            // However, StateFlows are safe to update from background threads.
             result.onSuccess { count ->
                 _syncResult.value = if (count > 0) {
                     val plural = if (count == 1) "record" else "records"

@@ -24,7 +24,7 @@ export default function ReportsPage() {
     const [isExporting, setIsExporting] = useState(false);
     const reportContentRef = useRef<HTMLDivElement>(null);
 
-    const [pagination] = React.useState({pageIndex: 0, pageSize: 9999});
+    const [pagination] = React.useState({pageIndex: 0, pageSize: 1000});
 
     const {eventsData, isLoadingEvents} = useEvents(0, 9999);
     const events = eventsData?.content ?? [];
@@ -33,6 +33,7 @@ export default function ReportsPage() {
     const {organization} = useOrganization();
 
     const entries = arrivalsData?.content ?? [];
+    const totalElements = arrivalsData?.totalElements ?? 0; // Get total count from API
 
     const selectedEvent = events.find(e => e.id === selectedEventId);
     const generationDate = new Date().toLocaleString();
@@ -109,6 +110,14 @@ export default function ReportsPage() {
                                             <header className="mb-6">
                                                 <h2 className="text-3xl font-bold">{selectedEvent?.name}</h2>
                                                 <p className="text-lg text-gray-500">Arrivals Report</p>
+
+                                                {totalElements > 1000 && (
+                                                    <p className="text-sm text-red-500 mt-2">
+                                                        Note: This report is limited to the first 1000 entries for
+                                                        performance.
+                                                        Please contact support for a full data export.
+                                                    </p>
+                                                )}
                                             </header>
 
                                             <section className="grid grid-cols-3 gap-4 mb-6 text-sm">
