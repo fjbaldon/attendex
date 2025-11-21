@@ -34,7 +34,7 @@ public class CaptureFacade {
     private final EntryRepository entryRepository;
     private final AttendeeFacade attendeeFacade;
     private final OrganizationFacade organizationFacade;
-    private final EventFacade eventFacade; // Use Facade instead of Repo
+    private final EventFacade eventFacade;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -47,8 +47,7 @@ public class CaptureFacade {
                 .filter(s -> s.organizationId().equals(organizationId))
                 .orElseThrow(() -> new EntityNotFoundException("Scanner not found."));
 
-        // OPTIMIZATION: Cache schedules to avoid DB hits inside the loop
-        // Map<EventID, List<Session>>
+        // Cache schedules to avoid DB hits inside the loop
         Map<Long, List<SessionDetailsDto>> scheduleCache = new HashMap<>();
 
         for (var record : request.records()) {
@@ -56,13 +55,11 @@ public class CaptureFacade {
                 continue;
             }
 
-            // 1. Get Schedule (Fetch once per event, use cache thereafter)
             List<SessionDetailsDto> sessions = scheduleCache.computeIfAbsent(
                     record.eventId(),
                     eventFacade::findAllSessionsForEvent
             );
 
-            // 2. In-Memory Logic: Find the active session
             SessionDetailsDto bestSession = findBestSessionInMemory(sessions, record.scanTimestamp());
 
             Long sessionId = null;
@@ -98,6 +95,47 @@ public class CaptureFacade {
         }
     }
 
+    // UPDATED LOGIC: Implements "Past Bias"
+    private SessionDetailsDto findBestSessionInMemory(List<SessionDetailsDto> sessions, Instant scanTime) {
+        SessionDetailsDto bestMatch = null;
+        double minWeightedDiff = Double.MAX_VALUE; // Changed to double for weighting
+        long twelveHoursInSeconds = 12 * 60 * 60;
+
+        for (SessionDetailsDto session : sessions) {
+            long diff = Duration.between(session.targetTime(), scanTime).getSeconds();
+            long absDiff = Math.abs(diff);
+
+            // Filter by the 12-hour window (Sanity check)
+            if (absDiff <= twelveHoursInSeconds) {
+
+                // BIAS LOGIC:
+                // If diff >= 0 (Scan is AFTER target/LATE): Weight = 1.0 (Normal distance)
+                // If diff < 0 (Scan is BEFORE target/EARLY): Weight = 1.5 (Penalized distance)
+                // This means the algorithm "prefers" picking a past session over a future one
+                // if the scan is roughly in the middle.
+                double weightedDiff = (diff >= 0) ? absDiff : (absDiff * 1.5);
+
+                if (weightedDiff < minWeightedDiff) {
+                    minWeightedDiff = weightedDiff;
+                    bestMatch = session;
+                }
+            }
+        }
+        return bestMatch;
+    }
+
+    private String calculatePunctuality(Instant scanTimestamp, SessionDetailsDto details) {
+        long minutesDifference = ChronoUnit.MINUTES.between(details.targetTime(), scanTimestamp);
+
+        if (minutesDifference < -details.graceMinutesBefore()) {
+            return "EARLY";
+        } else if (minutesDifference > details.graceMinutesAfter()) {
+            return "LATE";
+        } else {
+            return "PUNCTUAL";
+        }
+    }
+
     @Transactional(readOnly = true)
     public Page<EntryDetailsDto> findEntriesBySessionIds(Long organizationId, List<Long> sessionIds, Pageable pageable) {
         return entryRepository.findBySessionIdIn(sessionIds, pageable)
@@ -117,39 +155,5 @@ public class CaptureFacade {
     @Transactional(readOnly = true)
     public long countEntriesSince(Long organizationId, Instant timestamp) {
         return entryRepository.countByOrganizationIdAndSyncTimestampAfter(organizationId, timestamp);
-    }
-
-
-    // PURE JAVA LOGIC: Replaces the complex SQL query
-    private SessionDetailsDto findBestSessionInMemory(List<SessionDetailsDto> sessions, Instant scanTime) {
-        SessionDetailsDto bestMatch = null;
-        long minDiffSeconds = Long.MAX_VALUE;
-        long twelveHoursInSeconds = 12 * 60 * 60;
-
-        for (SessionDetailsDto session : sessions) {
-            long diff = Math.abs(Duration.between(session.targetTime(), scanTime).getSeconds());
-
-            // Filter by the 12-hour window (Sanity check)
-            if (diff <= twelveHoursInSeconds) {
-                // Standard "Find Minimum" algorithm
-                if (diff < minDiffSeconds) {
-                    minDiffSeconds = diff;
-                    bestMatch = session;
-                }
-            }
-        }
-        return bestMatch;
-    }
-
-    private String calculatePunctuality(Instant scanTimestamp, SessionDetailsDto details) {
-        long minutesDifference = ChronoUnit.MINUTES.between(details.targetTime(), scanTimestamp);
-
-        if (minutesDifference < -details.graceMinutesBefore()) {
-            return "EARLY";
-        } else if (minutesDifference > details.graceMinutesAfter()) {
-            return "LATE";
-        } else {
-            return "PUNCTUAL";
-        }
     }
 }

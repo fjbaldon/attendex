@@ -7,6 +7,7 @@ import com.github.fjbaldon.attendex.capture.data.auth.AuthRepository
 import com.github.fjbaldon.attendex.capture.data.event.EventRepository
 import com.github.fjbaldon.attendex.capture.di.ApplicationScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,7 +26,7 @@ data class EventListUiState(
 class EventListViewModel @Inject constructor(
     private val eventRepository: EventRepository,
     private val authRepository: AuthRepository,
-    @ApplicationScope private val appScope: CoroutineScope // INJECT HERE
+    @param:ApplicationScope private val appScope: CoroutineScope
 ) : ViewModel() {
     private val _isLoading = MutableStateFlow(true)
     private val _isRefreshing = MutableStateFlow(false)

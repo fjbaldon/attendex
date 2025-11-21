@@ -36,12 +36,7 @@ const useEventRosterIds = (eventId: number) => {
     return useQuery<Set<number>>({
         queryKey: ["eventDetails", eventId, "rosterIds"],
         queryFn: async () => {
-            // Fetch ONLY IDs if possible, or map efficiently.
-            // For now, fetching full list is okay as it's paginated,
-            // BUT strictly we only know the current page of roster.
-            // Ideally backend provides 'isRegistered' flag in search response.
-            // For this fix, we'll fetch a larger chunk of roster to check against.
-            const response = await api.get(`/api/v1/events/${eventId}/roster?size=1000`);
+            const response = await api.get(`/api/v1/events/${eventId}/roster?size=10000`);
             return new Set(response.data.content.map((a: AttendeeResponse) => a.id));
         },
         enabled: !!eventId,
