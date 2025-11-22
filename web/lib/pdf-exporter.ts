@@ -12,13 +12,43 @@ export const exportToPdf = async (
     }
 
     try {
-        const dataUrl = await htmlToImage.toPng(element, {
+        // 1. Wait for fonts to be fully loaded to avoid text rendering issues
+        await document.fonts.ready;
+
+        // 2. Clone the node to manipulate styles safely
+        // We append it to the body but position it absolute/off-screen so it renders full width/height
+        const clone = element.cloneNode(true) as HTMLElement;
+
+        // Force styling on clone to ensure full rendering
+        clone.style.position = 'absolute';
+        clone.style.top = '-9999px';
+        clone.style.left = '-9999px';
+        clone.style.width = `${element.scrollWidth}px`;
+        clone.style.height = 'auto';
+        clone.style.overflow = 'visible';
+        clone.style.zIndex = '-1';
+        document.body.appendChild(clone);
+
+        // Wait a tick for DOM to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const width = clone.scrollWidth;
+        const height = clone.scrollHeight;
+
+        const dataUrl = await htmlToImage.toPng(clone, {
             quality: 1.0,
             backgroundColor: '#ffffff',
-            canvasWidth: element.scrollWidth * scale,
-            canvasHeight: element.scrollHeight * scale,
-            pixelRatio: 1,
+            width: width,
+            height: height,
+            pixelRatio: scale, // Increase resolution
+            style: {
+                // Ensure no scrollbars in screenshot
+                overflow: 'visible'
+            }
         });
+
+        // Clean up clone
+        document.body.removeChild(clone);
 
         const pdf = new jsPDF({
             orientation: 'portrait',
@@ -47,9 +77,11 @@ export const exportToPdf = async (
         let finalHeight: number;
 
         if (imgAspectRatio > pageAspectRatio) {
+            // Image is wider than page (fit to width)
             finalWidth = pagePrintableWidth;
             finalHeight = finalWidth / imgAspectRatio;
         } else {
+            // Image is taller than page (fit to height)
             finalHeight = pagePrintableHeight;
             finalWidth = finalHeight * imgAspectRatio;
         }

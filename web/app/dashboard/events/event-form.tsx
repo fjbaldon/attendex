@@ -30,58 +30,45 @@ export function EventForm({event, onSubmit}: EventFormProps) {
     const isEditing = !!event;
     const isDateEditable = !isEditing || event?.status === "UPCOMING";
 
+    const defaultValues = React.useMemo(() => {
+        if (event) {
+            return {
+                name: event.name || "",
+                startDate: new Date(event.startDate),
+                endDate: new Date(event.endDate),
+                graceMinutesBefore: event.graceMinutesBefore,
+                graceMinutesAfter: event.graceMinutesAfter,
+                sessions: event.sessions.map(s => ({
+                    activityName: s.activityName,
+                    targetTime: new Date(s.targetTime),
+                    intent: s.intent
+                }))
+            };
+        }
+        const today = new Date();
+        return {
+            name: "",
+            startDate: startOfDay(today),
+            endDate: endOfDay(today),
+            graceMinutesBefore: 15,
+            graceMinutesAfter: 15,
+            sessions: [],
+        };
+    }, [event]);
+
     const form = useForm({
         resolver: zodResolver(eventSchema),
         mode: "onChange",
-        defaultValues: event
-            ? {
-                name: event.name || "",
-                startDate: new Date(event.startDate),
-                endDate: new Date(event.endDate),
-                graceMinutesBefore: event.graceMinutesBefore,
-                graceMinutesAfter: event.graceMinutesAfter,
-                sessions: event.sessions.map(s => ({
-                    activityName: s.activityName,
-                    targetTime: new Date(s.targetTime),
-                    intent: s.intent
-                }))
-            }
-            : {
-                name: "",
-                startDate: startOfDay(new Date()),
-                endDate: endOfDay(new Date()),
-                graceMinutesBefore: 15,
-                graceMinutesAfter: 15,
-                sessions: [],
-            },
+        defaultValues: defaultValues,
     });
 
+    // FIX: Only reset if the form is pristine (not dirty).
+    // This prevents overwriting user input if a background refetch updates the 'event' prop.
     useEffect(() => {
-        if (event) {
-            form.reset({
-                name: event.name || "",
-                startDate: new Date(event.startDate),
-                endDate: new Date(event.endDate),
-                graceMinutesBefore: event.graceMinutesBefore,
-                graceMinutesAfter: event.graceMinutesAfter,
-                sessions: event.sessions.map(s => ({
-                    activityName: s.activityName,
-                    targetTime: new Date(s.targetTime),
-                    intent: s.intent
-                }))
-            });
-        } else {
-            const today = new Date();
-            form.reset({
-                name: "",
-                startDate: startOfDay(today),
-                endDate: endOfDay(today),
-                graceMinutesBefore: 15,
-                graceMinutesAfter: 15,
-                sessions: [],
-            });
+        if (!form.formState.isDirty) {
+            form.reset(defaultValues);
         }
-    }, [event, form]);
+    }, [defaultValues, form]);
 
     const {fields, append, remove} = useFieldArray({
         control: form.control,
@@ -92,6 +79,7 @@ export function EventForm({event, onSubmit}: EventFormProps) {
     const endDate = form.watch("endDate");
 
     React.useEffect(() => {
+        // Trigger validation for sessions if dates change
         if (fields.length > 0 && startDate && endDate) {
             void form.trigger("sessions");
         }

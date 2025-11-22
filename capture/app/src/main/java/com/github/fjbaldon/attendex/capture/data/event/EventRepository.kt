@@ -14,13 +14,12 @@ import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
 import com.github.fjbaldon.attendex.capture.core.data.remote.EntrySyncRequest
 import com.github.fjbaldon.attendex.capture.feature.scanner.ScannedItemUi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import retrofit2.HttpException
 import java.time.Instant
 import javax.inject.Inject
 
@@ -32,8 +31,6 @@ class EventRepository @Inject constructor(
     private val entryDao: EntryDao
 ) {
     private var lastScannedIdentity: String? = null
-
-    // MUTEX: Prevents "Double-Click" bandwidth waste
     private val syncMutex = Mutex()
 
     val hasUnsyncedRecords: Flow<Boolean> = entryDao.getUnsyncedEntryCount()
@@ -49,7 +46,6 @@ class EventRepository @Inject constructor(
         return try {
             val start = Instant.parse(event.startDate)
             val end = Instant.parse(event.endDate)
-            // 1-hour buffer logic
             now.isAfter(start.minusSeconds(3600)) && now.isBefore(end.plusSeconds(3600))
         } catch (_: Exception) {
             true
@@ -59,30 +55,45 @@ class EventRepository @Inject constructor(
     suspend fun refreshEvents(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val remoteEvents = apiService.getActiveEvents()
-
             val eventEntities = remoteEvents.map {
                 EventEntity(it.id, it.name, it.startDate, it.endDate, it.sessions)
             }
 
-            val attendeesByEvent = mutableMapOf<Long, List<AttendeeEntity>>()
-
-            remoteEvents.map { event ->
-                async {
-                    attendeesByEvent[event.id] = fetchAllAttendeesFromApi(event.id)
-                }
-            }.awaitAll()
-
+            // 1. Transaction: Clear old data and insert Events
             appDatabase.withTransaction {
                 eventDao.clearAll()
                 eventDao.insertAll(eventEntities)
+                attendeeDao.clearAll() // Wipe all attendees to start fresh
+            }
 
-                // WIPE AND REPLACE STRATEGY
-                remoteEvents.forEach { event ->
-                    attendeeDao.clearAttendeesForEvent(event.id)
-                }
+            // 2. Batch Fetch & Insert Attendees (Event by Event)
+            // We do NOT wrap this entire loop in a transaction to avoid holding the DB lock
+            // while waiting for the Network.
+            remoteEvents.forEach { event ->
+                var page = 0
+                var isLast = false
+                while (!isLast) {
+                    // Fetch one page
+                    val res = apiService.getAttendeesForEvent(event.id, page, 500)
 
-                attendeesByEvent.values.forEach {
-                    if (it.isNotEmpty()) attendeeDao.insertAll(it)
+                    val batch = res.content.map {
+                        AttendeeEntity(
+                            localId = 0,
+                            eventId = event.id,
+                            attendeeId = it.attendeeId,
+                            identity = it.identity,
+                            firstName = it.firstName,
+                            lastName = it.lastName
+                        )
+                    }
+
+                    // Insert immediately
+                    if (batch.isNotEmpty()) {
+                        attendeeDao.insertAll(batch)
+                    }
+
+                    isLast = res.last
+                    page++
                 }
             }
 
@@ -93,49 +104,20 @@ class EventRepository @Inject constructor(
         }
     }
 
-    private suspend fun fetchAllAttendeesFromApi(eventId: Long): List<AttendeeEntity> {
-        val all = mutableListOf<AttendeeEntity>()
-        var page = 0
-        var isLast = false
-        while (!isLast) {
-            val res = apiService.getAttendeesForEvent(eventId, page, 500)
-            all.addAll(res.content.map {
-                // Mapping API response to Local Entity
-                // Note: qrCodeHash is removed from entity, so we don't map it
-                AttendeeEntity(
-                    localId = 0,
-                    eventId = eventId,
-                    attendeeId = it.attendeeId,
-                    identity = it.identity,
-                    firstName = it.firstName,
-                    lastName = it.lastName
-                )
-            })
-            isLast = res.last
-            page++
-        }
-        return all
-    }
-
     suspend fun primeLastScannedIdentifier(eventId: Long) {
         val lastEntry = entryDao.findMostRecentEntryForEvent(eventId)
         lastScannedIdentity = lastEntry?.snapshotIdentity
     }
 
-    // THIN CLIENT SCAN LOGIC
-    // Removed: sessionId argument (Backend figures it out)
     suspend fun processScan(eventId: Long, identity: String): ScanResult {
         if (identity == lastScannedIdentity) return ScanResult.AlreadyScanned
 
-        // 1. Lookup
         val attendee = attendeeDao.findAttendeeByIdentity(eventId, identity)
             ?: return ScanResult.AttendeeNotFound
 
-        // 2. Snapshot
         val entry = EntryEntity(
             eventId = eventId,
             attendeeId = attendee.attendeeId,
-            // Copy details to preserve them even if Roster is wiped later
             snapshotIdentity = attendee.identity,
             snapshotFirstName = attendee.firstName,
             snapshotLastName = attendee.lastName,
@@ -146,7 +128,6 @@ class EventRepository @Inject constructor(
         entryDao.insert(entry)
         lastScannedIdentity = identity
 
-        // Return success (We don't calculate Late/Early here anymore)
         return ScanResult.Success(attendee, "Scanned")
     }
 
@@ -169,35 +150,37 @@ class EventRepository @Inject constructor(
                     }
                 )
 
-                // 1. Call API
                 val response = apiService.syncEntries(request)
 
-                // 2. Calculate Lists
                 val allUuids = batch.map { it.scanUuid }
                 val failedUuids = response.failedUuids.toSet()
-
-                // Success = All - Failed
                 val successUuids = allUuids.filter { !failedUuids.contains(it) }
 
-                // 3. Update Local DB
                 if (successUuids.isNotEmpty()) {
                     entryDao.markAsSyncedByUuid(successUuids)
                 }
 
                 if (failedUuids.isNotEmpty()) {
-                    // These are Poison Pills. Mark as FAILED so we stop retrying them.
                     entryDao.markAsFailedByUuid(failedUuids.toList())
                 }
 
-                // 4. Recurse if we had a full successful batch
                 if (batch.size == 50 && failedUuids.isEmpty()) {
                     syncEntries()
                 }
 
                 Result.success(response.successCount)
             } catch (e: Exception) {
-                // Network error: Everything stays PENDING, will retry next time
-                Result.failure(e)
+                // POISON PILL FIX
+                if (e is HttpException && e.code() in 400..499) {
+                    // Client Error (e.g. 400 Bad Request).
+                    // This data will never be accepted. Mark as FAILED.
+                    val batchUuids = entryDao.getPendingEntriesBatch(50).map { it.scanUuid }
+                    entryDao.markAsFailedByUuid(batchUuids)
+                    Result.failure(Exception("Sync Rejected by Server (Code ${e.code()}). Marked as Failed."))
+                } else {
+                    // Network/Server Error (500). Retry later.
+                    Result.failure(e)
+                }
             }
         }
     }
@@ -216,10 +199,8 @@ class EventRepository @Inject constructor(
         }
     }
 
-    // NEW: Check if data exists
     suspend fun getUnsyncedCount(): Int = entryDao.getUnsyncedCountSnapshot()
 
-    // NEW: Nuclear wipe when switching users
     suspend fun clearAllLocalData() = withContext(Dispatchers.IO) {
         appDatabase.withTransaction {
             entryDao.clearAll()

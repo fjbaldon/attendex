@@ -22,10 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +37,7 @@ public class CaptureFacade {
     private final EventFacade eventFacade;
     private final ApplicationEventPublisher eventPublisher;
 
+    @Transactional
     public BatchSyncResponse syncEntries(
             Long organizationId,
             String scannerEmail,
@@ -69,21 +69,14 @@ public class CaptureFacade {
     // UPDATED LOGIC: Implements "Past Bias"
     private SessionDetailsDto findBestSessionInMemory(List<SessionDetailsDto> sessions, Instant scanTime) {
         SessionDetailsDto bestMatch = null;
-        double minWeightedDiff = Double.MAX_VALUE; // Changed to double for weighting
+        double minWeightedDiff = Double.MAX_VALUE;
         long twelveHoursInSeconds = 12 * 60 * 60;
 
         for (SessionDetailsDto session : sessions) {
             long diff = Duration.between(session.targetTime(), scanTime).getSeconds();
             long absDiff = Math.abs(diff);
 
-            // Filter by the 12-hour window (Sanity check)
             if (absDiff <= twelveHoursInSeconds) {
-
-                // BIAS LOGIC:
-                // If diff >= 0 (Scan is AFTER target/LATE): Weight = 1.0 (Normal distance)
-                // If diff < 0 (Scan is BEFORE target/EARLY): Weight = 1.5 (Penalized distance)
-                // This means the algorithm "prefers" picking a past session over a future one
-                // if the scan is roughly in the middle.
                 double weightedDiff = (diff >= 0) ? absDiff : (absDiff * 1.5);
 
                 if (weightedDiff < minWeightedDiff) {
@@ -130,19 +123,32 @@ public class CaptureFacade {
 
     @Transactional(readOnly = true)
     public List<EntryDetailsDto> findAllEntriesForEvent(Long organizationId, Long eventId) {
-        // Verify ownership or event existence via EventFacade if strict,
-        // but for reporting we can just query.
-        // Note: Ideally, check if event belongs to organizationId first.
+        // SECURITY CHECK: Ensure event belongs to the organization
+        // This throws EntityNotFoundException if the ID is invalid or mismatched
+        eventFacade.findEventById(eventId, organizationId);
 
-        return entryRepository.findByEventIdOrderByScanTimestampDesc(eventId).stream()
+        List<Entry> entries = entryRepository.findByEventIdOrderByScanTimestampDesc(eventId);
+
+        if (entries.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> attendeeIds = entries.stream()
+                .map(Entry::getAttendeeId)
+                .distinct()
+                .toList();
+
+        Map<Long, AttendeeDto> attendeeMap = attendeeFacade.findAttendeesByIds(attendeeIds)
+                .stream()
+                .collect(Collectors.toMap(AttendeeDto::id, Function.identity()));
+
+        return entries.stream()
                 .map(entry -> {
-                    // Note: For bulk export (50k rows), this N+1 attendee lookup is slow.
-                    // Ideally, we should JOIN in the repository.
-                    // For now, we use the existing pattern.
-                    var attendee = attendeeFacade.findAttendeeById(entry.getAttendeeId(), organizationId)
-                            .orElse(null);
+                    AttendeeDto attendee = attendeeMap.get(entry.getAttendeeId());
 
-                    if (attendee == null) return null; // Skip orphaned entries
+                    if (attendee == null) {
+                        return null;
+                    }
 
                     return new EntryDetailsDto(
                             entry.getId(),
@@ -151,17 +157,15 @@ public class CaptureFacade {
                             attendee
                     );
                 })
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .toList();
     }
 
     private void processSingleEntry(Long organizationId, Long scannerId, EntrySyncRequestDto.EntryRecord record, Map<Long, List<SessionDetailsDto>> scheduleCache) {
-        // 1. Idempotency Check
         if (entryRepository.existsByScanUuid(record.scanUuid())) {
-            return; // Already saved, treat as success
+            return;
         }
 
-        // 2. Find Session (Memory)
         List<SessionDetailsDto> sessions = scheduleCache.computeIfAbsent(
                 record.eventId(),
                 eventFacade::findAllSessionsForEvent
@@ -188,7 +192,6 @@ public class CaptureFacade {
                 record.scanUuid()
         );
 
-        // Save immediately
         entryRepository.saveAndFlush(entry);
 
         eventPublisher.publishEvent(new EntryCreatedEvent(
