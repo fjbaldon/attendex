@@ -77,10 +77,8 @@ export const useEventDetails = (eventId: number | null, pagination: PageParams) 
     }>({
         mutationFn: ({eventId, attendeeId}) => api.post(`/api/v1/events/${eventId}/roster/${attendeeId}`),
         onSuccess: (_, {eventId}) => {
-            toast.success("Attendee added to roster successfully!");
             return queryClient.invalidateQueries({queryKey: ["eventDetails", eventId]});
         },
-        onError: (error) => toast.error("Failed to add attendee", {description: getErrorMessage(error, "An unknown error occurred.")}),
     });
 
     const removeAttendeeMutation = useMutation<void, AxiosError<ApiErrorResponse>, {

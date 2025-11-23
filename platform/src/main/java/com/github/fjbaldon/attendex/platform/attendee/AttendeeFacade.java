@@ -11,11 +11,11 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -38,22 +38,23 @@ public class AttendeeFacade {
 
     @Transactional
     public AttendeeDto createAttendee(Long organizationId, CreateAttendeeDto dto) {
-        Assert.isTrue(!attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, dto.identity()),
-                "An attendee with this identity already exists in your organization.");
-
         validateIdentityFormat(organizationId, dto.identity());
 
-        Attendee attendee = Attendee.create(
-                organizationId,
-                dto.identity(),
-                dto.firstName(),
-                dto.lastName(),
-                dto.attributes()
-        );
+        try {
+            Attendee attendee = Attendee.create(
+                    organizationId,
+                    dto.identity(),
+                    dto.firstName(),
+                    dto.lastName(),
+                    dto.attributes()
+            );
 
-        Attendee saved = attendeeRepository.save(attendee);
-        eventPublisher.publishEvent(new AttendeeCreatedEvent(saved.getId(), saved.getOrganizationId()));
-        return toDto(saved);
+            Attendee saved = attendeeRepository.save(attendee);
+            eventPublisher.publishEvent(new AttendeeCreatedEvent(saved.getId(), saved.getOrganizationId()));
+            return toDto(saved);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("An attendee with this identity already exists in your organization.");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -98,18 +99,18 @@ public class AttendeeFacade {
                 .orElseThrow(() -> new EntityNotFoundException("Attendee not found"));
 
         attendeeRepository.delete(attendee);
-
-        // NEW: Keep analytics in sync
         eventPublisher.publishEvent(new AttendeeDeletedEvent(organizationId));
     }
 
     @Transactional
     public AttributeDto createAttribute(Long organizationId, CreateAttributeDto dto) {
-        Assert.isTrue(!attributeRepository.existsByOrganizationIdAndName(organizationId, dto.name()),
-                "An attribute with this name already exists.");
-        Attribute attribute = Attribute.create(organizationId, dto.name(), dto.type(), dto.options());
-        Attribute saved = attributeRepository.save(attribute);
-        return toDto(saved);
+        try {
+            Attribute attribute = Attribute.create(organizationId, dto.name(), dto.type(), dto.options());
+            Attribute saved = attributeRepository.save(attribute);
+            return toDto(saved);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("An attribute with this name already exists.");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -159,9 +160,6 @@ public class AttendeeFacade {
 
         List<Attribute> existingAttributes = attributeRepository.findAllByOrganizationId(organizationId);
         Set<String> validAttributeNames = existingAttributes.stream().map(Attribute::getName).collect(Collectors.toSet());
-
-        // Map existing options for validation (optional, if we want to allow expansion we skip strict check)
-        // For this implementation, we allow expansion, so we don't fail if an option is new.
 
         List<CreateAttendeeDto> toCreate = new ArrayList<>();
         List<CreateAttendeeDto> toUpdate = new ArrayList<>();
@@ -216,7 +214,6 @@ public class AttendeeFacade {
                         String val = record.isMapped(csvHeader) ? record.get(csvHeader) : null;
 
                         if (StringUtils.hasText(val)) {
-                            // DATA HYGIENE FIX: Enforce Upper Case
                             val = val.trim().toUpperCase();
 
                             if (validAttributeNames.contains(mappedTarget)) {
@@ -247,7 +244,6 @@ public class AttendeeFacade {
 
     @Transactional
     public void commitAttendeeImport(Long organizationId, List<CreateAttendeeDto> attendees, boolean updateExisting, List<String> newAttributes) {
-        // 1. Gather all unique options for every attribute in this batch
         Map<String, Set<String>> batchOptions = new HashMap<>();
 
         for (CreateAttendeeDto dto : attendees) {
@@ -260,20 +256,21 @@ public class AttendeeFacade {
             }
         }
 
-        // 2. Update or Create Attributes with new options
-        // A. Handle NEW attributes
         if (newAttributes != null) {
             for (String attrName : newAttributes) {
                 if (!attributeRepository.existsByOrganizationIdAndName(organizationId, attrName)) {
                     List<String> options = new ArrayList<>(batchOptions.getOrDefault(attrName, Collections.emptySet()));
-                    Collections.sort(options); // Keep it tidy
-                    Attribute attr = Attribute.create(organizationId, attrName, "SELECT", options);
-                    attributeRepository.save(attr);
+                    Collections.sort(options);
+                    try {
+                        Attribute attr = Attribute.create(organizationId, attrName, "SELECT", options);
+                        attributeRepository.save(attr);
+                    } catch (DataIntegrityViolationException ignored) {
+                        // Race condition handling for attribute creation during import
+                    }
                 }
             }
         }
 
-        // B. Handle EXISTING attributes (Merge new options)
         List<Attribute> existingAttributes = attributeRepository.findAllByOrganizationId(organizationId);
         for (Attribute attr : existingAttributes) {
             if (batchOptions.containsKey(attr.getName())) {
@@ -296,7 +293,6 @@ public class AttendeeFacade {
             }
         }
 
-        // 3. Process Attendees
         List<Attendee> batch = new ArrayList<>();
         for (CreateAttendeeDto dto : attendees) {
             Attendee existing = attendeeRepository.findAttendeeByIdentity(organizationId, dto.identity());

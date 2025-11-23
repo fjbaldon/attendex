@@ -1,256 +1,228 @@
 "use client";
 
 import * as React from "react";
-import {useMemo, useRef, useState} from "react";
+import {useState} from "react";
 import dynamic from "next/dynamic";
 import {AppSidebar} from "@/components/layout/app-sidebar";
 import {SiteHeader} from "@/components/layout/site-header";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
-import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {useEvents} from "@/hooks/use-events";
 import {useAnalytics} from "@/hooks/use-analytics";
 import {Bar, CartesianGrid, XAxis, YAxis} from "recharts";
 import {ChartContainer, ChartTooltip, ChartTooltipContent} from "@/components/ui/chart";
 import {Skeleton} from "@/components/ui/skeleton";
-import {IconChartBar, IconChartDonut, IconFileDownload, IconTable} from "@tabler/icons-react";
+import {IconClock, IconFileDownload, IconScan, IconTrophy, IconUsers} from "@tabler/icons-react";
 import {Button} from "@/components/ui/button";
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
-import {ToggleGroup, ToggleGroupItem} from "@/components/ui/toggle-group";
 import {toast} from "sonner";
+import {format} from "date-fns";
 import {useAttributes} from "@/hooks/use-attributes";
 
-const BarChart = dynamic(() => import("recharts").then(mod => mod.BarChart), {
-    ssr: false,
-    loading: () => <Skeleton className="h-[350px] w-full"/>,
-});
-
-const PieChartView = dynamic(() => import("./pie-chart-view").then(mod => mod.PieChartView), {
-    ssr: false,
-    loading: () => <Skeleton className="h-[350px] w-full"/>,
-});
-
-type ChartType = 'bar' | 'pie' | 'table';
+const BarChart = dynamic(() => import("recharts").then(mod => mod.BarChart), {ssr: false});
 
 export default function AnalyticsPage() {
     const [selectedEventId, setSelectedEventId] = useState<string>("");
     const [selectedAttribute, setSelectedAttribute] = useState<string>("");
-    const [chartType, setChartType] = useState<ChartType>('bar');
     const [isExporting, setIsExporting] = useState(false);
-    const analyticsContentRef = useRef<HTMLDivElement>(null);
+    const analyticsContentRef = React.useRef<HTMLDivElement>(null);
 
-    const {eventsData, isLoadingEvents} = useEvents(0, 9999);
+    const {eventsData, isLoadingEvents} = useEvents(0, 100);
     const events = eventsData?.content ?? [];
-
-    const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
-    const {breakdown, isLoadingBreakdown} = useAnalytics(selectedEventId, selectedAttribute);
-
-    const totalEntries = useMemo(() => {
-        return breakdown.reduce((sum, item) => sum + item.count, 0);
-    }, [breakdown]);
-
-    const chartConfig = useMemo(() => ({
-        count: {
-            label: "Attendees",
-            color: "hsl(var(--primary))",
-        },
-    }), []);
-
-    const selectedEvent = events.find(e => String(e.id) === selectedEventId);
+    const {definitions: attributes} = useAttributes();
+    const {breakdown, stats, isLoadingStats, isLoadingBreakdown} = useAnalytics(selectedEventId, selectedAttribute);
 
     const handleExport = async () => {
-        if (!analyticsContentRef.current || !selectedEventId || !selectedAttribute) {
-            toast.error("Please select an event and an attribute to export.");
+        if (!analyticsContentRef.current || !selectedEventId) {
+            toast.error("Please select an event.");
             return;
         }
-
         setIsExporting(true);
-        toast.info("Preparing PDF...", {description: "This may take a moment."});
-
+        toast.info("Preparing PDF...");
         try {
             const {exportToPdf} = await import("@/lib/pdf-exporter");
-            const eventName = selectedEvent ? selectedEvent.name.replace(/ /g, '_') : 'analytics';
-            const fileName = `analytics-${eventName}-by-${selectedAttribute}`;
-            await exportToPdf(analyticsContentRef.current, fileName);
-        } catch (error) {
-            console.error("Failed to export PDF:", error);
-            toast.error("Export Failed", {description: "An unexpected error occurred while generating the PDF."});
+            await exportToPdf(analyticsContentRef.current, `analytics-report`);
+        } catch {
+            toast.error("Export Failed");
         } finally {
             setIsExporting(false);
         }
     };
 
-    const EmptyState = () => {
-        let title = "Select an Event and Attribute";
-        let description = "Choose an event and an attribute to break down your checked-in attendee data.";
-
-        if (selectedEventId && selectedAttribute) {
-            if (totalEntries === 0) {
-                title = "No Entry Data Found";
-                description = "This event has no scan records to analyze.";
-            } else {
-                title = "No Data for this Attribute";
-                description = `No checked-in attendees have a value for the "${selectedAttribute}" attribute.`;
-            }
-        }
-
-        return (
-            <div
-                className="flex flex-col h-96 items-center justify-center rounded-lg text-center border-2 border-dashed">
-                <IconChartDonut className="h-16 w-16 text-muted-foreground mb-4"/>
-                <h2 className="text-xl font-semibold">{title}</h2>
-                <p className="text-muted-foreground mt-2">{description}</p>
-            </div>
-        );
+    const formatTime = (isoStr: string | null) => {
+        if (!isoStr) return "--:--";
+        return format(new Date(isoStr), "h:mm a");
     };
 
-    const DataTable = () => (
-        <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>{selectedAttribute}</TableHead>
-                        <TableHead className="text-right">Count</TableHead>
-                        <TableHead className="text-right">Percentage</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {breakdown.map((item) => (
-                        <TableRow key={item.value}>
-                            <TableCell className="font-medium">{item.value}</TableCell>
-                            <TableCell className="text-right">{item.count}</TableCell>
-                            <TableCell className="text-right text-muted-foreground">
-                                {totalEntries > 0 ? ((item.count / totalEntries) * 100).toFixed(1) : 0}%
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
-    );
-
     return (
-        <SidebarProvider style={{
-            "--sidebar-width": "calc(var(--spacing) * 72)",
-            "--header-height": "calc(var(--spacing) * 12)"
-        } as React.CSSProperties}>
+        <SidebarProvider style={{"--sidebar-width": "calc(var(--spacing) * 72)", "--header-height": "calc(var(--spacing) * 12)"} as React.CSSProperties}>
             <AppSidebar variant="inset"/>
             <SidebarInset>
                 <SiteHeader title="Analytics"/>
                 <main className="flex-1 p-4 lg:p-6">
                     <div className="w-full max-w-6xl mx-auto space-y-6">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-start">
-                            <div className="flex flex-shrink-0 items-center gap-2">
-                                {isLoadingEvents ? <Skeleton className="h-9 w-full sm:w-64"/> : (
+                        {/* Controls */}
+                        <div className="flex flex-col gap-4 sm:flex-row justify-between items-center">
+                            <div className="flex gap-4 w-full sm:w-auto">
+                                {isLoadingEvents ? <Skeleton className="h-9 w-64"/> : (
                                     <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                                        <SelectTrigger className="w-full sm:w-64">
-                                            <SelectValue placeholder="Select an Event"/>
-                                        </SelectTrigger>
+                                        <SelectTrigger className="w-full sm:w-64"><SelectValue placeholder="Select Event"/></SelectTrigger>
                                         <SelectContent>
-                                            {events.map(event => (
-                                                <SelectItem key={event.id}
-                                                            value={String(event.id)}>{event.name}</SelectItem>
-                                            ))}
+                                            {events.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 )}
-                                <Button
-                                    variant="outline"
-                                    onClick={handleExport}
-                                    disabled={!breakdown || breakdown.length === 0 || isExporting || isLoadingBreakdown}
-                                >
-                                    <IconFileDownload className="mr-2 h-4 w-4" stroke={1.5}/>
-                                    {isExporting ? 'Exporting...' : 'Export PDF'}
-                                </Button>
                             </div>
+                            <Button variant="outline" onClick={handleExport} disabled={isExporting || !selectedEventId}>
+                                <IconFileDownload className="mr-2 h-4 w-4"/> Export PDF
+                            </Button>
                         </div>
 
-                        {selectedEventId && (
-                            <div className="rounded-lg border bg-card p-4">
-                                <div className="flex items-center gap-4">
-                                    <p className="text-sm font-medium text-muted-foreground">Breakdown by:</p>
-                                    {isLoadingAttributes ? <Skeleton className="h-9 w-full sm:w-64"/> : (
-                                        <Select value={selectedAttribute} onValueChange={setSelectedAttribute}
-                                                disabled={!attributes.length}>
-                                            <SelectTrigger className="w-full sm:w-64">
-                                                <SelectValue placeholder="Select an Attribute..."/>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {attributes.map(attr => (
-                                                    <SelectItem key={attr.id} value={attr.name}>{attr.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
+                        <div ref={analyticsContentRef} className="space-y-6 bg-background p-1">
+                            {/* 1. Executive Summary Cards */}
+                            {selectedEventId && (
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                            <CardTitle className="text-sm font-medium">Total Attendance</CardTitle>
+                                            <IconUsers className="h-4 w-4 text-muted-foreground"/>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {isLoadingStats ? <Skeleton className="h-8 w-20"/> : (
+                                                <>
+                                                    <div className="text-2xl font-bold">{stats?.totalScans}</div>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {stats?.attendanceRate.toFixed(1)}% of {stats?.totalRoster} registered
+                                                    </p>
+                                                </>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                            <CardTitle className="text-sm font-medium">Missing</CardTitle>
+                                            <IconUsers className="h-4 w-4 text-muted-foreground"/>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {isLoadingStats ? <Skeleton className="h-8 w-20"/> : (
+                                                <>
+                                                    <div className="text-2xl font-bold text-red-600">
+                                                        {Math.max(0, (stats?.totalRoster || 0) - (stats?.totalScans || 0))}
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">Absent attendees</p>
+                                                </>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                            <CardTitle className="text-sm font-medium">Ingress Start</CardTitle>
+                                            <IconClock className="h-4 w-4 text-muted-foreground"/>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {isLoadingStats ? <Skeleton className="h-8 w-20"/> : (
+                                                <div className="text-2xl font-bold">{formatTime(stats?.firstScan || null)}</div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                            <CardTitle className="text-sm font-medium">Last Entry</CardTitle>
+                                            <IconClock className="h-4 w-4 text-muted-foreground"/>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {isLoadingStats ? <Skeleton className="h-8 w-20"/> : (
+                                                <div className="text-2xl font-bold">{formatTime(stats?.lastScan || null)}</div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        <div className="pt-2">
-                            {(!selectedEventId || !selectedAttribute) ? <EmptyState/> : (
+                            {/* 2. Activity & Scanner Performance */}
+                            {selectedEventId && (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Session Activity</CardTitle>
+                                            <CardDescription>Which activities had the highest turnout?</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {isLoadingStats ? <Skeleton className="h-[300px]"/> : (
+                                                <ChartContainer config={{count: {label: "Scans", color: "hsl(var(--primary))"}}} className="h-[300px] w-full">
+                                                    <BarChart data={stats?.sessionStats || []} layout="vertical" margin={{left: 0}}>
+                                                        <CartesianGrid horizontal={false}/>
+                                                        <YAxis dataKey="label" type="category" width={120} tickLine={false} axisLine={false} style={{fontSize: '12px'}}/>
+                                                        <XAxis type="number" hide/>
+                                                        <ChartTooltip content={<ChartTooltipContent/>}/>
+                                                        <Bar dataKey="count" fill="var(--color-count)" radius={4} barSize={32}/>
+                                                    </BarChart>
+                                                </ChartContainer>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Top Scanners</CardTitle>
+                                            <CardDescription>Volume processed by device/user.</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {isLoadingStats ? <Skeleton className="h-[300px]"/> : (
+                                                <div className="space-y-4">
+                                                    {(stats?.scannerStats || []).map((s, i) => (
+                                                        <div key={i} className="flex items-center">
+                                                            <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center mr-4">
+                                                                {i === 0 ? <IconTrophy className="h-5 w-5 text-yellow-500"/> : <IconScan className="h-5 w-5 text-muted-foreground"/>}
+                                                            </div>
+                                                            <div className="flex-1 space-y-1">
+                                                                <p className="text-sm font-medium leading-none">{s.label}</p>
+                                                                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                                                                    <div className="h-full bg-primary" style={{width: `${(s.count / (stats?.totalScans || 1)) * 100}%`}}/>
+                                                                </div>
+                                                            </div>
+                                                            <div className="font-bold ml-4">{s.count}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
+
+                            {/* 3. Demographics Breakdown */}
+                            {selectedEventId && (
                                 <Card>
                                     <CardHeader>
-                                        <div>
-                                            <CardTitle>Attribute Breakdown</CardTitle>
-                                            <CardDescription>
-                                                Visualizing the distribution of {totalEntries} entries
-                                                for &quot;{selectedEvent?.name}&quot;.
-                                            </CardDescription>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <CardTitle>Demographics Breakdown</CardTitle>
+                                                <CardDescription>Analyze attendance by attribute.</CardDescription>
+                                            </div>
+                                            <Select value={selectedAttribute} onValueChange={setSelectedAttribute}>
+                                                <SelectTrigger className="w-48"><SelectValue placeholder="Select Attribute"/></SelectTrigger>
+                                                <SelectContent>
+                                                    {attributes.map(attr => <SelectItem key={attr.id} value={attr.name}>{attr.name}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <CardAction>
-                                            <ToggleGroup
-                                                type="single"
-                                                value={chartType}
-                                                onValueChange={(value: ChartType) => {
-                                                    if (value) setChartType(value);
-                                                }}
-                                                variant="outline"
-                                            >
-                                                <ToggleGroupItem value="bar"
-                                                                 aria-label="Bar chart"><IconChartBar/></ToggleGroupItem>
-                                                <ToggleGroupItem value="pie"
-                                                                 aria-label="Pie chart"><IconChartDonut/></ToggleGroupItem>
-                                                <ToggleGroupItem value="table"
-                                                                 aria-label="Data table"><IconTable/></ToggleGroupItem>
-                                            </ToggleGroup>
-                                        </CardAction>
                                     </CardHeader>
-                                    <CardContent className="p-6 pt-0">
-                                        <div ref={analyticsContentRef} className="bg-white text-black py-4">
-                                            {isLoadingBreakdown ?
-                                                <Skeleton className="h-[350px] w-full"/> : breakdown.length === 0 ?
-                                                    <EmptyState/> : (
-                                                        <>
-                                                            {chartType === 'bar' && (
-                                                                <ChartContainer config={chartConfig}
-                                                                                className="h-[350px] w-full">
-                                                                    <BarChart data={breakdown}>
-                                                                        <CartesianGrid vertical={false}/>
-                                                                        <XAxis dataKey="value" tickLine={false}
-                                                                               tickMargin={10} axisLine={false}
-                                                                               angle={-45}
-                                                                               textAnchor="end" height={60}
-                                                                               stroke="black"/>
-                                                                        <YAxis allowDecimals={false} stroke="black"/>
-                                                                        <ChartTooltip
-                                                                            cursor={false}
-                                                                            content={
-                                                                                <ChartTooltipContent
-                                                                                    formatter={(value) => `${value} (${totalEntries > 0 ? ((Number(value) / totalEntries) * 100).toFixed(1) : 0}%)`}
-                                                                                />
-                                                                            }
-                                                                        />
-                                                                        <Bar dataKey="count" fill="var(--color-count)"
-                                                                             radius={4}/>
-                                                                    </BarChart>
-                                                                </ChartContainer>
-                                                            )}
-                                                            {chartType === 'pie' &&
-                                                                <PieChartView data={breakdown} total={totalEntries}/>}
-                                                            {chartType === 'table' && <DataTable/>}
-                                                        </>
-                                                    )}
-                                        </div>
+                                    <CardContent>
+                                        {!selectedAttribute ? (
+                                            <div className="h-40 flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg">
+                                                Select an attribute above to view breakdown
+                                            </div>
+                                        ) : isLoadingBreakdown ? <Skeleton className="h-[300px]"/> : (
+                                            <ChartContainer config={{count: {label: "Attendees", color: "hsl(var(--chart-2))"}}} className="h-[300px] w-full">
+                                                <BarChart data={breakdown}>
+                                                    <CartesianGrid vertical={false}/>
+                                                    <XAxis dataKey="value" tickLine={false} axisLine={false} />
+                                                    <ChartTooltip content={<ChartTooltipContent/>}/>
+                                                    <Bar dataKey="count" fill="var(--color-count)" radius={4}/>
+                                                </BarChart>
+                                            </ChartContainer>
+                                        )}
                                     </CardContent>
                                 </Card>
                             )}

@@ -187,7 +187,7 @@ export type ImportMode = 'SKIP' | 'UPDATE' | 'FAIL';
 export interface ImportConfiguration {
     mode: ImportMode;
     createMissingAttributes: boolean;
-    columnMapping: Record<string, string>; // CSV Header -> System Field
+    columnMapping: Record<string, string>;
 }
 
 export interface AttendeeImportAnalysis {
@@ -212,7 +212,7 @@ export interface AdminDashboardStats {
 export interface OrganizationSummary {
     id: number;
     name: string;
-    date: string; // Represents either expiry or creation date
+    date: string;
 }
 
 export interface DailyRegistration {
@@ -236,4 +236,14 @@ export interface Steward {
 export interface StewardCreateRequest {
     email: string;
     password: string;
+}
+
+export interface EventStats {
+    totalScans: number;
+    totalRoster: number;
+    attendanceRate: number;
+    firstScan: string | null;
+    lastScan: string | null;
+    sessionStats: { label: string; count: number }[];
+    scannerStats: { label: string; count: number }[];
 }

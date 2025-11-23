@@ -1,8 +1,11 @@
 package com.github.fjbaldon.attendex.platform.analytics;
 
 import com.github.fjbaldon.attendex.platform.analytics.dto.AttributeBreakdownDto;
+import com.github.fjbaldon.attendex.platform.analytics.dto.EventStatsDto;
 import com.github.fjbaldon.attendex.platform.analytics.dto.EventSummaryDto;
 import com.github.fjbaldon.attendex.platform.analytics.dto.OrganizationSummaryDto;
+import com.github.fjbaldon.attendex.platform.capture.CaptureFacade;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,8 @@ public class AnalyticsFacade {
     private final AttributeBreakdownRepository attributeBreakdownRepository;
     private final OrganizationSummaryRepository organizationSummaryRepository;
     private final EventSummaryRepository eventSummaryRepository;
+    private final CaptureFacade captureFacade;
+    private final OrganizationFacade organizationFacade;
 
     @Transactional(readOnly = true)
     public AttributeBreakdownDto getAttributeBreakdown(Long eventId, String attributeName) {
@@ -48,23 +53,24 @@ public class AnalyticsFacade {
 
     @Transactional(readOnly = true)
     public long countOrganizationsByLifecycle(String lifecycle) {
-        // This query doesn't exist. We would add it to a new read model or query the OrganizationFacade.
-        return 0; // Placeholder
+        return organizationFacade.countByLifecycle(lifecycle);
     }
 
     @Transactional(readOnly = true)
     public long countOrganizationsBySubscriptionType(String subscriptionType) {
-        // This query doesn't exist.
-        return 0; // Placeholder
+        return organizationFacade.countBySubscriptionType(subscriptionType);
     }
 
     @Transactional(readOnly = true)
     public List<EventSummaryDto> findRecentEventSummaries(Long organizationId, Pageable pageable) {
-        // You might need to join with Event table if you want recent events *that don't have analytics yet*
-        // But strictly speaking, this returns events that have some activity history.
         return eventSummaryRepository.findByOrganizationId(organizationId, pageable).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public EventStatsDto getEventStats(Long organizationId, Long eventId) {
+        return captureFacade.getEventStats(organizationId, eventId);
     }
 
     private OrganizationSummaryDto toDto(OrganizationSummary summary) {

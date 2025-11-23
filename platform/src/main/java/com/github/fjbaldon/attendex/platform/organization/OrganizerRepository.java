@@ -1,5 +1,7 @@
 package com.github.fjbaldon.attendex.platform.organization;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 
@@ -15,4 +17,6 @@ interface OrganizerRepository extends PagingAndSortingRepository<Organizer, Long
     boolean existsByEmailAndOrganizationId(String email, Long organizationId);
 
     long countByOrganizationId(Long organizationId);
+
+    Page<Organizer> findAllByOrganizationId(Long organizationId, Pageable pageable);
 }

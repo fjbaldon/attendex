@@ -14,9 +14,7 @@ import org.springframework.util.Assert;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -100,7 +98,8 @@ public class OrganizationFacade {
 
     @Transactional(readOnly = true)
     public Page<OrganizerDto> findOrganizers(Long organizationId, Pageable pageable) {
-        return organizerRepository.findAll(pageable).map(this::toOrganizerDto);
+        // FIXED: Now filters by organizationId
+        return organizerRepository.findAllByOrganizationId(organizationId, pageable).map(this::toOrganizerDto);
     }
 
     @Transactional
@@ -130,7 +129,7 @@ public class OrganizationFacade {
 
     @Transactional(readOnly = true)
     public Page<ScannerDto> findScanners(Long organizationId, Pageable pageable) {
-        return scannerRepository.findAll(pageable).map(this::toScannerDto);
+        return scannerRepository.findAllByOrganizationId(organizationId, pageable).map(this::toScannerDto);
     }
 
     @Transactional
@@ -215,11 +214,6 @@ public class OrganizationFacade {
                 .map(scanner -> new ScannerAuthDto(scanner.getId(), scanner.getOrganization().getId()));
     }
 
-    @Transactional(readOnly = true)
-    public long countScanners(Long organizationId) {
-        return scannerRepository.countByOrganizationId(organizationId);
-    }
-
     @Transactional
     public void changeUserPassword(String email, String newPassword) {
         Assert.hasText(email, "Email cannot be blank");
@@ -266,6 +260,22 @@ public class OrganizationFacade {
     @Transactional(readOnly = true)
     public List<DailyRegistration> getDailyRegistrations(Instant startDate) {
         return organizationRepository.findDailyRegistrationsSince(startDate);
+    }
+
+    @Transactional(readOnly = true)
+    public long countByLifecycle(String lifecycle) {
+        return organizationRepository.countByLifecycle(lifecycle);
+    }
+
+    @Transactional(readOnly = true)
+    public long countBySubscriptionType(String subscriptionType) {
+        return organizationRepository.countBySubscriptionType(subscriptionType);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, String> getScannerEmailsByIds(Set<Long> scannerIds) {
+        return scannerRepository.findAllById(scannerIds).stream()
+                .collect(Collectors.toMap(Scanner::getId, Scanner::getEmail));
     }
 
     private void assertEmailIsUniqueInOrganization(String email, Long organizationId) {

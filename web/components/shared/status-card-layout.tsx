@@ -1,8 +1,8 @@
 import {Card, CardContent} from "@/components/ui/card";
 import Image from "next/image";
-import {Ticket} from "lucide-react";
 import React from "react";
 import {cn} from "@/lib/utils";
+import {Logo} from "@/components/shared/logo";
 
 interface StatusCardLayoutProps {
     imageUrl?: string;
@@ -23,10 +23,7 @@ export function StatusCardLayout({imageUrl, imageAlt, children}: StatusCardLayou
                 )}>
                     <div className="flex flex-col items-center justify-center p-6 text-center md:p-8">
                         <div className="flex items-center gap-2 self-center font-semibold text-lg mb-6">
-                            <div
-                                className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
-                                <Ticket className="size-5"/>
-                            </div>
+                            <Logo className="size-7" />
                             AttendEx
                         </div>
                         {children}

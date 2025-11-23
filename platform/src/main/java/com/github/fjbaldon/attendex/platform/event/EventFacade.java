@@ -20,6 +20,8 @@ import org.springframework.util.Assert;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -201,6 +203,11 @@ public class EventFacade {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public long countRosterForEvent(Long eventId) {
+        return rosterRepository.countByIdEventId(eventId);
+    }
+
     private EventDto toDto(Event event) {
         return new EventDto(
                 event.getId(),
@@ -213,6 +220,12 @@ public class EventFacade {
                 calculateEventStatus(event),
                 event.getSessions().stream().map(this::toDto).collect(Collectors.toList())
         );
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, String> getSessionNamesByIds(Set<Long> sessionIds) {
+        return sessionRepository.findAllById(sessionIds).stream()
+                .collect(Collectors.toMap(Session::getId, Session::getActivityName));
     }
 
     private String calculateEventStatus(Event event) {

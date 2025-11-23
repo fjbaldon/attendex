@@ -5,21 +5,14 @@ import {z} from "zod";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {loginSchema} from "@/lib/schemas";
 import {useAuth} from "@/hooks/use-auth";
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from "@/components/ui/form";
+import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage,} from "@/components/ui/form";
 import {cn} from "@/lib/utils";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import Link from "next/link";
-import {Ticket} from "lucide-react";
 import Image from "next/image";
+import {Logo} from "@/components/shared/logo";
 
 export function LoginForm({
                               className,
@@ -48,10 +41,7 @@ export function LoginForm({
                             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
                                 <div className="flex flex-col items-center text-center gap-2">
                                     <div className="flex items-center gap-2 self-center font-semibold text-lg">
-                                        <div
-                                            className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
-                                            <Ticket className="size-5"/>
-                                        </div>
+                                        <Logo className="size-7" />
                                         AttendEx
                                     </div>
                                     <h1 className="text-2xl font-bold">Welcome back</h1>

@@ -9,15 +9,14 @@
           type="text/css">
     <!--<![endif]-->
     <style type="text/css">
-        /* Basic Reset */
         body, table, td, a {
             -webkit-text-size-adjust: 100%;
             -ms-text-size-adjust: 100%;
         }
 
         table, td {
-            mso-table-lspace: 0pt;
-            mso-table-rspace: 0pt;
+            mso-table-lspace: 0;
+            mso-table-rspace: 0;
         }
 
         img {
@@ -37,41 +36,39 @@
             width: 100% !important;
         }
 
-        /* BRANDING VARIABLES (from your globals.css) */
         :root {
-            --brand-primary: #2F2F2F; /* oklch(0.205 0 0) */
-            --brand-primary-foreground: #FAFAFA; /* oklch(0.985 0 0) */
-            --brand-background: #F7F7F7; /* oklch(0.97 0 0) */
+            --brand-primary: #2F2F2F;
+            --brand-primary-foreground: #FAFAFA;
+            --brand-background: #F7F7F7;
             --brand-card-bg: #ffffff;
-            --brand-border: #EBEBEB; /* oklch(0.922 0 0) */
-            --brand-text-main: #252525; /* oklch(0.145 0 0) */
-            --brand-text-muted: #8E8E8E; /* oklch(0.556 0 0) */
-            --brand-radius: 10px; /* 0.625rem */
+            --brand-border: #EBEBEB;
+            --brand-text-main: #252525;
+            --brand-text-muted: #8E8E8E;
+            --brand-radius: 10px;
             --font-sans: 'Geist Sans', -apple-system, 'Segoe UI', sans-serif;
         }
 
-        /* Dark Mode Styles */
         @media (prefers-color-scheme: dark) {
             body, .email-container {
-                background-color: #252525 !important; /* --background */
+                background-color: #252525 !important;
             }
 
             .card {
-                background-color: #343434 !important; /* --card */
-                border-color: rgba(255, 255, 255, 0.1) !important; /* --border */
+                background-color: #343434 !important;
+                border-color: rgba(255, 255, 255, 0.1) !important;
             }
 
             .main-title, .paragraph {
-                color: #FAFAFA !important; /* --foreground */
+                color: #FAFAFA !important;
             }
 
             .footer-text, .link {
-                color: #B5B5B5 !important; /* --muted-foreground */
+                color: #B5B5B5 !important;
             }
 
             .button-primary {
-                background-color: #EBEBEB !important; /* --primary */
-                color: #343434 !important; /* --primary-foreground */
+                background-color: #EBEBEB !important;
+                color: #343434 !important;
             }
 
             .logo {
@@ -97,8 +94,11 @@
                                style="vertical-align: middle;">
                             <tr>
                                 <td style="background-color: #2F2F2F; border-radius: 6px; padding: 6px 8px; vertical-align: middle;">
-                                    <img src="https://img.icons8.com/material-outlined/24/FAFAFA/ticket.png"
-                                         alt="Ticket Icon" width="18" height="18" style="display: block;"/>
+                                    <img th:src="${logoUrl}"
+                                         alt="AttendEx Logo"
+                                         width="24"
+                                         height="24"
+                                         style="display: block; border-radius: 4px;" />
                                 </td>
                                 <td style="padding-left: 10px; vertical-align: middle;">
                                     <h1 class="logo"

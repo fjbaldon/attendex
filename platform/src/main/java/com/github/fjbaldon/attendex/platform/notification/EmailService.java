@@ -32,10 +32,13 @@ class EmailService {
 
             final String verificationUrl = frontendUrl + "/verify?token=" + token;
 
+            final String logoUrl = "https://raw.githubusercontent.com/fjbaldon/attendex/main/web/public/logo.png";
+
             Context context = new Context();
             context.setVariable("verificationUrl", verificationUrl);
             context.setVariable("organizationName", organizationName);
             context.setVariable("currentYear", Year.now().getValue());
+            context.setVariable("logoUrl", logoUrl);
 
             String htmlContent = templateEngine.process("verification-email", context);
 

@@ -31,7 +31,6 @@ interface AddAttendeeDialogProps {
     eventId: number;
 }
 
-// Helper to get current roster IDs to disable checkboxes
 const useEventRosterIds = (eventId: number) => {
     return useQuery<Set<number>>({
         queryKey: ["eventDetails", eventId, "rosterIds"],
@@ -44,16 +43,13 @@ const useEventRosterIds = (eventId: number) => {
 };
 
 export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDialogProps) {
-    // 1. Search State
     const [searchQuery, setSearchQuery] = useState("");
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-    // 2. Pagination State
     const [pagination, setPagination] = useState({pageIndex: 0, pageSize: 10});
 
     const [rowSelection, setRowSelection] = useState({});
 
-    // 3. Data Fetching (Server-Side)
     const {attendeesData, isLoadingAttendees, refetch: refetchAttendees} =
         useAttendees(pagination.pageIndex, pagination.pageSize, debouncedSearchQuery);
 
@@ -62,27 +58,23 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
     const {addAttendee, isAddingAttendee} = useEventDetails(eventId, {pageIndex: 0, pageSize: 10});
     const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
 
-    // 4. Setup Columns
     const columns = useMemo(() => getColumns(attributes), [attributes]);
 
-    // 5. Filter out attendees already in roster (Client-side check of Server-side results)
-    // Note: In a truly massive system, the backend search should exclude these.
-    // For now, we disable selection if they are found in the rosterIds set.
     const attendees = attendeesData?.content ?? [];
 
     const table = useReactTable({
         data: attendees,
         columns,
-        pageCount: attendeesData?.totalPages ?? -1, // -1 indicates server-side unknown, or use totalPages
+        pageCount: attendeesData?.totalPages ?? -1,
         state: {
             rowSelection,
             pagination,
         },
         getRowId: (row) => String(row.id),
-        enableRowSelection: (row) => !rosterIds?.has(row.original.id), // Disable if already added
+        enableRowSelection: (row) => !rosterIds?.has(row.original.id),
         onRowSelectionChange: setRowSelection,
-        onPaginationChange: setPagination, // Handle page changes
-        manualPagination: true, // Enable server-side pagination
+        onPaginationChange: setPagination,
+        manualPagination: true,
         getCoreRowModel: getCoreRowModel(),
     });
 
@@ -101,6 +93,8 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
         if (selectedIds.length === 0) return;
 
         let successCount = 0;
+        let failureCount = 0;
+
         for (const attendeeId of selectedIds) {
             try {
                 await new Promise<void>((resolve, reject) => {
@@ -108,16 +102,25 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                 });
                 successCount++;
             } catch {
-                toast.error(`Failed to add attendee ID ${attendeeId}`);
-                break;
+                console.error(`Failed to add attendee ID ${attendeeId}`);
+                failureCount++;
             }
         }
 
         if (successCount > 0) {
             toast.success(`${successCount} attendee(s) added!`);
-            // Refresh roster IDs to update disabled state
             void refetchRoster();
             setRowSelection({});
+        }
+
+        if (failureCount > 0) {
+            toast.error(`Failed to add ${failureCount} attendee(s).`, {
+                description: "They may already be in the roster or an error occurred."
+            });
+        }
+
+        if (failureCount === 0) {
+            onOpenChange(false);
         }
     };
 
@@ -138,7 +141,7 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                             value={searchQuery}
                             onChange={(e) => {
                                 setSearchQuery(e.target.value);
-                                setPagination(prev => ({...prev, pageIndex: 0})); // Reset page on search
+                                setPagination(prev => ({...prev, pageIndex: 0}));
                             }}
                             className="h-9 max-w-sm"
                         />
@@ -185,7 +188,6 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                             </TableBody>
                         </Table>
                     </div>
-                    {/* Use the existing Pagination Component, passing the table instance which now has manual pagination config */}
                     <DataTablePagination table={table}/>
                 </div>
                 <DialogFooter className="pt-4 border-t">

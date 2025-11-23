@@ -29,4 +29,6 @@ interface RosterRepository extends PagingAndSortingRepository<RosterEntry, Roste
 
     @Override
     boolean existsById(@NonNull RosterEntryId id);
+
+    long countByIdEventId(Long eventId);
 }

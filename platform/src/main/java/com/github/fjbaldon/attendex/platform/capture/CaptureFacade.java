@@ -1,5 +1,6 @@
 package com.github.fjbaldon.attendex.platform.capture;
 
+import com.github.fjbaldon.attendex.platform.analytics.dto.EventStatsDto;
 import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.attendee.dto.AttendeeDto;
 import com.github.fjbaldon.attendex.platform.capture.dto.BatchSyncResponse;
@@ -47,7 +48,6 @@ public class CaptureFacade {
                 .filter(s -> s.organizationId().equals(organizationId))
                 .orElseThrow(() -> new EntityNotFoundException("Scanner not found."));
 
-        // Cache for In-Memory Session Lookup
         Map<Long, List<SessionDetailsDto>> scheduleCache = new HashMap<>();
 
         List<String> failedUuids = new ArrayList<>();
@@ -66,7 +66,6 @@ public class CaptureFacade {
         return new BatchSyncResponse(successCount, failedUuids.size(), failedUuids);
     }
 
-    // UPDATED LOGIC: Implements "Past Bias"
     private SessionDetailsDto findBestSessionInMemory(List<SessionDetailsDto> sessions, Instant scanTime) {
         SessionDetailsDto bestMatch = null;
         double minWeightedDiff = Double.MAX_VALUE;
@@ -123,8 +122,6 @@ public class CaptureFacade {
 
     @Transactional(readOnly = true)
     public List<EntryDetailsDto> findAllEntriesForEvent(Long organizationId, Long eventId) {
-        // SECURITY CHECK: Ensure event belongs to the organization
-        // This throws EntityNotFoundException if the ID is invalid or mismatched
         eventFacade.findEventById(eventId, organizationId);
 
         List<Entry> entries = entryRepository.findByEventIdOrderByScanTimestampDesc(eventId);
@@ -179,6 +176,11 @@ public class CaptureFacade {
         if (bestSession != null) {
             sessionId = bestSession.sessionId();
             punctuality = calculatePunctuality(record.scanTimestamp(), bestSession);
+
+            if (entryRepository.existsByAttendeeIdAndSessionId(record.attendeeId(), sessionId)) {
+                log.info("Skipping duplicate entry for attendee {} in session {}", record.attendeeId(), sessionId);
+                return;
+            }
         }
 
         Entry entry = Entry.create(
@@ -200,5 +202,51 @@ public class CaptureFacade {
                 organizationId,
                 entry.getScanTimestamp()
         ));
+    }
+
+    @Transactional(readOnly = true)
+    public EventStatsDto getEventStats(Long organizationId, Long eventId) {
+        eventFacade.findEventById(eventId, organizationId);
+
+        long totalScans = entryRepository.countByEventId(eventId);
+        long rosterCount = eventFacade.countRosterForEvent(eventId);
+        double rate = (rosterCount > 0) ? ((double) totalScans / rosterCount) * 100 : 0.0;
+
+        List<Object[]> sessionCounts = entryRepository.countByEventIdGroupBySessionId(eventId);
+        Set<Long> sessionIds = sessionCounts.stream()
+                .map(row -> (Long) row[0])
+                .collect(Collectors.toSet());
+
+        Map<Long, String> sessionNames = eventFacade.getSessionNamesByIds(sessionIds);
+
+        List<EventStatsDto.StatItem> sessionStats = sessionCounts.stream()
+                .map(row -> {
+                    Long id = (Long) row[0];
+                    long count = (long) row[1];
+                    String name = sessionNames.getOrDefault(id, "Unknown Session");
+                    return new EventStatsDto.StatItem(name, count);
+                })
+                .collect(Collectors.toList());
+
+        List<Object[]> scannerCounts = entryRepository.countByEventIdGroupByScannerId(eventId);
+        Set<Long> scannerIds = scannerCounts.stream()
+                .map(row -> (Long) row[0])
+                .collect(Collectors.toSet());
+
+        Map<Long, String> scannerEmails = organizationFacade.getScannerEmailsByIds(scannerIds);
+
+        List<EventStatsDto.StatItem> scannerStats = scannerCounts.stream()
+                .map(row -> {
+                    Long id = (Long) row[0];
+                    long count = (long) row[1];
+                    String email = scannerEmails.getOrDefault(id, "Unknown Scanner");
+                    return new EventStatsDto.StatItem(email, count);
+                })
+                .collect(Collectors.toList());
+
+        Instant first = entryRepository.findFirstScanByEventId(eventId).orElse(null);
+        Instant last = entryRepository.findLastScanByEventId(eventId).orElse(null);
+
+        return new EventStatsDto(totalScans, rosterCount, rate, first, last, sessionStats, scannerStats);
     }
 }

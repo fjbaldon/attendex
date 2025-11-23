@@ -1,6 +1,7 @@
 package com.github.fjbaldon.attendex.platform.analytics;
 
 import com.github.fjbaldon.attendex.platform.analytics.dto.AttributeBreakdownDto;
+import com.github.fjbaldon.attendex.platform.analytics.dto.EventStatsDto;
 import com.github.fjbaldon.attendex.platform.analytics.dto.EventSummaryDto;
 import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -41,5 +42,12 @@ class AnalyticsController {
                 .orElseThrow(() -> new EntityNotFoundException("Event not found or you do not have permission to view it."));
 
         return ResponseEntity.ok(analyticsFacade.getAttributeBreakdown(eventId, attributeName));
+    }
+
+    @GetMapping("/events/{eventId}/stats")
+    public ResponseEntity<EventStatsDto> getEventStats(
+            @PathVariable Long eventId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(analyticsFacade.getEventStats(user.getOrganizationId(), eventId));
     }
 }

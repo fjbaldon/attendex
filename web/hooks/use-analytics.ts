@@ -1,6 +1,6 @@
 import {useQuery} from "@tanstack/react-query";
 import api from "@/lib/api";
-import {AnalyticsBreakdownDto} from "@/types";
+import {AnalyticsBreakdownDto, EventStats} from "@/types";
 
 export const useAnalytics = (eventId: string | null, attributeName: string | null) => {
 
@@ -15,8 +15,19 @@ export const useAnalytics = (eventId: string | null, attributeName: string | nul
         enabled: !!eventId && !!attributeName,
     });
 
+    const {data: eventStats, isLoading: isLoadingStats} = useQuery<EventStats>({
+        queryKey: ['analyticsStats', eventId],
+        queryFn: async () => {
+            const response = await api.get(`/api/v1/analytics/events/${eventId}/stats`);
+            return response.data;
+        },
+        enabled: !!eventId,
+    });
+
     return {
         breakdown: breakdownData?.breakdown || [],
+        stats: eventStats,
         isLoadingBreakdown,
+        isLoadingStats
     };
 };

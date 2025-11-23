@@ -16,14 +16,11 @@ export default function EventsPage() {
         pageSize: 10,
     });
 
-    // Search State
     const [searchQuery, setSearchQuery] = React.useState("");
-    // Debounce to prevent API calls on every keystroke (500ms delay)
     const debouncedQuery = useDebounce(searchQuery, 500);
 
     const router = useRouter();
 
-    // Pass debouncedQuery to hook for server-side filtering
     const {eventsData, isLoadingEvents} = useEvents(pageIndex, pageSize, debouncedQuery);
     const events = eventsData?.content ?? [];
     const pageCount = eventsData?.totalPages ?? 0;
@@ -44,7 +41,7 @@ export default function EventsPage() {
                 <SiteHeader title="Events"/>
                 <div className="flex flex-1 flex-col">
                     <div className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
-                        <div className="px-4 lg:px-6">
+                        <div className="w-full max-w-6xl mx-auto px-4 lg:px-6">
                             <EventsDataTable
                                 columns={columns}
                                 data={events}

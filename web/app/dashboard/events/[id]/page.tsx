@@ -68,68 +68,70 @@ export default function EventDetailsPage() {
             <AppSidebar variant="inset"/>
             <SidebarInset>
                 <SiteHeader title="Events"/>
-                <main className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbLink href="/dashboard/events">Events</BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator/>
-                            <BreadcrumbItem>
-                                {isLoadingEvent ? <Skeleton className="h-5 w-32"/> :
-                                    <BreadcrumbPage>{event?.name}</BreadcrumbPage>}
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
+                <main className="flex flex-1 flex-col p-4 lg:p-6">
+                    <div className="w-full max-w-[1600px] mx-auto flex flex-col gap-4">
+                        <Breadcrumb>
+                            <BreadcrumbList>
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink href="/dashboard/events">Events</BreadcrumbLink>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator/>
+                                <BreadcrumbItem>
+                                    {isLoadingEvent ? <Skeleton className="h-5 w-32"/> :
+                                        <BreadcrumbPage>{event?.name}</BreadcrumbPage>}
+                                </BreadcrumbItem>
+                            </BreadcrumbList>
+                        </Breadcrumb>
 
-                    <div className="flex items-center">
-                        <div>
-                            {isLoadingEvent ? <Skeleton className="h-8 w-64"/> :
-                                <h1 className="text-lg font-semibold md:text-2xl">{event?.name}</h1>}
+                        <div className="flex items-center">
+                            <div>
+                                {isLoadingEvent ? <Skeleton className="h-8 w-64"/> :
+                                    <h1 className="text-lg font-semibold md:text-2xl">{event?.name}</h1>}
+                            </div>
                         </div>
+
+                        <Tabs value={activeTab} onValueChange={handleTabChange}>
+                            <TabsList>
+                                <TabsTrigger value="roster">Roster</TabsTrigger>
+                                <TabsTrigger value="arrival">Arrival</TabsTrigger>
+                                <TabsTrigger value="departure">Departure</TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="roster">
+                                <EventAttendeesDataTable
+                                    columns={rosterColumns}
+                                    data={attendeesData?.content ?? []}
+                                    pageCount={attendeesData?.totalPages ?? 0}
+                                    pagination={pagination}
+                                    setPagination={setPagination}
+                                    isLoading={isLoadingAttendees || isLoadingCustomFields}
+                                    eventId={eventId}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="arrival">
+                                <ArrivalsDataTable
+                                    columns={checkedInColumns}
+                                    data={arrivalsData?.content ?? []}
+                                    pageCount={arrivalsData?.totalPages ?? 0}
+                                    pagination={pagination}
+                                    setPagination={setPagination}
+                                    isLoading={isLoadingArrivals || isLoadingCustomFields}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="departure">
+                                <DeparturesDataTable
+                                    columns={checkedOutColumns}
+                                    data={departuresData?.content ?? []}
+                                    pageCount={departuresData?.totalPages ?? 0}
+                                    pagination={pagination}
+                                    setPagination={setPagination}
+                                    isLoading={isLoadingDepartures || isLoadingCustomFields}
+                                />
+                            </TabsContent>
+                        </Tabs>
                     </div>
-
-                    <Tabs value={activeTab} onValueChange={handleTabChange}>
-                        <TabsList>
-                            <TabsTrigger value="roster">Roster</TabsTrigger>
-                            <TabsTrigger value="arrival">Arrival</TabsTrigger>
-                            <TabsTrigger value="departure">Departure</TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="roster">
-                            <EventAttendeesDataTable
-                                columns={rosterColumns}
-                                data={attendeesData?.content ?? []}
-                                pageCount={attendeesData?.totalPages ?? 0}
-                                pagination={pagination}
-                                setPagination={setPagination}
-                                isLoading={isLoadingAttendees || isLoadingCustomFields}
-                                eventId={eventId}
-                            />
-                        </TabsContent>
-
-                        <TabsContent value="arrival">
-                            <ArrivalsDataTable
-                                columns={checkedInColumns}
-                                data={arrivalsData?.content ?? []}
-                                pageCount={arrivalsData?.totalPages ?? 0}
-                                pagination={pagination}
-                                setPagination={setPagination}
-                                isLoading={isLoadingArrivals || isLoadingCustomFields}
-                            />
-                        </TabsContent>
-
-                        <TabsContent value="departure">
-                            <DeparturesDataTable
-                                columns={checkedOutColumns}
-                                data={departuresData?.content ?? []}
-                                pageCount={departuresData?.totalPages ?? 0}
-                                pagination={pagination}
-                                setPagination={setPagination}
-                                isLoading={isLoadingDepartures || isLoadingCustomFields}
-                            />
-                        </TabsContent>
-                    </Tabs>
                 </main>
             </SidebarInset>
         </SidebarProvider>

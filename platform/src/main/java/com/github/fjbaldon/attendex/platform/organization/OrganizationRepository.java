@@ -24,6 +24,10 @@ interface OrganizationRepository extends CrudRepository<Organization, Long> {
             "FROM organization_organization " +
             "WHERE created_at >= :startDate " +
             "GROUP BY date " +
-            "ORDER BY date ASC", nativeQuery = true)
+            "ORDER BY date ", nativeQuery = true)
     List<DailyRegistration> findDailyRegistrationsSince(@Param("startDate") Instant startDate);
+
+    long countByLifecycle(String lifecycle);
+
+    long countBySubscriptionType(String subscriptionType);
 }

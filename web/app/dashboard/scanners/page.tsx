@@ -34,7 +34,7 @@ export default function ScannersPage() {
                 <SiteHeader title="Scanners"/>
                 <div className="flex flex-1 flex-col">
                     <div className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
-                        <div className="px-4 lg:px-6">
+                        <div className="w-full max-w-6xl mx-auto px-4 lg:px-6">
                             <ScannersDataTable
                                 columns={columns}
                                 data={scanners}

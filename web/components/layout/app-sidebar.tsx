@@ -25,8 +25,8 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import {useAuthStore} from "@/store/auth";
-import {Ticket} from "lucide-react";
 import Link from "next/link";
+import {Logo} from "@/components/shared/logo";
 
 const navDashboard = [
     {title: "Dashboard", url: "/dashboard", icon: IconDashboard},
@@ -68,7 +68,7 @@ export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
                             className="data-[slot=sidebar-menu-button]:!p-1.5"
                         >
                             <Link href="/dashboard">
-                                <Ticket className="!size-5"/>
+                                <Logo className="!size-5" />
                                 <span className="text-base font-semibold">AttendEx</span>
                             </Link>
                         </SidebarMenuButton>

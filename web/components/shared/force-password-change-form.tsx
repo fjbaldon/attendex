@@ -15,9 +15,9 @@ import {AxiosError} from "axios";
 import {useRouter} from "next/navigation";
 import {useAuthStore} from "@/store/auth";
 import {Card, CardContent} from "@/components/ui/card";
-import {Ticket} from "lucide-react";
 import Image from "next/image";
 import {ApiErrorResponse} from "@/types";
+import {Logo} from "@/components/shared/logo";
 
 export function ForcePasswordChangeForm() {
     const {logout} = useAuth();
@@ -61,10 +61,7 @@ export function ForcePasswordChangeForm() {
                         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
                             <div className="flex flex-col items-center text-center gap-2">
                                 <div className="flex items-center gap-2 self-center font-semibold text-lg">
-                                    <div
-                                        className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
-                                        <Ticket className="size-5"/>
-                                    </div>
+                                    <Logo className="size-7" />
                                     AttendEx
                                 </div>
                                 <h1 className="text-2xl font-bold">Create a New Password</h1>
