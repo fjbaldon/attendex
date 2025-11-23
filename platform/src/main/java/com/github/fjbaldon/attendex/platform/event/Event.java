@@ -29,6 +29,8 @@ class Event {
     private int graceMinutesAfter;
     private Instant createdAt;
 
+    private Instant deletedAt;
+
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     private final Set<Session> sessions = new HashSet<>();
 
@@ -60,5 +62,27 @@ class Event {
     void addSession(Session session) {
         this.sessions.add(session);
         session.setEvent(this);
+    }
+
+    void updateDetails(String name, Instant startDate, Instant endDate, int graceMinutesBefore, int graceMinutesAfter) {
+        Assert.hasText(name, "Event name must not be blank");
+        Assert.notNull(startDate, "Start date must not be null");
+        Assert.notNull(endDate, "End date must not be null");
+        Assert.isTrue(!endDate.isBefore(startDate), "End date must not be before start date");
+
+        this.name = name;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.graceMinutesBefore = graceMinutesBefore;
+        this.graceMinutesAfter = graceMinutesAfter;
+    }
+
+    void removeSession(Session session) {
+        this.sessions.remove(session);
+        session.setEvent(null);
+    }
+
+    void markAsDeleted() {
+        this.deletedAt = Instant.now();
     }
 }

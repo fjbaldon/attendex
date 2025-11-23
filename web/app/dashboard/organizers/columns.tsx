@@ -3,16 +3,14 @@
 import {ColumnDef} from "@tanstack/react-table";
 import {OrganizerResponse} from "@/types";
 import {IconKey, IconTrash} from "@tabler/icons-react";
-import {selectColumn} from "@/components/shared/data-table-columns";
 import {createActionsColumn} from "@/components/shared/data-table-action-column";
 
 export const columns: ColumnDef<OrganizerResponse>[] = [
-    selectColumn<OrganizerResponse>(),
     {
         accessorKey: "email",
-        header: "Email Address",
+        header: () => <div className="pl-4">Email Address</div>,
         cell: ({row}) => {
-            return <div className="font-medium">{row.original.email}</div>;
+            return <div className="pl-4 font-medium">{row.original.email}</div>;
         }
     },
     createActionsColumn<OrganizerResponse>([

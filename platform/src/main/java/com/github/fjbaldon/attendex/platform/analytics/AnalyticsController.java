@@ -12,7 +12,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/analytics")
+@RequestMapping("/api/v1/insights")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ORGANIZER')")
 class AnalyticsController {
@@ -26,7 +26,7 @@ class AnalyticsController {
 
         EventSummaryDto summary = analyticsFacade.findEventSummary(eventId)
                 .filter(s -> s.organizationId().equals(user.getOrganizationId()))
-                .orElseThrow(() -> new EntityNotFoundException("Event summary not found or you do not have permission to view it."));
+                .orElseThrow(() -> new EntityNotFoundException("Event summary not found."));
 
         return ResponseEntity.ok(summary);
     }
@@ -39,7 +39,7 @@ class AnalyticsController {
 
         analyticsFacade.findEventSummary(eventId)
                 .filter(s -> s.organizationId().equals(user.getOrganizationId()))
-                .orElseThrow(() -> new EntityNotFoundException("Event not found or you do not have permission to view it."));
+                .orElseThrow(() -> new EntityNotFoundException("Event not found."));
 
         return ResponseEntity.ok(analyticsFacade.getAttributeBreakdown(eventId, attributeName));
     }

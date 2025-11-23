@@ -10,6 +10,7 @@ import {useDashboard} from "@/hooks/use-dashboard";
 import {useIsMobile} from "@/hooks/use-mobile";
 import {UpcomingEvents} from "@/components/layout/upcoming-events";
 import {RecentEventsStats} from "@/components/layout/recent-events-stats";
+import {RecentActivityList} from "@/components/layout/recent-activity"; // Import
 
 export default function DashboardPage() {
     const isMobile = useIsMobile();
@@ -35,7 +36,8 @@ export default function DashboardPage() {
             <SidebarInset>
                 <SiteHeader title="Dashboard"/>
                 <main className="@container/main flex-1 overflow-y-auto p-4 lg:p-6">
-                    <div className="flex flex-col gap-6">
+                    <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full">
+
                         {/* Section 1: KPIs */}
                         <SectionCards stats={dashboardData?.stats} isLoading={isLoading}/>
 
@@ -54,9 +56,11 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        {/* Section 3: Additional Stats */}
-                        <div>
+                        {/* Section 3: Split Bottom Row */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <RecentEventsStats events={dashboardData?.recentEventStats} isLoading={isLoading}/>
+                            {/* NEW CARD */}
+                            <RecentActivityList activities={dashboardData?.recentActivity} isLoading={isLoading}/>
                         </div>
                     </div>
                 </main>

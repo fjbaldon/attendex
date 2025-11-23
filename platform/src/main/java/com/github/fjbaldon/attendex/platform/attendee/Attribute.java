@@ -42,6 +42,11 @@ class Attribute {
         return new Attribute(organizationId, name, type, options);
     }
 
+    void setName(String name) {
+        Assert.hasText(name, "Attribute name must not be blank");
+        this.name = name;
+    }
+
     void updateOptions(List<String> newOptions) {
         Assert.notEmpty(newOptions, "Options list cannot be empty");
         this.options = newOptions;

@@ -24,6 +24,9 @@ interface EntryDao {
     @Query("UPDATE entries SET syncStatus = 'FAILED', syncErrorMessage = 'Server Rejected' WHERE scanUuid IN (:uuids)")
     suspend fun markAsFailedByUuid(uuids: List<String>)
 
+    @Query("UPDATE entries SET syncStatus = 'PENDING', syncErrorMessage = null WHERE syncStatus = 'FAILED' AND eventId = :eventId")
+    suspend fun resetFailedToPendingForEvent(eventId: Long)
+
     @Query("SELECT COUNT(id) FROM entries WHERE syncStatus = 'PENDING'")
     fun getUnsyncedEntryCount(): Flow<Int>
 
@@ -32,6 +35,9 @@ interface EntryDao {
 
     @Query("SELECT COUNT(id) FROM entries WHERE syncStatus = 'PENDING'")
     suspend fun getUnsyncedCountSnapshot(): Int
+
+    @Query("DELETE FROM entries WHERE syncStatus = 'SYNCED' AND scanTimestamp < :threshold")
+    suspend fun deleteSyncedEntriesOlderThan(threshold: Long): Int
 
     @Query("DELETE FROM entries")
     suspend fun clearAll()

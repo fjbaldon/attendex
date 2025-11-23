@@ -13,7 +13,6 @@ import {
 import {Badge} from "@/components/ui/badge";
 import Link from "next/link";
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
-import {selectColumn} from "@/components/shared/data-table-columns";
 import {cn} from "@/lib/utils";
 import {createActionsColumn} from "@/components/shared/data-table-action-column";
 import {Button} from "@/components/ui/button";
@@ -74,15 +73,16 @@ const formatTime = (dateString: string | Date) => {
 };
 
 export const getColumns = (router: AppRouterInstance): ColumnDef<EventResponse>[] => [
-    selectColumn<EventResponse>(),
     {
         accessorKey: "name",
-        header: "Event",
+        header: () => <div className="pl-4">Event</div>,
         cell: ({row}) => (
-            <Link href={`/dashboard/events/${row.original.id}`}
-                  className="font-medium text-primary underline-offset-4 hover:underline">
-                {row.original.name}
-            </Link>
+            <div className="pl-4">
+                <Link href={`/dashboard/events/${row.original.id}`}
+                      className="font-medium text-primary underline-offset-4 hover:underline">
+                    {row.original.name}
+                </Link>
+            </div>
         ),
         enableHiding: false,
     },

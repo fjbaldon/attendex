@@ -8,7 +8,9 @@ import androidx.room.PrimaryKey
     tableName = "attendees",
     indices = [
         Index(value = ["eventId", "identity"], unique = true),
-        Index(value = ["identity"])
+        Index(value = ["identity"]),
+        Index(value = ["firstName"]),
+        Index(value = ["lastName"])
     ]
 )
 data class AttendeeEntity(

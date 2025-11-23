@@ -52,4 +52,8 @@ class Scanner {
     void requirePasswordChange() {
         this.forcePasswordChange = true;
     }
+
+    void toggleStatus() {
+        this.enabled = !this.enabled;
+    }
 }

@@ -1,6 +1,7 @@
 package com.github.fjbaldon.attendex.capture.feature.scanner
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,7 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
 import com.github.fjbaldon.attendex.capture.core.ui.camera.CameraPreview
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,6 +34,16 @@ fun ScannerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scaffoldState = rememberBottomSheetScaffoldState()
 
+    if (uiState.isManualEntryOpen) {
+        ManualEntryDialog(
+            query = uiState.searchQuery,
+            onQueryChange = viewModel::onSearchQueryChange,
+            results = uiState.searchResults,
+            onSelect = viewModel::onManualEntrySelected,
+            onDismiss = { viewModel.toggleManualEntry(false) }
+        )
+    }
+
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
         sheetContent = {
@@ -41,11 +54,13 @@ fun ScannerScreen(
                     .heightIn(max = 400.dp)
             ) {
                 ScannedAttendeesSheetContent(
-                    attendees = uiState.scannedAttendees
+                    attendees = uiState.scannedAttendees,
+                    hasFailedSyncs = uiState.hasFailedSyncs,
+                    onRetry = viewModel::retryFailedScans
                 )
             }
         },
-        sheetPeekHeight = 80.dp,
+        sheetPeekHeight = 100.dp,
         sheetDragHandle = { BottomSheetDefaults.DragHandle() },
         topBar = {
             TopAppBar(
@@ -55,14 +70,21 @@ fun ScannerScreen(
                             text = uiState.eventName ?: "Scanner",
                             style = MaterialTheme.typography.titleMedium
                         )
-                        Text(
-                            text = if (uiState.isEventActive) "Ready to Scan" else "Event Inactive",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (uiState.isEventActive)
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            else
-                                MaterialTheme.colorScheme.error
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Total: ${uiState.globalScanCount} / ${uiState.totalRosterCount}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (uiState.isRosterSyncing) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(10.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 },
                 navigationIcon = {
@@ -71,6 +93,20 @@ fun ScannerScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { /* Sync triggered by retry now */ }) {
+                        if (uiState.hasFailedSyncs) {
+                            Icon(Icons.Default.Warning, "Sync Failed", tint = MaterialTheme.colorScheme.error)
+                        } else if (uiState.hasUnsyncedData) {
+                            Icon(Icons.Default.CloudOff, "Unsynced Data", tint = Color(0xFFFF9800))
+                        } else {
+                            Icon(Icons.Default.CloudDone, "Synced", tint = Color(0xFF4CAF50))
+                        }
+                    }
+
+                    IconButton(onClick = { viewModel.toggleManualEntry(true) }) {
+                        Icon(Icons.Default.Keyboard, "Manual Entry")
+                    }
+
                     if (uiState.hasFlashUnit) {
                         IconButton(onClick = { viewModel.onTorchToggle(!uiState.isTorchOn) }) {
                             Icon(
@@ -91,7 +127,6 @@ fun ScannerScreen(
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
-                // 1. Camera Preview with Hot-Swappable Analyzer
                 CameraPreview(
                     scanMode = uiState.scanMode,
                     onTextFound = { text -> viewModel.processScannedText(text) },
@@ -99,20 +134,76 @@ fun ScannerScreen(
                     onTorchToggle = { hasFlash -> viewModel.onFlashUnitAvailabilityChange(hasFlash) }
                 )
 
-                // 2. Visual Feedback Overlay (Text)
                 ScannerOverlay(
                     result = uiState.lastScanResult,
                     isEventActive = uiState.isEventActive
                 )
 
-                // 3. Scan Mode Toggle Buttons
                 ScanModeSelector(
                     currentMode = uiState.scanMode,
                     onModeSelected = { viewModel.toggleScanMode(it) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 100.dp)
+                        .padding(bottom = 120.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun ManualEntryDialog(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    results: List<AttendeeEntity>,
+    onSelect: (AttendeeEntity) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(500.dp)
+                .padding(16.dp),
+            shape = MaterialTheme.shapes.large
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "Manual Entry",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    label = { Text("Search Name or ID") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(results) { attendee ->
+                        ListItem(
+                            headlineContent = { Text("${attendee.firstName} ${attendee.lastName}") },
+                            supportingContent = { Text(attendee.identity) },
+                            modifier = Modifier.clickable { onSelect(attendee) }
+                        )
+                        HorizontalDivider()
+                    }
+                    if (results.isEmpty() && query.isNotEmpty()) {
+                        item {
+                            Text(
+                                "No matches found",
+                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -170,6 +261,8 @@ fun ModeButton(
 @Composable
 private fun ScannedAttendeesSheetContent(
     attendees: List<ScannedItemUi>,
+    hasFailedSyncs: Boolean,
+    onRetry: () -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Row(
@@ -180,11 +273,25 @@ private fun ScannedAttendeesSheetContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Recent Scans", style = MaterialTheme.typography.titleMedium)
-            Badge(containerColor = MaterialTheme.colorScheme.primary) {
-                Text(
-                    text = attendees.size.toString(),
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
+
+            if (hasFailedSyncs) {
+                Button(
+                    onClick = onRetry,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Retry Failed", style = MaterialTheme.typography.labelSmall)
+                }
+            } else {
+                Badge(containerColor = MaterialTheme.colorScheme.primary) {
+                    Text(
+                        text = attendees.size.toString(),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
             }
         }
 
@@ -225,7 +332,7 @@ private fun ScannedAttendeesSheetContent(
                                 item.isSynced -> Icon(
                                     Icons.Default.CloudDone,
                                     contentDescription = "Synced",
-                                    tint = Color(0xFF4CAF50) // Green
+                                    tint = Color(0xFF4CAF50)
                                 )
 
                                 else -> Icon(
@@ -257,20 +364,20 @@ private fun ScannerOverlay(
     val overlayState = when {
         !isEventActive -> OverlayState(
             text = "Event is not active",
-            textColor = Color(0xFFFFC107), // Amber
+            textColor = Color(0xFFFFC107),
             overlayColor = Color.Black.copy(alpha = 0.6f)
         )
 
         else -> when (result) {
             is ScanUiResult.Success -> OverlayState(
                 text = result.attendeeDetails,
-                textColor = Color(0xFF4CAF50), // Green
+                textColor = Color(0xFF4CAF50),
                 overlayColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
             )
 
             is ScanUiResult.AlreadyScanned -> OverlayState(
                 text = "Already Scanned",
-                textColor = Color(0xFFFFC107), // Amber
+                textColor = Color(0xFFFFC107),
                 overlayColor = Color(0xFFFFC107).copy(alpha = 0.5f)
             )
 
@@ -282,7 +389,6 @@ private fun ScannerOverlay(
         }
     }
 
-    // Just the text logic here. Background dimming is handled by CameraOverlay.
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -292,12 +398,12 @@ private fun ScannerOverlay(
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(top = 200.dp) // Push text well below the scanning box
+                    .padding(top = 200.dp)
             ) {
                 Text(
                     text = overlayState.text,
                     color = overlayState.textColor,
-                    fontSize = 24.sp, // Larger text for visibility
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                     modifier = Modifier

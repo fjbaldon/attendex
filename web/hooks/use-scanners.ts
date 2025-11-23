@@ -55,6 +55,23 @@ export const useScanners = (page = 0, size = 10) => {
         },
     });
 
+    const toggleScannerStatusMutation = useMutation<
+        ScannerResponse,
+        AxiosError<ApiErrorResponse>,
+        number
+    >({
+        mutationFn: (id) => api.patch(`/api/v1/organization/scanners/${id}/status`),
+        onSuccess: async () => {
+            toast.success("Scanner status updated.");
+            await queryClient.invalidateQueries({queryKey: ["scanners"]});
+        },
+        onError: (error) => {
+            toast.error("Failed to update status", {
+                description: getErrorMessage(error, "Could not update scanner status."),
+            });
+        },
+    });
+
     return {
         scannersData: data,
         isLoadingScanners,
@@ -62,5 +79,7 @@ export const useScanners = (page = 0, size = 10) => {
         isCreatingScanner: createScannerMutation.isPending,
         deleteScanner: deleteScannerMutation.mutate,
         isDeletingScanner: deleteScannerMutation.isPending,
+        toggleScannerStatus: toggleScannerStatusMutation.mutate,
+        isTogglingStatus: toggleScannerStatusMutation.isPending,
     };
 };

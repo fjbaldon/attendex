@@ -1,12 +1,7 @@
 "use client";
 
 import {useAuth} from "@/hooks/use-auth";
-import {
-    IconDotsVertical,
-    IconLogout,
-    IconNotification,
-    IconUserCircle,
-} from "@tabler/icons-react";
+import {IconDotsVertical, IconLogout, IconUserCircle,} from "@tabler/icons-react";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {
     DropdownMenu,
@@ -17,21 +12,19 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    useSidebar,
-} from "@/components/ui/sidebar";
+import {SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,} from "@/components/ui/sidebar";
+import Link from "next/link";
 
 export function NavUser({
                             user,
+                            accountUrl = "/dashboard/account", // Default to dashboard
                         }: {
     user: {
         name: string;
         email: string;
         avatar: string;
     };
+    accountUrl?: string;
 }) {
     const {isMobile} = useSidebar();
     const {logout} = useAuth();
@@ -81,18 +74,16 @@ export function NavUser({
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator/>
                         <DropdownMenuGroup>
-                            <DropdownMenuItem disabled>
-                                <IconUserCircle/>
-                                Account
-                            </DropdownMenuItem>
-                            <DropdownMenuItem disabled>
-                                <IconNotification/>
-                                Notifications
+                            <DropdownMenuItem asChild>
+                                <Link href={accountUrl}>
+                                    <IconUserCircle className="mr-2 h-4 w-4"/>
+                                    <span>Account</span>
+                                </Link>
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator/>
                         <DropdownMenuItem onClick={() => logout()}>
-                            <IconLogout/>
+                            <IconLogout className="mr-2 h-4 w-4"/>
                             Log out
                         </DropdownMenuItem>
                     </DropdownMenuContent>

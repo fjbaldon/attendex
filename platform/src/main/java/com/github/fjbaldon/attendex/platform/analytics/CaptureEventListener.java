@@ -4,7 +4,6 @@ import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.capture.events.EntriesSyncedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,7 +14,6 @@ class CaptureEventListener {
     private final AttendeeFacade attendeeFacade;
     private final AttributeBreakdownRepository repository;
 
-    @Async
     @EventListener
     @Transactional
     public void handleEntriesSyncedEvent(EntriesSyncedEvent event) {

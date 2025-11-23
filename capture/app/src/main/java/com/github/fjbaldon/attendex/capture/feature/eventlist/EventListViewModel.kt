@@ -64,6 +64,13 @@ class EventListViewModel @Inject constructor(
 
     init {
         loadEvents(isInitialLoad = true)
+        runHousekeeping()
+    }
+
+    private fun runHousekeeping() {
+        viewModelScope.launch {
+            eventRepository.runHousekeeping()
+        }
     }
 
     fun retryInitialLoad() {

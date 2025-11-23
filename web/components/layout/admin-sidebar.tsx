@@ -52,7 +52,7 @@ export function AdminSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
                 <NavMain items={navAdmin}/>
             </SidebarContent>
             <SidebarFooter>
-                <NavUser user={user}/>
+                <NavUser user={user} accountUrl="/admin/account" />
             </SidebarFooter>
         </Sidebar>
     );

@@ -53,6 +53,23 @@ export const useStewards = (page = 0, size = 10) => {
         },
     });
 
+    const resetStewardPasswordMutation = useMutation<
+        void,
+        AxiosError<ApiErrorResponse>,
+        { id: number; newPassword: string }
+    >({
+        mutationFn: ({id, newPassword}) =>
+            api.put(`/api/v1/admin/stewards/${id}/reset-password`, { newPassword }),
+        onSuccess: () => {
+            toast.success("Steward password reset successfully.");
+        },
+        onError: (error) => {
+            toast.error("Failed to reset password", {
+                description: getErrorMessage(error, "An unknown error occurred."),
+            });
+        },
+    });
+
     return {
         stewardsData: data,
         isLoadingStewards,
@@ -60,5 +77,8 @@ export const useStewards = (page = 0, size = 10) => {
         isCreatingSteward: createStewardMutation.isPending,
         deleteSteward: deleteStewardMutation.mutate,
         isDeletingSteward: deleteStewardMutation.isPending,
+        // Export new capability
+        resetStewardPassword: resetStewardPasswordMutation.mutate,
+        isResettingStewardPassword: resetStewardPasswordMutation.isPending,
     };
 };

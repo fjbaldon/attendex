@@ -8,13 +8,13 @@ data class EntrySyncRequest(
 ) {
     @Serializable
     data class EntryRecord(
-        // NEW: The Idempotency Key
         val scanUuid: String,
-
         val eventId: Long,
         val attendeeId: Long,
-        val scanTimestamp: String
+        val scanTimestamp: String,
 
-        // REMOVED: sessionId
+        val snapshotIdentity: String,
+        val snapshotFirstName: String,
+        val snapshotLastName: String
     )
 }

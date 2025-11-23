@@ -28,11 +28,10 @@
             padding-bottom: 4mm;
         }
 
-        /* FIXED: Remove global cell borders from the layout header */
         .header-table td {
             border-bottom: none;
             padding: 0;
-            vertical-align: middle; /* Ensure vertical alignment persists */
+            vertical-align: middle;
         }
 
         .logo {
@@ -73,19 +72,17 @@
         }
 
         h1 {
-            font-size: 22pt;
+            font-size: 24pt; /* Slightly larger for hierarchy */
             margin: 0 0 2mm 0;
             color: #000;
-            font-weight: normal;
+            font-weight: bold;
         }
 
+        /* CHANGED: Removed background box, converted to clean subtitle */
         .stats-bar {
-            font-size: 10pt;
-            color: #444;
-            background-color: #f5f5f5;
-            padding: 8px 12px;
-            border-radius: 4px;
-            border: 1px solid #eee;
+            font-size: 11pt;
+            color: #555;
+            margin-top: 2px;
         }
 
         /* Data Table */
@@ -95,16 +92,15 @@
             font-size: 9pt;
         }
 
-        /* Only apply borders to the Data Table cells */
         table.data-table th {
-            border-bottom: 1px solid #000;
+            border-bottom: 2px solid #000; /* Stronger header line */
             text-align: left;
             padding: 8px 6px;
             font-weight: bold;
             text-transform: uppercase;
             font-size: 8pt;
             letter-spacing: 0.5px;
-            color: #444;
+            color: #000;
         }
 
         table.data-table td {
@@ -113,8 +109,9 @@
             vertical-align: middle;
         }
 
+        /* Removed Zebra striping for a cleaner, more formal look */
         tr:nth-child(even) td {
-            background-color: #fafafa;
+            background-color: transparent;
         }
 
         thead {
@@ -128,7 +125,7 @@
         .status-badge {
             font-size: 8pt;
             font-weight: bold;
-            color: #555;
+            color: #444;
         }
     </style>
 </head>
@@ -137,12 +134,10 @@
 <!-- Header Table -->
 <table class="header-table">
     <tr>
-        <!-- Left: Brand -->
         <td>
             <img th:src="${logoData}" class="logo" alt="Logo" />
             <span class="app-name">AttendEx</span>
         </td>
-        <!-- Right: Organization & Date -->
         <td class="header-right">
             <div class="org-name" th:text="${organizationName}">Organization Name</div>
             <div class="report-meta">Generated: <span th:text="${generatedDate}">Oct 24, 2025</span></div>
@@ -154,7 +149,7 @@
 <div class="title-section">
     <h1 th:text="${eventName}">Event Name</h1>
     <div class="stats-bar">
-        Report: <strong>Arrivals Log</strong> &#160;|&#160;
+        Report: <strong th:text="${reportTitle}">Attendance Log</strong> &#160;|&#160;
         Total Records: <strong th:text="${totalCount}">0</strong>
     </div>
 </div>

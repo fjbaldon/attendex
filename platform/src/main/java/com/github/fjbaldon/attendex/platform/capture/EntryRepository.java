@@ -13,6 +13,8 @@ import java.util.Optional;
 
 interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRepository<Entry, Long> {
 
+    List<Entry> findTop5ByOrganizationIdOrderByScanTimestampDesc(Long organizationId);
+
     boolean existsByAttendeeIdAndSessionId(Long attendeeId, Long sessionId);
 
     boolean existsByScanUuid(String scanUuid);
@@ -20,8 +22,6 @@ interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRe
     long countByOrganizationIdAndSyncTimestampAfter(Long organizationId, Instant timestamp);
 
     Page<Entry> findBySessionIdIn(List<Long> sessionIds, Pageable pageable);
-
-    List<Entry> findByEventIdOrderByScanTimestampDesc(Long eventId);
 
     long countByEventId(Long eventId);
 
@@ -36,4 +36,15 @@ interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRe
 
     @Query("SELECT MAX(e.scanTimestamp) FROM Entry e WHERE e.eventId = :eventId")
     Optional<Instant> findLastScanByEventId(@Param("eventId") Long eventId);
+
+    @Query("SELECT e FROM Entry e JOIN com.github.fjbaldon.attendex.platform.event.Session s ON e.sessionId = s.id " +
+            "WHERE e.eventId = :eventId " +
+            "AND (:intent IS NULL OR s.intent = :intent) " +
+            "AND (:attendeeIds IS NULL OR e.attendeeId IN :attendeeIds) " +
+            "ORDER BY e.scanTimestamp DESC")
+    List<Entry> findEntriesForReport(
+            @Param("eventId") Long eventId,
+            @Param("intent") String intent,
+            @Param("attendeeIds") List<Long> attendeeIds
+    );
 }

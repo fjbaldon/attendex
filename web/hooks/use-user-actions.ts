@@ -18,7 +18,7 @@ export const useUserActions = () => {
         ResetPasswordPayload
     >({
         mutationFn: ({userId, newTemporaryPassword}) =>
-            api.put(`/api/v1/users/${userId}/reset-password`, {newTemporaryPassword}),
+            api.put(`/api/v1/users/${userId}/reset-password`, { newPassword: newTemporaryPassword }),
         onSuccess: () => {
             toast.success("Password reset successfully!", {
                 description: "The user will be required to change this password on their next login.",

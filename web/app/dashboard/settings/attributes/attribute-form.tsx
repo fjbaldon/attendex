@@ -32,6 +32,7 @@ export function AttributeForm({onSuccess, attribute}: AttributeFormProps) {
     function onSubmit(values: z.infer<typeof attributeSchema>) {
         const requestData = {
             name: values.name,
+            type: attribute?.type || "SELECT",
             options: values.options.split(',').map(opt => opt.trim()),
         };
 
@@ -52,7 +53,7 @@ export function AttributeForm({onSuccess, attribute}: AttributeFormProps) {
                         <FormItem className="flex flex-col gap-1.5">
                             <FormLabel>Attribute Name</FormLabel>
                             <FormControl>
-                                <Input placeholder="e.g., Department" {...field} disabled={isEditing}/>
+                                <Input placeholder="e.g., Department" {...field} />
                             </FormControl>
                             <FormMessage/>
                         </FormItem>

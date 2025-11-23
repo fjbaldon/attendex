@@ -7,7 +7,7 @@ export const useAnalytics = (eventId: string | null, attributeName: string | nul
     const {data: breakdownData, isLoading: isLoadingBreakdown} = useQuery<AnalyticsBreakdownDto>({
         queryKey: ['analyticsBreakdown', eventId, attributeName],
         queryFn: async () => {
-            const response = await api.get(`/api/v1/analytics/events/${eventId}/breakdown`, {
+            const response = await api.get(`/api/v1/insights/events/${eventId}/breakdown`, {
                 params: {attributeName}
             });
             return response.data;
@@ -18,7 +18,7 @@ export const useAnalytics = (eventId: string | null, attributeName: string | nul
     const {data: eventStats, isLoading: isLoadingStats} = useQuery<EventStats>({
         queryKey: ['analyticsStats', eventId],
         queryFn: async () => {
-            const response = await api.get(`/api/v1/analytics/events/${eventId}/stats`);
+            const response = await api.get(`/api/v1/insights/events/${eventId}/stats`);
             return response.data;
         },
         enabled: !!eventId,

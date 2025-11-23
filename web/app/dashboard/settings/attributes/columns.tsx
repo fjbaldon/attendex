@@ -9,8 +9,8 @@ import {createActionsColumn} from "@/components/shared/data-table-action-column"
 export const columns: ColumnDef<Attribute>[] = [
     {
         accessorKey: "name",
-        header: "Attribute Name",
-        cell: ({row}) => <div className="font-medium">{row.original.name}</div>,
+        header: () => <div className="pl-4">Attribute Name</div>,
+        cell: ({row}) => <div className="pl-4 font-medium">{row.original.name}</div>,
     },
     {
         accessorKey: "type",

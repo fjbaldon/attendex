@@ -6,6 +6,7 @@ import com.github.fjbaldon.attendex.platform.admin.events.StewardDeletedEvent;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
 import com.github.fjbaldon.attendex.platform.organization.events.OrganizationLifecycleChangedEvent;
+import com.github.fjbaldon.attendex.platform.organization.events.PasswordResetInitiatedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -112,5 +113,22 @@ public class AdminFacade {
 
         String encodedPassword = passwordEncoder.encode(newPassword);
         steward.changePassword(encodedPassword);
+    }
+
+    @Transactional
+    public void resetStewardPassword(Long stewardId, String newPassword) {
+        Steward steward = stewardRepository.findById(stewardId)
+                .orElseThrow(() -> new UsernameNotFoundException("Steward not found with ID: " + stewardId));
+
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        steward.changePassword(encodedPassword);
+
+        // Optional: Fire event if you want to email them, though for Stewards you might just tell them directly.
+        // Keeping it consistent with the rest of the app:
+        eventPublisher.publishEvent(new PasswordResetInitiatedEvent(
+                steward.getEmail(),
+                newPassword,
+                "Platform Administration" // Organization Name context
+        ));
     }
 }

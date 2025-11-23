@@ -84,8 +84,8 @@ export function AttendeesDataTable({
                 open={isConfirmDialogOpen}
                 onOpenChange={setIsConfirmDialogOpen}
                 onConfirm={handleDeleteConfirm}
-                title="Are you sure?"
-                description={`This will permanently delete ${selectedAttendee?.firstName} ${selectedAttendee?.lastName}. This action cannot be undone.`}
+                title="Remove Attendee?"
+                description={`This will permanently remove ${selectedAttendee?.firstName} ${selectedAttendee?.lastName} from the organization.`}
                 isLoading={isDeletingAttendee}
             />
             <DataTable

@@ -4,6 +4,7 @@ import com.github.fjbaldon.attendex.platform.attendee.dto.AttendeeDto;
 import com.github.fjbaldon.attendex.platform.capture.dto.EntryDetailsDto;
 import com.github.fjbaldon.attendex.platform.event.dto.CreateEventRequestDto;
 import com.github.fjbaldon.attendex.platform.event.dto.EventDto;
+import com.github.fjbaldon.attendex.platform.event.dto.UpdateEventRequestDto;
 import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,25 @@ class EventController {
         EventDto event = eventFacade.createEvent(user.getOrganizationId(), user.getId(), request);
 
         return new ResponseEntity<>(event, HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{eventId}")
+    public ResponseEntity<EventDto> updateEvent(
+            @PathVariable Long eventId,
+            @Valid @RequestBody UpdateEventRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        EventDto updatedEvent = eventFacade.updateEvent(user.getOrganizationId(), eventId, request);
+        return ResponseEntity.ok(updatedEvent);
+    }
+
+    @DeleteMapping("/{eventId}")
+    public ResponseEntity<Void> deleteEvent(
+            @PathVariable Long eventId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        eventFacade.deleteEvent(user.getOrganizationId(), eventId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping

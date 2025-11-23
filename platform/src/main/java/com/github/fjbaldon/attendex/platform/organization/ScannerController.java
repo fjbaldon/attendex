@@ -36,6 +36,15 @@ class ScannerController {
         return organizationFacade.findScanners(user.getOrganizationId(), pageable);
     }
 
+    @PatchMapping("/{scannerId}/status")
+    public ResponseEntity<ScannerDto> toggleScannerStatus(
+            @PathVariable Long scannerId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        ScannerDto updatedScanner = organizationFacade.toggleScannerStatus(user.getOrganizationId(), scannerId);
+        return ResponseEntity.ok(updatedScanner);
+    }
+
     @DeleteMapping("/{scannerId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteScanner(

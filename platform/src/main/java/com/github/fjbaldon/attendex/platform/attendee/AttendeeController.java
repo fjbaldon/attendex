@@ -112,7 +112,13 @@ class AttendeeController {
             @PathVariable Long attributeId,
             @Valid @RequestBody CreateAttributeDto request,
             @AuthenticationPrincipal CustomUserDetails user) {
-        AttributeDto attribute = attendeeFacade.updateAttribute(user.getOrganizationId(), attributeId, request.options());
+
+        AttributeDto attribute = attendeeFacade.updateAttribute(
+                user.getOrganizationId(),
+                attributeId,
+                request.name(),
+                request.options()
+        );
         return ResponseEntity.ok(attribute);
     }
 

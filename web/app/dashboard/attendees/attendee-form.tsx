@@ -6,7 +6,6 @@ import {zodResolver} from "@hookform/resolvers/zod";
 import {attendeeSchema} from "@/lib/schemas";
 import {AttendeeResponse} from "@/types";
 import {Form} from "@/components/ui/form";
-import {Button} from "@/components/ui/button";
 import {Separator} from "@/components/ui/separator";
 import {Skeleton} from "@/components/ui/skeleton";
 import {useAttributes} from "@/hooks/use-attributes";
@@ -17,11 +16,10 @@ type AttendeeFormSubmitValues = z.infer<typeof attendeeSchema>;
 interface AttendeeFormProps {
     attendee?: AttendeeResponse | null;
     onSubmit: (values: AttendeeFormSubmitValues) => void;
-    isLoading: boolean;
-    onClose: () => void;
+    formId: string;
 }
 
-export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeFormProps) {
+export function AttendeeForm({attendee, onSubmit, formId}: AttendeeFormProps) {
     const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
     const isEditing = !!attendee;
 
@@ -42,56 +40,68 @@ export function AttendeeForm({attendee, onSubmit, isLoading, onClose}: AttendeeF
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
-                <StandardFormField
-                    control={form.control}
-                    name="identity"
-                    label="Identifier"
-                    placeholder="e.g., 202012345"
-                    iconType="hash"
-                    disabled={isEditing}
-                />
-                <StandardFormField
-                    control={form.control}
-                    name="firstName"
-                    label="First Name"
-                    placeholder="John"
-                    iconType="user"
-                />
-                <StandardFormField
-                    control={form.control}
-                    name="lastName"
-                    label="Last Name"
-                    placeholder="Doe"
-                    iconType="user"
-                />
+            <form id={formId} onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
 
-                <Separator className="my-2"/>
-
-                {isLoadingAttributes ? (
-                    <div className="space-y-4">
-                        <Skeleton className="h-10 w-full"/>
-                        <Skeleton className="h-10 w-full"/>
-                    </div>
-                ) : attributes.length > 0 ? (
-                    <h3 className="text-sm font-medium text-muted-foreground">Attributes</h3>
-                ) : null}
-
-                {attributes.map((attrDef) => (
-                    <DynamicFormField
-                        key={attrDef.id}
-                        fieldDef={attrDef}
+                {/* Identity (Full Width) */}
+                <div className="col-span-2">
+                    <StandardFormField
                         control={form.control}
-                        name={`attributes.${attrDef.name}`}
+                        name="identity"
+                        label="Identifier"
+                        placeholder="e.g., 202012345"
+                        iconType="hash"
+                        disabled={isEditing}
                     />
-                ))}
-
-                <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button type="submit" disabled={isLoading}>
-                        {isLoading ? (isEditing ? "Saving..." : "Creating...") : (isEditing ? "Save Changes" : "Create Attendee")}
-                    </Button>
                 </div>
+
+                {/* Names (50/50) */}
+                <div className="col-span-1">
+                    <StandardFormField
+                        control={form.control}
+                        name="firstName"
+                        label="First Name"
+                        placeholder="John"
+                        iconType="user"
+                    />
+                </div>
+                <div className="col-span-1">
+                    <StandardFormField
+                        control={form.control}
+                        name="lastName"
+                        label="Last Name"
+                        placeholder="Doe"
+                        iconType="user"
+                    />
+                </div>
+
+                {/* Attributes Section */}
+                {isLoadingAttributes ? (
+                    <div className="col-span-2 space-y-4 pt-2">
+                        <Separator />
+                        <div className="grid grid-cols-2 gap-4">
+                            <Skeleton className="h-[72px] w-full"/>
+                            <Skeleton className="h-[72px] w-full"/>
+                        </div>
+                    </div>
+                ) : attributes.length > 0 && (
+                    <>
+                        {/* Separator Row */}
+                        <div className="col-span-2 py-2">
+                            <Separator />
+                        </div>
+
+                        {/* Attributes Loop (Natural 2-column flow) */}
+                        {attributes.map((attrDef) => (
+                            <div key={attrDef.id} className="col-span-1">
+                                <DynamicFormField
+                                    fieldDef={attrDef}
+                                    control={form.control}
+                                    name={`attributes.${attrDef.name}`}
+                                />
+                            </div>
+                        ))}
+                    </>
+                )}
             </form>
         </Form>
     );

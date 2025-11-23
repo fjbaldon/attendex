@@ -28,6 +28,18 @@ class UserController {
         return ResponseEntity.ok().build();
     }
 
+    // NEW: Voluntary Password Change
+    @PutMapping("/me/password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> updateMyPassword(
+            @Valid @RequestBody PasswordChangeRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        // Re-use the logic, as it handles both Organizers and Stewards
+        identityFacade.forceChangePassword(user, request);
+        return ResponseEntity.ok().build();
+    }
+
     @PutMapping("/{userId}/reset-password")
     @PreAuthorize("hasRole('ORGANIZER')")
     public ResponseEntity<Void> resetUserPassword(

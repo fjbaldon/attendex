@@ -10,9 +10,12 @@ interface RecentEventsStatsProps {
     isLoading: boolean;
 }
 
-const calculateAttendanceRate = (rosterCount: number, entryCount: number): string => {
-    if (rosterCount === 0) return "0%";
-    return `${((entryCount / rosterCount) * 100).toFixed(0)}%`;
+const calculateAttendanceRate = (rosterCount: number | undefined, entryCount: number | undefined): string => {
+    const roster = rosterCount || 0;
+    const entries = entryCount || 0;
+
+    if (roster === 0) return "0%";
+    return `${((entries / roster) * 100).toFixed(0)}%`;
 };
 
 export function RecentEventsStats({events, isLoading}: RecentEventsStatsProps) {
@@ -53,7 +56,7 @@ export function RecentEventsStats({events, isLoading}: RecentEventsStatsProps) {
                                         </Link>
                                     </TableCell>
                                     <TableCell className="text-center text-muted-foreground text-sm">
-                                        {event.entryCount} / {event.rosterCount}
+                                        {event.entryCount ?? 0} / {event.rosterCount ?? 0}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Badge variant="secondary" className="font-semibold">

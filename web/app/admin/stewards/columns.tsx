@@ -29,7 +29,7 @@ export const columns: ColumnDef<Steward>[] = [
         },
         {
             icon: IconTrash,
-            label: "Delete Steward",
+            label: "Remove Steward",
             isDestructive: true,
             onClick: (row, table) => table.options.meta?.openDeleteDialog?.(row.original),
         }

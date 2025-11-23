@@ -2,37 +2,16 @@
 
 import * as React from "react"
 import {Area, AreaChart, CartesianGrid, XAxis} from "recharts"
-import {
-    Card,
-    CardAction,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card"
-import {
-    ChartConfig,
-    ChartContainer,
-    ChartTooltip,
-    ChartTooltipContent,
-} from "@/components/ui/chart"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
-import {
-    ToggleGroup,
-    ToggleGroupItem,
-} from "@/components/ui/toggle-group"
+import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle,} from "@/components/ui/card"
+import {ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent,} from "@/components/ui/chart"
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select"
+import {ToggleGroup, ToggleGroupItem,} from "@/components/ui/toggle-group"
 import {DailyActivity} from "@/types";
 import {Skeleton} from "@/components/ui/skeleton";
 
 const chartConfig = {
-    checkIns: {
-        label: "Check-ins",
+    entries: {
+        label: "Entries",
         color: "hsl(var(--primary))",
     },
 } satisfies ChartConfig
@@ -48,7 +27,7 @@ export function ChartAreaInteractive({data, isLoading, timeRange, setTimeRange}:
     const chartData = React.useMemo(() => {
         return data.map(item => ({
             date: item.date,
-            checkIns: item.count,
+            entries: item.count,
         }));
     }, [data]);
 
@@ -57,7 +36,7 @@ export function ChartAreaInteractive({data, isLoading, timeRange, setTimeRange}:
             <CardHeader>
                 <CardTitle>Activity Overview</CardTitle>
                 <CardDescription>
-                    A summary of daily check-in activity across all events.
+                    A summary of daily entry activity across all events.
                 </CardDescription>
                 <CardAction>
                     <ToggleGroup
@@ -97,9 +76,9 @@ export function ChartAreaInteractive({data, isLoading, timeRange, setTimeRange}:
                     >
                         <AreaChart data={chartData}>
                             <defs>
-                                <linearGradient id="fillCheckIns" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="var(--color-checkIns)" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="var(--color-checkIns)" stopOpacity={0.1}/>
+                                <linearGradient id="fillEntries" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="var(--color-entries)" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="var(--color-entries)" stopOpacity={0.1}/>
                                 </linearGradient>
                             </defs>
                             <CartesianGrid vertical={false}/>
@@ -128,10 +107,10 @@ export function ChartAreaInteractive({data, isLoading, timeRange, setTimeRange}:
                                 }
                             />
                             <Area
-                                dataKey="checkIns"
+                                dataKey="entries"
                                 type="natural"
-                                fill="url(#fillCheckIns)"
-                                stroke="var(--color-checkIns)"
+                                fill="url(#fillEntries)"
+                                stroke="var(--color-entries)"
                                 stackId="a"
                             />
                         </AreaChart>

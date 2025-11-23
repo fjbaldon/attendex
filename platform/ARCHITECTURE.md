@@ -1,130 +1,209 @@
-# AttendEx Platform: Architecture Guide
+# AttendEx System Architecture
 
-## 1. Overview
+## 1. System Overview
 
-This document defines the architecture of the AttendEx Platform. It is the **single source of truth** for the system's structure, dependencies, and communication patterns. Adherence to these principles is mandatory to maintain the long-term health and scalability of the codebase.
+AttendEx is a comprehensive event attendance platform built on a **Modular Monolith** architecture. It solves the challenge of tracking attendance in environments with unreliable internet connectivity by utilizing an **Offline-First** mobile client and a **Hybrid Scanning Engine** (OCR + QR).
 
-The platform is architected as a **Domain-Driven, Package-Private Modulith with Public Facades**.
+### High-Level Components
 
-### 1.1. Core Architectural Principles
+*   **Web Dashboard (Next.js):** For Organizers to manage events, rosters, and view analytics.
+*   **Mobile Scanner (Android Native):** For Scanners to capture attendance using camera-based OCR or QR scanning.
+*   **Platform API (Spring Boot):** The central nervous system handling business logic, data consistency, and synchronization.
+*   **Database (PostgreSQL):** The persistent storage layer.
 
-1.  **Modulithic Architecture:** The platform is a single, deployable Spring Boot application, internally organized into distinct modules.
-
-2.  **Domain-Driven Design (DDD):** Module boundaries correspond to the **Bounded Contexts** defined in the root `DOMAIN.md`. All code must strictly adhere to the project's `UBIQUITOUS_LANGUAGE.md`.
-
-3.  **The Public Facade Pattern:** Each module exposes a **single `public class ...Facade`** as its only entry point for commands and queries. This Facade is the module's public API.
-
-4.  **Explicit API Data Structures:** A module's public contract also includes `public` **DTOs** (in a `dto` sub-package) and `public` **Domain Events** (in an `events` sub-package).
-
-5.  **Encapsulation by Default (Compiler-Enforced):** All other classes within a module are **`package-private`**. This includes controllers, domain models (Aggregates), repositories, and persistence entities. This makes it a **compile-time error** for one module to access the internal implementation of another.
-
-## 2. Module Structure: The Anatomy of a Module
-
-The package structure is the physical manifestation of our architecture.
-
-```java
-com.github.fjbaldon.attendex.platform
-└── admin/                    // The 'admin' Module (Bounded Context)
-    ├── dto/                  // PUBLIC: Data Transfer Objects
-    │   └── public record StewardDto(...) {}
-    │
-    ├── events/               // PUBLIC: Domain Events
-    │   └── public record StewardCreatedEvent(...) {}
-    │
-    ├── public class AdminFacade {}   // PUBLIC: The single entry point
-    │
-    ├── class Steward {}             // package-private Domain Aggregate
-    ├── interface StewardRepository {} // package-private Repository Interface
-    └── class AdminController {}     // package-private API Controller
+```mermaid
+graph LR
+    User[User / Organizer] -->|HTTPS| Web[Web Dashboard]
+    Scanner[Scanner Person] -->|HTTPS / Offline| Mobile[Mobile App]
+    
+    Web -->|REST API| API[Platform API]
+    Mobile -->|REST API| API
+    
+    API -->|JDBC| DB[(PostgreSQL)]
 ```
 
-## 3. Communication Patterns
+---
 
-### 3.1. Synchronous Communication (via Facades)
+## 2. Backend Design: Spring Modulith
 
-This pattern is used when a module requires an immediate response from another. This is achieved by injecting another module's `public` Facade.
+The backend is structured as a **Modular Monolith**. Unlike a traditional "Layered" architecture (Controller -> Service -> Repository), AttendEx is sliced by **Domain Business Function**.
 
-**Example:** The `organization` module needs to check a `Steward`'s permissions.
+This ensures that the "Attendance Capture" logic is decoupled from "Organization Management," making the system easier to test and maintain.
 
-```java
-// In: ...platform.organization.OrganizationFacade
-import com.github.fjbaldon.attendex.platform.admin.AdminFacade; // Legal: Injects a public Facade
+### Module Dependency Graph
 
-public class OrganizationFacade {
-    private final AdminFacade adminFacade; // Legal dependency
+```mermaid
+graph TD
+    %% Nodes
+    subgraph "Administration Context"
+        Admin[Admin Module]
+    end
 
-    // This would be a compile error, as Steward is package-private to `admin`.
-    // private final StewardRepository stewardRepository; // ILLEGAL!
+    subgraph "Organization Context (Core)"
+        Org[Organization Module]
+        Event[Event Module]
+        Attendee[Attendee Module]
+    end
 
-    public void someOrganizationAction() {
-        boolean canPerform = adminFacade.hasPermission(...)
-        // ...
-    }
-}
+    subgraph "Capture Context (Downstream)"
+        Capture[Capture Module]
+    end
+
+    subgraph "Analysis Context (Downstream)"
+        Analytics[Analytics Module]
+        Report[Report Module]
+    end
+
+    subgraph "Shared Kernel"
+        Identity[Identity Module]
+        Notification[Notification Module]
+    end
+
+    %% Relationships (Facade Calls)
+    Org -->|Uses| Identity
+    Event -->|Uses| Org
+    Event -->|Uses| Attendee
+    Capture -->|Uses| Event
+    Capture -->|Uses| Org
+    Capture -->|Uses| Attendee
+    Analytics -->|Uses| Event
+    Analytics -->|Uses| Capture
+    Report -->|Uses| Analytics
+    Report -->|Uses| Event
+    
+    %% Event-Driven Relationships (Dotted)
+    Org -.->|Publishes: OrgRegistered| Notification
+    Capture -.->|Publishes: EntryCreated| Analytics
+    Event -.->|Publishes: EventCreated| Notification
 ```
 
-### 3.2. Asynchronous Communication (via Events)
+**Key Architectural Rules (Enforced by ArchUnit):**
+1.  **No Cyclic Dependencies:** Modules cannot depend on each other circularly.
+2.  **Event-Driven Integration:** The `Capture` module does not write directly to `Analytics`. Instead, it publishes an `EntryCreatedEvent`, which `Analytics` listens to.
 
-This is the preferred method for cross-module collaboration, ensuring loose coupling. It is achieved using Spring's `ApplicationEventPublisher`.
+---
 
-**Example:** The `admin` module creates a `Steward` and the `analytics` module needs to be notified.
+## 3. Mobile Architecture: Offline-First Sync
 
-1.  **Define the Public Event (`admin` module):**
-    A `public record` is created in the `events` sub-package.
+The Android application utilizes **Room Database** as the single source of truth for the UI. Network operations effectively "back up" the local database to the server.
 
-    ```java
-    // In: platform/admin/events/StewardCreatedEvent.java
-    public record StewardCreatedEvent(Long stewardId, String email) {}
-    ```
+### Synchronization Flow (The "Idempotency" Logic)
 
-2.  **Publish the Event (`admin` module):**
-    The `package-private` service logic (which might be called by the Facade) publishes the event.
+To prevent duplicate scans when the internet flickers, every scan generates a unique `scanUuid` locally. The server uses this UUID to deduplicate entries.
 
-    ```java
-// In: ...platform.admin.AdminFacade
-public class AdminFacade {
-    private final ApplicationEventPublisher eventPublisher;
-    // ...
-    public void createSteward(...) {
-        Steward newSteward = ...;
-        stewardRepository.save(newSteward);
-        eventPublisher.publishEvent(new StewardCreatedEvent(...))
-    }
-}
+```mermaid
+sequenceDiagram
+    participant App as Mobile App (Capture)
+    participant Room as Local DB (Room)
+    participant API as Platform API
+    participant DB as Server DB (Postgres)
+
+    Note over App, Room: Offline Phase
+    App->>Room: Scan Attendee (Insert Entry + UUID)
+    Room-->>App: Success (SyncStatus.PENDING)
+    
+    Note over App, API: Online Phase (Sync)
+    loop Every 15s or Manual Trigger
+        App->>Room: getPendingEntriesBatch(50)
+        Room-->>App: List<EntryEntity>
+        
+        alt Has Pending Entries
+            App->>API: POST /api/v1/capture/sync (Batch)
+            activate API
+            API->>DB: Check Idempotency (scanUuid)
+            
+            alt UUID Exists
+                API-->>App: 200 OK (Ignored Duplicate)
+            else New Record
+                API->>DB: Insert Entry
+                API-->>App: 200 OK (Saved)
+            end
+            deactivate API
+
+            App->>Room: markAsSynced(uuids)
+            Room-->>App: Update SyncStatus.SYNCED
+        end
+    end
 ```
 
-3.  **Listen for the Event (`analytics` module):**
-    A `package-private` component in the `analytics` module listens for the public event.
+---
 
-    ```java
-    // In: ...platform.analytics.AdminEventListener.java
-    import com.github.fjbaldon.attendex.platform.admin.events.StewardCreatedEvent;
+## 4. Hybrid Scanning Engine
 
-    @Component
-    class AdminEventListener {
-        @EventListener
-        public void onStewardCreated(StewardCreatedEvent event) {
-            // React to the event...
-        }
+The scanning feature is designed to handle legacy ID cards (Text) and modern badges (QR). The system can also fallback to Manual Entry if the camera fails or the ID is damaged.
+
+```mermaid
+stateDiagram-v2
+    [*] --> CameraPreview
+    
+    state "CameraPreview" as Cam {
+        [*] --> OCR_Mode
+        OCR_Mode --> QR_Mode : User Toggles
+        QR_Mode --> OCR_Mode : User Toggles
+        
+        state "Text Recognition (ML Kit)" as OCR_Mode
+        state "Barcode Scanning (ML Kit)" as QR_Mode
     }
-    ```
 
-## 4. Database & Persistence Strategy
+    Cam --> Analyzer : Feeds ImageProxy
+    Analyzer --> ViewModel : onTextFound(string)
+    
+    state "ViewModel Processing" as VM {
+        ViewModel --> LocalDB : findAttendee(identity)
+        
+        state if_found <<choice>>
+        LocalDB --> if_found
+        
+        if_found --> Success : Attendee Exists
+        if_found --> NotFound : Attendee Missing
+    }
 
-The database is a single schema, logically partitioned to reflect module boundaries.
+    Success --> TTS : Speak Name
+    Success --> UI : Show Overlay (Green)
+    
+    NotFound --> UI : Show Error (Red)
+    
+    state "Manual Entry Mode" as Manual
+    Cam --> Manual : User Clicks Keyboard Icon
+    Manual --> Success : User Selects Name from List
+    Manual --> Cam : User Cancels
+```
 
-1.  **Table Naming Convention:** All tables **must** be named using the singular formula: `module_entity` (e.g., `organization_event`, `capture_entry`).
-2.  **No Cross-Module JOINs:** A query must never join a table from its own module to a table from another module.
-3.  **Intra-Module Foreign Keys Only:** Database-level foreign keys may only exist between tables belonging to the same module.
-4.  **Merged Domain/Persistence Model:** To reduce boilerplate, domain models are directly annotated as JPA `@Entity` classes. These entity classes are always `package-private`.
+---
 
-## 5. Architectural Enforcement
+## 5. Security & Data Integrity
 
-Architectural integrity is maintained through automated checks and discipline.
+The system implements strict **Role-Based Access Control (RBAC)** and allows immediate revocation of access for compromised devices.
 
-1.  **Java Access Modifiers (Compiler-Enforced):** By defaulting implementation classes to `package-private`, the Java compiler provides the primary line of defense against illegal dependencies.
-2.  **ArchUnit (Automated Guardrails):** The `ArchitectureTest.java` suite runs on every build, automatically verifying key rules such as:
-    *   Only Facades, DTOs, and Events are `public`.
-    *   Controllers, Entities, and Repositories are `package-private`.
-    *   Controllers do not directly access Repositories or Entities.
-    *   Database tables follow the `module_entity` naming convention.
+*   **Authentication:** Stateless JWT (JSON Web Tokens).
+*   **Authorization:**
+    *   `ROLE_ORGANIZER`: Full administrative access (Web Dashboard).
+    *   `ROLE_SCANNER`: Limited write-access (Mobile App).
+*   **Data Integrity:** All offline scans are tagged with a UUID (Idempotency Key). The server rejects duplicates if a scanner tries to sync the same record twice.
+
+### Scanner Access Lifecycle
+
+This diagram illustrates the "Kill Switch" feature. If a scanner device is lost or stolen, the Organizer can **Suspend** the account. This immediately forces the mobile app to stop syncing, protecting the database.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active : Created by Organizer
+    
+    state "Active (Authorized)" as Active
+    note right of Active
+        Login Successful
+        Sync Allowed (200 OK)
+    end note
+    
+    state "Suspended (Unauthorized)" as Suspended
+    note right of Suspended
+        Login Fails
+        Sync Blocked (401)
+    end note
+    
+    Active --> Suspended : Organizer clicks 'Suspend'
+    Suspended --> Active : Organizer clicks 'Activate'
+    
+    Active --> [*] : Deleted
+    Suspended --> [*] : Deleted
+```

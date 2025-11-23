@@ -41,4 +41,14 @@ class Session {
     static Session create(String activityName, Instant targetTime, String intent) {
         return new Session(activityName, targetTime, intent);
     }
+
+    void update(String activityName, Instant targetTime, String intent) {
+        Assert.hasText(activityName, "Activity name must not be blank");
+        Assert.notNull(targetTime, "Target time must not be null");
+        Assert.hasText(intent, "Intent must not be blank");
+
+        this.activityName = activityName;
+        this.targetTime = targetTime;
+        this.intent = intent;
+    }
 }

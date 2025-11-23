@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+    IconAlertTriangle,
     IconCalendar,
     IconDashboard,
     IconGraph,
@@ -10,7 +11,7 @@ import {
     IconScan,
     IconSettings,
     IconUsers,
-    IconUserShield,
+    IconUserShield
 } from "@tabler/icons-react";
 import {NavMain} from "@/components/navigation/nav-main";
 import {NavSecondary} from "@/components/navigation/nav-secondary";
@@ -42,6 +43,7 @@ const navManagement = [
 const navData = [
     {title: "Analytics", url: "/dashboard/analytics", icon: IconGraph},
     {title: "Reports", url: "/dashboard/reports", icon: IconReportAnalytics},
+    {title: "Recovery", url: "/dashboard/recovery", icon: IconAlertTriangle},
 ];
 
 const navSecondary = [
@@ -82,7 +84,7 @@ export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
                 <NavSecondary items={navSecondary} className="mt-auto" label="General"/>
             </SidebarContent>
             <SidebarFooter>
-                <NavUser user={user}/>
+                <NavUser user={user} accountUrl="/dashboard/account" />
             </SidebarFooter>
         </Sidebar>
     );

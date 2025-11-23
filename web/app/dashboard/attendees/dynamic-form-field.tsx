@@ -28,8 +28,9 @@ export function DynamicFormField<TFormValues extends FieldValues>({
                     <FormControl>
                         <Select onValueChange={field.onChange}
                                 value={field.value ? String(field.value) : ""}>
-                            <SelectTrigger><SelectValue
-                                placeholder={`Select ${fieldDef.name}`}/></SelectTrigger>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={`Select ${fieldDef.name}`}/>
+                            </SelectTrigger>
                             <SelectContent>
                                 {fieldDef.options?.map((opt: string) => <SelectItem key={opt}
                                                                                     value={opt}>{opt}</SelectItem>)}

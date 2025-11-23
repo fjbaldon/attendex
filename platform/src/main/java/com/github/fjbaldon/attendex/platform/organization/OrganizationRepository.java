@@ -12,6 +12,8 @@ import java.util.List;
 
 interface OrganizationRepository extends CrudRepository<Organization, Long> {
 
+    List<Organization> findByLifecycleAndSubscriptionExpiresAtBefore(String lifecycle, Instant now);
+
     List<Organization> findBySubscriptionExpiresAtBetweenOrderBySubscriptionExpiresAtAsc(Instant start, Instant end, Pageable pageable);
 
     List<Organization> findByOrderByIdDesc(Pageable pageable);

@@ -11,11 +11,14 @@ public record EntrySyncRequestDto(
         @NotEmpty List<@Valid EntryRecord> records
 ) {
     public record EntryRecord(
-            @NotNull String scanUuid, // NEW
-            Long eventId, // Kept for context
+            @NotNull String scanUuid,
+            Long eventId,
             Long attendeeId,
-            Instant scanTimestamp
-            // REMOVED: sessionId
+            Instant scanTimestamp,
+
+            String snapshotIdentity,
+            String snapshotFirstName,
+            String snapshotLastName
     ) {
     }
 }

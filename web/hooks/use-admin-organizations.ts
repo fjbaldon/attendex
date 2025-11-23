@@ -14,7 +14,7 @@ interface OrganizationLifecycleUpdate {
 
 interface OrganizationSubscriptionUpdate {
     subscriptionType: SubscriptionType;
-    subscriptionExpiresAt: Date | null;
+    expiresAt: Date | null;
 }
 
 export const useAdminOrganizations = (page = 0, size = 10) => {

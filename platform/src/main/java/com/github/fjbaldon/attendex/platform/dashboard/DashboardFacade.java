@@ -48,6 +48,8 @@ public class DashboardFacade {
                 ))
                 .collect(Collectors.toList());
 
-        return new DashboardDto(stats, upcomingEvents, recentEvents);
+        var recentActivity = captureFacade.getRecentActivity(organizationId);
+
+        return new DashboardDto(stats, upcomingEvents, recentEvents, recentActivity);
     }
 }

@@ -100,6 +100,8 @@ export interface OrganizerResponse {
 export interface ScannerResponse {
     id: number;
     email: string;
+    enabled: boolean;
+    forcePasswordChange: boolean;
 }
 
 export interface UserCreateRequest {
@@ -116,6 +118,7 @@ export interface Attribute {
 
 export interface AttributeRequest {
     name: string;
+    type: string;
     options: string[];
 }
 
@@ -170,10 +173,18 @@ export interface RecentEventStats {
     entryCount: number;
 }
 
+export interface RecentActivity {
+    attendeeName: string;
+    eventName: string;
+    scanTime: string;
+    punctuality: string;
+}
+
 export interface DashboardData {
     stats: DashboardStats;
     upcomingEvents: UpcomingEvent[];
     recentEventStats: RecentEventStats[];
+    recentActivity: RecentActivity[];
 }
 
 export interface InvalidRow {
@@ -246,4 +257,13 @@ export interface EventStats {
     lastScan: string | null;
     sessionStats: { label: string; count: number }[];
     scannerStats: { label: string; count: number }[];
+}
+
+export interface OrphanedEntry {
+    id: number;
+    originalEventId: number;
+    scanUuid: string;
+    failureReason: string;
+    createdAt: string;
+    rawPayload: string;
 }

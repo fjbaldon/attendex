@@ -26,6 +26,7 @@ api.interceptors.response.use(
     (error) => {
         if (axios.isAxiosError(error) && error.response) {
             const originalRequest = error.config;
+
             if (originalRequest && originalRequest.url === "/api/v1/auth/login") {
                 return Promise.reject(error);
             }
@@ -35,9 +36,12 @@ api.interceptors.response.use(
 
                 if (accessToken) {
                     clearToken();
-                    window.location.href = '/login?sessionExpired=true';
+                    if (typeof window !== "undefined") {
+                        window.location.href = '/login?sessionExpired=true';
+                    }
                 }
             }
+
         }
         return Promise.reject(error);
     }

@@ -22,7 +22,7 @@ class Entry {
     private String scanUuid;
 
     private Long organizationId;
-    private Long eventId; // <--- ADDED THIS FIELD
+    private Long eventId;
     private Long sessionId;
     private Long attendeeId;
     private Long scannerId;
@@ -30,17 +30,23 @@ class Entry {
     private String punctuality;
     private Instant syncTimestamp;
 
-    // Updated Constructor
-    private Entry(Long organizationId, Long eventId, Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality, String scanUuid) {
+    private String snapshotIdentity;
+    private String snapshotFirstName;
+    private String snapshotLastName;
+
+    private Entry(Long organizationId, Long eventId, Long sessionId, Long attendeeId, Long scannerId,
+                  Instant scanTimestamp, String punctuality, String scanUuid,
+                  String snapshotIdentity, String snapshotFirstName, String snapshotLastName) {
+
         Assert.notNull(organizationId, "Organization ID must not be null");
-        Assert.notNull(eventId, "Event ID must not be null"); // <--- ADDED ASSERTION
+        Assert.notNull(eventId, "Event ID must not be null");
         Assert.notNull(attendeeId, "Attendee ID must not be null");
         Assert.notNull(scannerId, "Scanner ID must not be null");
         Assert.notNull(scanTimestamp, "Scan timestamp must not be null");
         Assert.hasText(punctuality, "Punctuality must not be blank");
 
         this.organizationId = organizationId;
-        this.eventId = eventId; // <--- SET IT
+        this.eventId = eventId;
         this.sessionId = sessionId;
         this.attendeeId = attendeeId;
         this.scannerId = scannerId;
@@ -48,10 +54,17 @@ class Entry {
         this.punctuality = punctuality;
         this.scanUuid = scanUuid;
         this.syncTimestamp = Instant.now();
+
+        this.snapshotIdentity = snapshotIdentity;
+        this.snapshotFirstName = snapshotFirstName;
+        this.snapshotLastName = snapshotLastName;
     }
 
-    // Updated Factory Method
-    static Entry create(Long organizationId, Long eventId, Long sessionId, Long attendeeId, Long scannerId, Instant scanTimestamp, String punctuality, String scanUuid) {
-        return new Entry(organizationId, eventId, sessionId, attendeeId, scannerId, scanTimestamp, punctuality, scanUuid);
+    static Entry create(Long organizationId, Long eventId, Long sessionId, Long attendeeId, Long scannerId,
+                        Instant scanTimestamp, String punctuality, String scanUuid,
+                        String snapshotIdentity, String snapshotFirstName, String snapshotLastName) {
+        return new Entry(organizationId, eventId, sessionId, attendeeId, scannerId,
+                scanTimestamp, punctuality, scanUuid,
+                snapshotIdentity, snapshotFirstName, snapshotLastName);
     }
 }

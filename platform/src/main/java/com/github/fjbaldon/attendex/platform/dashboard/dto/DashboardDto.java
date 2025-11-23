@@ -6,7 +6,8 @@ import java.util.List;
 public record DashboardDto(
         DashboardStatsDto stats,
         List<UpcomingEventDto> upcomingEvents,
-        List<RecentEventStatsDto> recentEventStats
+        List<RecentEventStatsDto> recentEventStats,
+        List<RecentActivityDto> recentActivity
 ) {
     public record DashboardStatsDto(
             long totalEvents,
@@ -26,8 +27,8 @@ public record DashboardDto(
     public record RecentEventStatsDto(
             Long id,
             String eventName,
-            long totalRoster,
-            long totalEntries
+            long rosterCount,
+            long entryCount
     ) {
     }
 }

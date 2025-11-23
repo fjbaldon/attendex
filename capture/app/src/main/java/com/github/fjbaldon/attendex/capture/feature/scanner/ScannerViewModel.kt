@@ -3,10 +3,13 @@ package com.github.fjbaldon.attendex.capture.feature.scanner
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
 import com.github.fjbaldon.attendex.capture.core.services.TtsService
 import com.github.fjbaldon.attendex.capture.data.event.EventRepository
 import com.github.fjbaldon.attendex.capture.data.event.ScanResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -19,15 +22,13 @@ enum class ScanMode {
 
 sealed class ScanUiResult {
     data object Idle : ScanUiResult()
-
-    // Simplified: Just success. No "Late/Early" warning.
     data class Success(val attendeeDetails: String) : ScanUiResult()
     data class Error(val message: String) : ScanUiResult()
     data class AlreadyScanned(val identifier: String) : ScanUiResult()
 }
 
 data class ScannedItemUi(
-    val id: Long, // Entry ID
+    val id: Long,
     val name: String,
     val identity: String,
     val isSynced: Boolean,
@@ -37,12 +38,20 @@ data class ScannedItemUi(
 data class ScannerUiState(
     val eventName: String? = null,
     val isLoading: Boolean = true,
+    val isRosterSyncing: Boolean = false,
     val lastScanResult: ScanUiResult = ScanUiResult.Idle,
     val scannedAttendees: List<ScannedItemUi> = emptyList(),
     val hasFlashUnit: Boolean = false,
     val isTorchOn: Boolean = false,
     val isEventActive: Boolean = true,
-    val scanMode: ScanMode = ScanMode.OCR
+    val scanMode: ScanMode = ScanMode.OCR,
+    val hasUnsyncedData: Boolean = false,
+    val searchResults: List<AttendeeEntity> = emptyList(),
+    val searchQuery: String = "",
+    val isManualEntryOpen: Boolean = false,
+    val globalScanCount: Long = 0,
+    val totalRosterCount: Long = 0,
+    val hasFailedSyncs: Boolean = false
 )
 
 @HiltViewModel
@@ -55,13 +64,28 @@ class ScannerViewModel @Inject constructor(
 
     private val _lastScanResult = MutableStateFlow<ScanUiResult>(ScanUiResult.Idle)
     private val _isLoading = MutableStateFlow(true)
+    private val _isRosterSyncing = MutableStateFlow(false)
     private val _torchState = MutableStateFlow(Pair(false, false))
     private val _eventName = MutableStateFlow<String?>(null)
     private val _isEventActive = MutableStateFlow(true)
     private val _scanMode = MutableStateFlow(ScanMode.OCR)
 
+    private val _searchQuery = MutableStateFlow("")
+    private val _isManualEntryOpen = MutableStateFlow(false)
+
+    private val _globalStats = MutableStateFlow(Pair(0L, 0L))
+
     private val scannedItemsFlow: Flow<List<ScannedItemUi>> =
         eventRepository.getScannedItemsStream(eventId)
+
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    private val _searchResults = _searchQuery
+        .debounce(300)
+        .flatMapLatest { query ->
+            if (query.isBlank()) flowOf(emptyList())
+            else eventRepository.searchAttendees(eventId, query)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<ScannerUiState> = combine(
@@ -71,17 +95,35 @@ class ScannerViewModel @Inject constructor(
         _torchState,
         _eventName,
         _isEventActive,
-        _scanMode
+        _scanMode,
+        eventRepository.hasUnsyncedRecords,
+        _searchResults,
+        _searchQuery,
+        _isManualEntryOpen,
+        _isRosterSyncing,
+        _globalStats
     ) { flows: Array<Any?> ->
+        val scannedItems = flows[2] as List<ScannedItemUi>
+        val hasFailed = scannedItems.any { it.isFailed }
+        val stats = flows[12] as Pair<Long, Long>
+
         ScannerUiState(
             isLoading = flows[0] as Boolean,
             lastScanResult = flows[1] as ScanUiResult,
-            scannedAttendees = flows[2] as List<ScannedItemUi>,
+            scannedAttendees = scannedItems,
             hasFlashUnit = (flows[3] as Pair<Boolean, Boolean>).first,
             isTorchOn = (flows[3] as Pair<Boolean, Boolean>).second,
             eventName = flows[4] as String?,
             isEventActive = flows[5] as Boolean,
-            scanMode = flows[6] as ScanMode
+            scanMode = flows[6] as ScanMode,
+            hasUnsyncedData = flows[7] as Boolean,
+            searchResults = flows[8] as List<AttendeeEntity>,
+            searchQuery = flows[9] as String,
+            isManualEntryOpen = flows[10] as Boolean,
+            isRosterSyncing = flows[11] as Boolean,
+            globalScanCount = stats.first,
+            totalRosterCount = stats.second,
+            hasFailedSyncs = hasFailed
         )
     }.stateIn(
         scope = viewModelScope,
@@ -93,6 +135,8 @@ class ScannerViewModel @Inject constructor(
 
     init {
         loadEventDetails()
+        refreshRoster()
+        pollStats()
     }
 
     private fun loadEventDetails() {
@@ -105,33 +149,68 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
+    private fun refreshRoster() {
+        viewModelScope.launch {
+            _isRosterSyncing.value = true
+            eventRepository.syncRosterForEvent(eventId)
+            _isRosterSyncing.value = false
+        }
+    }
+
+    private fun pollStats() {
+        viewModelScope.launch {
+            while(true) {
+                val result = eventRepository.fetchEventStats(eventId)
+                result.onSuccess {
+                    _globalStats.value = Pair(it.totalScans, it.totalRoster)
+                }
+                delay(30000)
+            }
+        }
+    }
+
+    fun retryFailedScans() {
+        viewModelScope.launch {
+            eventRepository.retryFailedEntries(eventId)
+        }
+    }
+
     fun toggleScanMode(mode: ScanMode) {
         _scanMode.value = mode
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun toggleManualEntry(isOpen: Boolean) {
+        _isManualEntryOpen.value = isOpen
+        if (!isOpen) _searchQuery.value = ""
+    }
+
+    fun onManualEntrySelected(attendee: AttendeeEntity) {
+        processScannedText(attendee.identity)
+        toggleManualEntry(false)
     }
 
     fun processScannedText(scannedText: String) {
         if (!_isEventActive.value || !isProcessing.compareAndSet(false, true)) return
 
         viewModelScope.launch {
-            // THIN CLIENT: We pass only EventID and Identity. No Session ID.
             when (val result = eventRepository.processScan(eventId, scannedText)) {
                 is ScanResult.Success -> {
-                    // FEEDBACK: Speak First Name Only (Positive Reinforcement)
                     ttsService.speak(result.attendee.firstName)
-
                     _lastScanResult.value = ScanUiResult.Success(
                         attendeeDetails = "${result.attendee.firstName} ${result.attendee.lastName}"
                     )
+                    val current = _globalStats.value
+                    _globalStats.value = Pair(current.first + 1, current.second)
                 }
-
                 is ScanResult.AlreadyScanned -> {
-                    // Distinct sound or phrase for duplicate
                     ttsService.speak("Already Scanned")
                     _lastScanResult.value = ScanUiResult.AlreadyScanned(scannedText)
                 }
-
                 is ScanResult.AttendeeNotFound -> {
-                    // Optional: Handle Not Found
                 }
             }
             resetScanResultAfterDelay()
@@ -140,7 +219,6 @@ class ScannerViewModel @Inject constructor(
 
     private fun resetScanResultAfterDelay() {
         viewModelScope.launch {
-            // CHANGED: 750 -> 150 for high-speed throughput
             delay(150)
             _lastScanResult.value = ScanUiResult.Idle
             isProcessing.set(false)

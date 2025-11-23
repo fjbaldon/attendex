@@ -18,7 +18,7 @@ export const getColumns = (attributes: Attribute[]): ColumnDef<AttendeeResponse>
         },
         {
             icon: IconTrash,
-            label: "Delete Attendee",
+            label: "Remove Attendee",
             isDestructive: true,
             onClick: (row, table) => table.options.meta?.openDeleteDialog?.(row.original),
         },

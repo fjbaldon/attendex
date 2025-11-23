@@ -12,6 +12,7 @@ import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.capture.core.data.local.model.SyncStatus
 import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
 import com.github.fjbaldon.attendex.capture.core.data.remote.EntrySyncRequest
+import com.github.fjbaldon.attendex.capture.core.data.remote.EventStatsResponse
 import com.github.fjbaldon.attendex.capture.feature.scanner.ScannedItemUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
 class EventRepository @Inject constructor(
@@ -39,6 +41,10 @@ class EventRepository @Inject constructor(
     fun getEvents(): Flow<List<EventEntity>> = eventDao.getAllEvents()
 
     suspend fun getEventNameById(eventId: Long): String? = eventDao.getEventById(eventId)?.name
+
+    fun searchAttendees(eventId: Long, query: String): Flow<List<AttendeeEntity>> {
+        return attendeeDao.searchAttendees(eventId, query)
+    }
 
     suspend fun isEventActive(eventId: Long): Boolean {
         val event = eventDao.getEventById(eventId) ?: return false
@@ -59,47 +65,77 @@ class EventRepository @Inject constructor(
                 EventEntity(it.id, it.name, it.startDate, it.endDate, it.sessions)
             }
 
-            // 1. Transaction: Clear old data and insert Events
             appDatabase.withTransaction {
-                eventDao.clearAll()
-                eventDao.insertAll(eventEntities)
-                attendeeDao.clearAll() // Wipe all attendees to start fresh
-            }
-
-            // 2. Batch Fetch & Insert Attendees (Event by Event)
-            // We do NOT wrap this entire loop in a transaction to avoid holding the DB lock
-            // while waiting for the Network.
-            remoteEvents.forEach { event ->
-                var page = 0
-                var isLast = false
-                while (!isLast) {
-                    // Fetch one page
-                    val res = apiService.getAttendeesForEvent(event.id, page, 500)
-
-                    val batch = res.content.map {
-                        AttendeeEntity(
-                            localId = 0,
-                            eventId = event.id,
-                            attendeeId = it.attendeeId,
-                            identity = it.identity,
-                            firstName = it.firstName,
-                            lastName = it.lastName
-                        )
-                    }
-
-                    // Insert immediately
-                    if (batch.isNotEmpty()) {
-                        attendeeDao.insertAll(batch)
-                    }
-
-                    isLast = res.last
-                    page++
+                if (eventEntities.isNotEmpty()) {
+                    eventDao.insertAll(eventEntities)
+                    val activeIds = eventEntities.map { it.id }
+                    eventDao.deleteEventsNotIn(activeIds)
+                } else {
+                    eventDao.clearAll()
                 }
             }
-
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("EventRepository", "Refresh failed", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun syncRosterForEvent(eventId: Long): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            // 1. Clear existing roster first (Transaction safe)
+            attendeeDao.clearAttendeesForEvent(eventId)
+
+            var page = 0
+            var isLast = false
+            var totalSynced = 0
+
+            while (!isLast) {
+                // Fetch Batch
+                val res = apiService.getAttendeesForEvent(eventId, page, 500)
+
+                // Map to Entity
+                val batchEntities = res.content.map {
+                    AttendeeEntity(
+                        localId = 0,
+                        eventId = eventId,
+                        attendeeId = it.attendeeId,
+                        identity = it.identity,
+                        firstName = it.firstName,
+                        lastName = it.lastName
+                    )
+                }
+
+                // 2. Insert immediately
+                if (batchEntities.isNotEmpty()) {
+                    attendeeDao.insertAll(batchEntities)
+                }
+
+                totalSynced += batchEntities.size
+                isLast = res.last
+                page++
+            }
+
+            Result.success(totalSynced)
+        } catch (e: Exception) {
+            Log.e("EventRepository", "Roster sync failed for $eventId", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun retryFailedEntries(eventId: Long): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            entryDao.resetFailedToPendingForEvent(eventId)
+            syncEntries()
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchEventStats(eventId: Long): Result<EventStatsResponse> = withContext(Dispatchers.IO) {
+        try {
+            Result.success(apiService.getEventStats(eventId))
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }
@@ -145,7 +181,10 @@ class EventRepository @Inject constructor(
                             it.scanUuid,
                             it.eventId,
                             it.attendeeId,
-                            it.scanTimestamp.toString()
+                            it.scanTimestamp.toString(),
+                            it.snapshotIdentity,
+                            it.snapshotFirstName,
+                            it.snapshotLastName
                         )
                     }
                 )
@@ -170,18 +209,27 @@ class EventRepository @Inject constructor(
 
                 Result.success(response.successCount)
             } catch (e: Exception) {
-                // POISON PILL FIX
                 if (e is HttpException && e.code() in 400..499) {
-                    // Client Error (e.g. 400 Bad Request).
-                    // This data will never be accepted. Mark as FAILED.
                     val batchUuids = entryDao.getPendingEntriesBatch(50).map { it.scanUuid }
                     entryDao.markAsFailedByUuid(batchUuids)
                     Result.failure(Exception("Sync Rejected by Server (Code ${e.code()}). Marked as Failed."))
                 } else {
-                    // Network/Server Error (500). Retry later.
                     Result.failure(e)
                 }
             }
+        }
+    }
+
+    suspend fun runHousekeeping() = withContext(Dispatchers.IO) {
+        try {
+            // Delete entries older than 24 hours
+            val threshold = Instant.now().minus(24, ChronoUnit.HOURS).toEpochMilli()
+            val count = entryDao.deleteSyncedEntriesOlderThan(threshold)
+            if (count > 0) {
+                Log.i("EventRepository", "Housekeeping: Deleted $count old synced entries.")
+            }
+        } catch (e: Exception) {
+            Log.e("EventRepository", "Housekeeping failed", e)
         }
     }
 

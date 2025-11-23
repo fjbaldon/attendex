@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.platform.attendee;
 import com.github.fjbaldon.attendex.platform.attendee.dto.*;
 import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeCreatedEvent;
 import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeDeletedEvent;
+import com.github.fjbaldon.attendex.platform.attendee.events.AttributeDeletedEvent;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
 import jakarta.persistence.EntityNotFoundException;
@@ -39,16 +40,8 @@ public class AttendeeFacade {
     @Transactional
     public AttendeeDto createAttendee(Long organizationId, CreateAttendeeDto dto) {
         validateIdentityFormat(organizationId, dto.identity());
-
         try {
-            Attendee attendee = Attendee.create(
-                    organizationId,
-                    dto.identity(),
-                    dto.firstName(),
-                    dto.lastName(),
-                    dto.attributes()
-            );
-
+            Attendee attendee = Attendee.create(organizationId, dto.identity(), dto.firstName(), dto.lastName(), dto.attributes());
             Attendee saved = attendeeRepository.save(attendee);
             eventPublisher.publishEvent(new AttendeeCreatedEvent(saved.getId(), saved.getOrganizationId()));
             return toDto(saved);
@@ -60,11 +53,9 @@ public class AttendeeFacade {
     @Transactional(readOnly = true)
     public Page<AttendeeDto> findAttendees(Long organizationId, String query, Pageable pageable) {
         if (query != null && !query.isBlank()) {
-            return attendeeRepository.searchByOrganizationId(organizationId, query.trim(), pageable)
-                    .map(this::toDto);
+            return attendeeRepository.searchByOrganizationId(organizationId, query.trim(), pageable).map(this::toDto);
         }
-        return attendeeRepository.findAllByOrganizationId(organizationId, pageable)
-                .map(this::toDto);
+        return attendeeRepository.findAllByOrganizationId(organizationId, pageable).map(this::toDto);
     }
 
     @Transactional(readOnly = true)
@@ -77,9 +68,7 @@ public class AttendeeFacade {
     @Transactional(readOnly = true)
     public List<AttendeeDto> findAttendeesByIds(List<Long> attendeeIds) {
         Iterable<Attendee> attendees = attendeeRepository.findAllById(attendeeIds);
-        return StreamSupport.stream(attendees.spliterator(), false)
-                .map(this::toDto)
-                .collect(Collectors.toList());
+        return StreamSupport.stream(attendees.spliterator(), false).map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional
@@ -87,7 +76,6 @@ public class AttendeeFacade {
         Attendee attendee = attendeeRepository.findById(attendeeId)
                 .filter(a -> a.getOrganizationId().equals(organizationId))
                 .orElseThrow(() -> new EntityNotFoundException("Attendee not found"));
-
         attendee.update(dto.firstName(), dto.lastName(), dto.attributes());
         return toDto(attendee);
     }
@@ -97,7 +85,6 @@ public class AttendeeFacade {
         Attendee attendee = attendeeRepository.findById(attendeeId)
                 .filter(a -> a.getOrganizationId().equals(organizationId))
                 .orElseThrow(() -> new EntityNotFoundException("Attendee not found"));
-
         attendeeRepository.delete(attendee);
         eventPublisher.publishEvent(new AttendeeDeletedEvent(organizationId));
     }
@@ -115,15 +102,21 @@ public class AttendeeFacade {
 
     @Transactional(readOnly = true)
     public List<AttributeDto> findAttributes(Long organizationId) {
-        return attributeRepository.findAllByOrganizationId(organizationId).stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
+        return attributeRepository.findAllByOrganizationId(organizationId).stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional
-    public AttributeDto updateAttribute(Long organizationId, Long attributeId, List<String> newOptions) {
+    public AttributeDto updateAttribute(Long organizationId, Long attributeId, String newName, List<String> newOptions) {
         Attribute attribute = attributeRepository.findByIdAndOrganizationId(attributeId, organizationId)
                 .orElseThrow(() -> new EntityNotFoundException("Attribute not found"));
+
+        if (!attribute.getName().equals(newName)) {
+            if (attributeRepository.existsByOrganizationIdAndName(organizationId, newName)) {
+                throw new IllegalArgumentException("An attribute with the name '" + newName + "' already exists.");
+            }
+            attendeeRepository.renameAttributeKey(organizationId, attribute.getName(), newName);
+            attribute.setName(newName);
+        }
 
         attribute.updateOptions(newOptions);
         return toDto(attributeRepository.save(attribute));
@@ -134,20 +127,36 @@ public class AttendeeFacade {
         Attribute attribute = attributeRepository.findByIdAndOrganizationId(attributeId, organizationId)
                 .orElseThrow(() -> new EntityNotFoundException("Attribute not found"));
 
-        if (attributeRepository.isAttributeInUse(organizationId, attribute.getName())) {
-            throw new IllegalStateException("Cannot delete attribute '" + attribute.getName() + "' because it is currently assigned to one or more attendees.");
-        }
-
         attributeRepository.delete(attribute);
+
+        attendeeRepository.removeAttributeFromAllAttendees(organizationId, attribute.getName());
+
+        eventPublisher.publishEvent(new AttributeDeletedEvent(organizationId, attribute.getName()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> findAttendeeIdsByFilters(Long organizationId, Map<String, String> filters) {
+        if (filters == null || filters.isEmpty()) {
+            return null;
+        }
+        List<Long> matchingIds = null;
+        for (Map.Entry<String, String> entry : filters.entrySet()) {
+            List<Long> idsForThisFilter = attendeeRepository.findIdsByAttributeValue(organizationId, entry.getKey(), entry.getValue());
+            if (matchingIds == null) {
+                matchingIds = idsForThisFilter;
+            } else {
+                matchingIds.retainAll(idsForThisFilter);
+            }
+            if (matchingIds.isEmpty()) {
+                return matchingIds;
+            }
+        }
+        return matchingIds;
     }
 
     public List<String> extractCsvHeaders(MultipartFile file) throws IOException {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
-                    .setHeader()
-                    .setSkipHeaderRecord(true)
-                    .get();
-
+            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).get();
             CSVParser parser = csvFormat.parse(reader);
             return parser.getHeaderNames();
         }
@@ -157,21 +166,17 @@ public class AttendeeFacade {
     public AttendeeImportAnalysisDto analyzeAttendeeImport(Long organizationId, MultipartFile file, ImportConfigurationDto config) throws IOException {
         OrganizationDto organization = organizationFacade.findOrganizationById(organizationId);
         String regex = organization.identityFormatRegex();
-
         List<Attribute> existingAttributes = attributeRepository.findAllByOrganizationId(organizationId);
         Set<String> validAttributeNames = existingAttributes.stream().map(Attribute::getName).collect(Collectors.toSet());
-
         List<CreateAttendeeDto> toCreate = new ArrayList<>();
         List<CreateAttendeeDto> toUpdate = new ArrayList<>();
         List<AttendeeImportAnalysisDto.InvalidRow> invalidRows = new ArrayList<>();
         Set<String> newAttributesToCreate = new HashSet<>();
-
         Set<String> fileIdentities = new HashSet<>();
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setIgnoreEmptyLines(true).get();
             CSVParser parser = csvFormat.parse(reader);
-
             Map<String, String> mapping = config.columnMapping();
 
             for (CSVRecord record : parser) {
@@ -208,14 +213,10 @@ public class AttendeeFacade {
                     for (Map.Entry<String, String> entry : mapping.entrySet()) {
                         String csvHeader = entry.getKey();
                         String mappedTarget = entry.getValue();
-
                         if (List.of("identity", "firstName", "lastName").contains(mappedTarget)) continue;
-
                         String val = record.isMapped(csvHeader) ? record.get(csvHeader) : null;
-
                         if (StringUtils.hasText(val)) {
                             val = val.trim().toUpperCase();
-
                             if (validAttributeNames.contains(mappedTarget)) {
                                 attributeValues.put(mappedTarget, val);
                             } else if (config.createMissingAttributes()) {
@@ -226,26 +227,22 @@ public class AttendeeFacade {
                     }
 
                     CreateAttendeeDto dto = new CreateAttendeeDto(identity, firstName, lastName, attributeValues);
-
                     if (existsInDb) {
                         toUpdate.add(dto);
                     } else {
                         toCreate.add(dto);
                     }
-
                 } catch (Exception e) {
                     invalidRows.add(new AttendeeImportAnalysisDto.InvalidRow(record.getRecordNumber(), record.toMap(), e.getMessage()));
                 }
             }
         }
-
         return new AttendeeImportAnalysisDto(toCreate, toUpdate, invalidRows, new ArrayList<>(newAttributesToCreate));
     }
 
     @Transactional
     public void commitAttendeeImport(Long organizationId, List<CreateAttendeeDto> attendees, boolean updateExisting, List<String> newAttributes) {
         Map<String, Set<String>> batchOptions = new HashMap<>();
-
         for (CreateAttendeeDto dto : attendees) {
             if (dto.attributes() != null) {
                 dto.attributes().forEach((key, val) -> {
@@ -264,9 +261,7 @@ public class AttendeeFacade {
                     try {
                         Attribute attr = Attribute.create(organizationId, attrName, "SELECT", options);
                         attributeRepository.save(attr);
-                    } catch (DataIntegrityViolationException ignored) {
-                        // Race condition handling for attribute creation during import
-                    }
+                    } catch (DataIntegrityViolationException ignored) {}
                 }
             }
         }
@@ -277,14 +272,12 @@ public class AttendeeFacade {
                 Set<String> newOptions = batchOptions.get(attr.getName());
                 List<String> currentOptions = new ArrayList<>(attr.getOptions());
                 boolean changed = false;
-
                 for (String opt : newOptions) {
                     if (!currentOptions.contains(opt)) {
                         currentOptions.add(opt);
                         changed = true;
                     }
                 }
-
                 if (changed) {
                     Collections.sort(currentOptions);
                     attr.updateOptions(currentOptions);
@@ -296,7 +289,6 @@ public class AttendeeFacade {
         List<Attendee> batch = new ArrayList<>();
         for (CreateAttendeeDto dto : attendees) {
             Attendee existing = attendeeRepository.findAttendeeByIdentity(organizationId, dto.identity());
-
             if (existing != null && updateExisting) {
                 existing.update(dto.firstName(), dto.lastName(), dto.attributes());
                 batch.add(existing);
@@ -312,18 +304,14 @@ public class AttendeeFacade {
     @Transactional(readOnly = true)
     public String generateImportTemplate(Long organizationId) {
         List<Attribute> attributes = attributeRepository.findAllByOrganizationId(organizationId);
-
         StringBuilder csv = new StringBuilder("identity,firstName,lastName");
         for (Attribute attr : attributes) {
             csv.append(",").append(attr.getName());
         }
         csv.append("\n");
-
         csv.append("2025001,John,Doe");
         for (Attribute attr : attributes) {
-            String sample = (attr.getOptions() != null && !attr.getOptions().isEmpty())
-                    ? attr.getOptions().getFirst()
-                    : "SampleValue";
+            String sample = (attr.getOptions() != null && !attr.getOptions().isEmpty()) ? attr.getOptions().getFirst() : "SampleValue";
             csv.append(",").append(sample);
         }
         csv.append("\n");
@@ -348,14 +336,7 @@ public class AttendeeFacade {
     }
 
     private AttendeeDto toDto(Attendee attendee) {
-        return new AttendeeDto(
-                attendee.getId(),
-                attendee.getIdentity(),
-                attendee.getFirstName(),
-                attendee.getLastName(),
-                attendee.getAttributes(),
-                attendee.getCreatedAt()
-        );
+        return new AttendeeDto(attendee.getId(), attendee.getIdentity(), attendee.getFirstName(), attendee.getLastName(), attendee.getAttributes(), attendee.getCreatedAt());
     }
 
     private AttributeDto toDto(Attribute attribute) {

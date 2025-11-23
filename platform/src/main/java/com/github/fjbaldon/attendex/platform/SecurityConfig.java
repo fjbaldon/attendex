@@ -19,8 +19,6 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
 
-    // REMOVED: PasswordEncoder is now in AppConfig to prevent circular dependency
-
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
@@ -35,7 +33,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/login",
                                 "/api/v1/organizations",
-                                "/api/v1/organizations/verify"
+                                "/api/v1/organizations/verify",
+                                "/error"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

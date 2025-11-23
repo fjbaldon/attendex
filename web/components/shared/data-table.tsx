@@ -9,6 +9,8 @@ import {
     getFilteredRowModel,
     getPaginationRowModel,
     getSortedRowModel,
+    OnChangeFn,
+    RowSelectionState,
     SortingState,
     TableMeta,
     useReactTable,
@@ -36,6 +38,9 @@ interface DataTableProps<TData> {
     setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
     toolbar: React.ReactNode;
     meta?: TableMeta<TData>;
+    // Optional props for external row selection control
+    state?: { rowSelection: RowSelectionState };
+    onRowSelectionChange?: OnChangeFn<RowSelectionState>;
 }
 
 export function DataTable<TData>({
@@ -47,11 +52,15 @@ export function DataTable<TData>({
                                      setPagination,
                                      toolbar,
                                      meta,
+                                     state: controlledState,
+                                     onRowSelectionChange,
                                  }: DataTableProps<TData>) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-    const [rowSelection, setRowSelection] = React.useState({});
+
+    // Internal state fallback if not controlled
+    const [internalRowSelection, setInternalRowSelection] = React.useState<RowSelectionState>({});
 
     const table = useReactTable({
         data,
@@ -61,13 +70,13 @@ export function DataTable<TData>({
             sorting,
             columnFilters,
             columnVisibility,
-            rowSelection,
+            rowSelection: controlledState?.rowSelection ?? internalRowSelection,
             pagination
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         onColumnVisibilityChange: setColumnVisibility,
-        onRowSelectionChange: setRowSelection,
+        onRowSelectionChange: onRowSelectionChange ?? setInternalRowSelection,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),

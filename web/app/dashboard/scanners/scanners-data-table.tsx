@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import {ColumnDef} from "@tanstack/react-table";
 import {IconPlus} from "@tabler/icons-react";
 import {Button} from "@/components/ui/button";
 import {ScannerResponse} from "@/types";
@@ -12,9 +11,9 @@ import {Input} from "@/components/ui/input";
 import {useUserActions} from "@/hooks/use-user-actions";
 import {ResetPasswordDialog} from "@/components/shared/reset-password-dialog";
 import {DataTable} from "@/components/shared/data-table";
+import {getColumns} from "./columns";
 
 interface ScannersDataTableProps {
-    columns: ColumnDef<ScannerResponse>[];
     data: ScannerResponse[];
     isLoading: boolean;
     pageCount: number;
@@ -23,21 +22,25 @@ interface ScannersDataTableProps {
 }
 
 export function ScannersDataTable({
-                                      columns,
                                       data,
                                       isLoading,
                                       pageCount,
                                       pagination,
                                       setPagination
                                   }: ScannersDataTableProps) {
-    const {deleteScanner, isDeletingScanner} = useScanners();
-    const {resetPassword, isResettingPassword} = useUserActions();
+    const { deleteScanner, isDeletingScanner, toggleScannerStatus } = useScanners();
+    const { resetPassword, isResettingPassword } = useUserActions();
 
     const [isFormDialogOpen, setIsFormDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
     const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
     const [selectedScanner, setSelectedScanner] = React.useState<ScannerResponse | null>(null);
     const [filter, setFilter] = React.useState("");
+
+    const columns = React.useMemo(
+        () => getColumns(toggleScannerStatus),
+        [toggleScannerStatus]
+    );
 
     const handleDeleteConfirm = () => {
         if (selectedScanner) {

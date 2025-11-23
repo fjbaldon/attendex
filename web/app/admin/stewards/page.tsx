@@ -11,18 +11,20 @@ import {AddStewardDialog} from "./add-steward-dialog";
 import {ConfirmDialog} from "@/components/shared/confirm-dialog";
 import {Steward} from "@/types";
 import {ResetPasswordDialog} from "@/components/shared/reset-password-dialog";
-import {useUserActions} from "@/hooks/use-user-actions";
 import {Input} from "@/components/ui/input";
 
 export default function AdminStewardsPage() {
     const [pagination, setPagination] = React.useState({pageIndex: 0, pageSize: 10});
     const [filter, setFilter] = React.useState("");
 
-    const {stewardsData, isLoadingStewards, deleteSteward, isDeletingSteward} = useStewards(
-        pagination.pageIndex,
-        pagination.pageSize
-    );
-    const {resetPassword, isResettingPassword} = useUserActions();
+    const {
+        stewardsData,
+        isLoadingStewards,
+        deleteSteward,
+        isDeletingSteward,
+        resetStewardPassword,
+        isResettingStewardPassword
+    } = useStewards(pagination.pageIndex, pagination.pageSize);
 
     const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
@@ -40,11 +42,14 @@ export default function AdminStewardsPage() {
     };
 
     const handleResetPassword = (values: { userId: number, newTemporaryPassword: string }) => {
-        resetPassword(values, {
+        // FIX: Use specific steward function
+        resetStewardPassword({
+            id: values.userId,
+            newPassword: values.newTemporaryPassword
+        }, {
             onSuccess: () => setIsResetDialogOpen(false),
         });
     };
-
     const filteredData = React.useMemo(() => {
         const stewards = stewardsData?.content ?? [];
         return stewards.filter(steward =>
@@ -77,8 +82,8 @@ export default function AdminStewardsPage() {
                         open={isConfirmDialogOpen}
                         onOpenChange={setIsConfirmDialogOpen}
                         onConfirm={handleDeleteConfirm}
-                        title="Are you sure?"
-                        description={`This will permanently delete the steward account for ${selectedSteward?.email}. This action cannot be undone.`}
+                        title="Remove Steward?"
+                        description={`This will permanently remove the steward account for ${selectedSteward?.email}.`}
                         isLoading={isDeletingSteward}
                     />
                     <ResetPasswordDialog
@@ -86,7 +91,7 @@ export default function AdminStewardsPage() {
                         onOpenChange={setIsResetDialogOpen}
                         user={selectedSteward}
                         onSubmit={handleResetPassword}
-                        isLoading={isResettingPassword}
+                        isLoading={isResettingStewardPassword} // FIX: Updated loading state
                     />
                     <DataTable
                         columns={columns}

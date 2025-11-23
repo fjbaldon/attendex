@@ -19,6 +19,7 @@ import org.springframework.util.Assert;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,6 +74,53 @@ public class EventFacade {
         return toDto(saved);
     }
 
+    @Transactional
+    public EventDto updateEvent(Long organizationId, Long eventId, UpdateEventRequestDto dto) {
+        Event event = eventRepository.findByIdAndOrganizationId(eventId, organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
+
+        event.updateDetails(
+                dto.name(),
+                dto.startDate(),
+                dto.endDate(),
+                dto.graceMinutesBefore(),
+                dto.graceMinutesAfter()
+        );
+
+        Map<Long, UpdateSessionDto> incomingSessionsMap = dto.sessions().stream()
+                .filter(s -> s.id() != null)
+                .collect(Collectors.toMap(UpdateSessionDto::id, s -> s));
+
+        List<Session> existingSessions = new ArrayList<>(event.getSessions());
+
+        for (Session session : existingSessions) {
+            if (incomingSessionsMap.containsKey(session.getId())) {
+                UpdateSessionDto updateDto = incomingSessionsMap.get(session.getId());
+                session.update(updateDto.activityName(), updateDto.targetTime(), updateDto.intent());
+            } else {
+                event.removeSession(session);
+            }
+        }
+
+        dto.sessions().stream()
+                .filter(s -> s.id() == null)
+                .forEach(s -> {
+                    Session newSession = Session.create(s.activityName(), s.targetTime(), s.intent());
+                    event.addSession(newSession);
+                });
+
+        return toDto(eventRepository.save(event));
+    }
+
+    @Transactional
+    public void deleteEvent(Long organizationId, Long eventId) {
+        Event event = eventRepository.findByIdAndOrganizationId(eventId, organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
+
+        event.markAsDeleted();
+        eventRepository.save(event);
+    }
+
     @Transactional(readOnly = true)
     public Page<EventDto> findEvents(Long organizationId, String query, Pageable pageable) {
         if (query != null && !query.isBlank()) {
@@ -125,11 +173,15 @@ public class EventFacade {
 
     @Transactional(readOnly = true)
     public Page<EntryDetailsDto> findEntriesByIntent(Long eventId, Long organizationId, String intent, Pageable pageable) {
+        if (eventRepository.findByIdAndOrganizationId(eventId, organizationId).isEmpty()) {
+            throw new EntityNotFoundException("Event not found");
+        }
+
         List<Long> sessionIds = sessionRepository.findSessionIdsByEventIdAndIntent(eventId, intent);
         if (sessionIds.isEmpty()) {
             return Page.empty(pageable);
         }
-        return captureFacade.findEntriesBySessionIds(organizationId, sessionIds, pageable);
+        return captureFacade.findEntriesBySessionIds(sessionIds, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -208,6 +260,18 @@ public class EventFacade {
         return rosterRepository.countByIdEventId(eventId);
     }
 
+    @Transactional(readOnly = true)
+    public Map<Long, String> getSessionNamesByIds(Set<Long> sessionIds) {
+        return sessionRepository.findAllById(sessionIds).stream()
+                .collect(Collectors.toMap(Session::getId, Session::getActivityName));
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, String> getEventNamesByIds(Set<Long> eventIds) {
+        return eventRepository.findAllById(eventIds).stream()
+                .collect(Collectors.toMap(Event::getId, Event::getName));
+    }
+
     private EventDto toDto(Event event) {
         return new EventDto(
                 event.getId(),
@@ -220,12 +284,6 @@ public class EventFacade {
                 calculateEventStatus(event),
                 event.getSessions().stream().map(this::toDto).collect(Collectors.toList())
         );
-    }
-
-    @Transactional(readOnly = true)
-    public Map<Long, String> getSessionNamesByIds(Set<Long> sessionIds) {
-        return sessionRepository.findAllById(sessionIds).stream()
-                .collect(Collectors.toMap(Session::getId, Session::getActivityName));
     }
 
     private String calculateEventStatus(Event event) {

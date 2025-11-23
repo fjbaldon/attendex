@@ -51,9 +51,10 @@ export function SubscriptionDialog({open, onOpenChange, organization}: Subscript
 
     const onSubmit = (values: { subscriptionType: SubscriptionType, subscriptionExpiresAt: Date | null }) => {
         if (organization) {
+            // FIX: Map 'subscriptionExpiresAt' (Form) to 'expiresAt' (API)
             const data = {
-                ...values,
-                subscriptionExpiresAt: values.subscriptionType === 'LIFETIME' ? null : values.subscriptionExpiresAt,
+                subscriptionType: values.subscriptionType,
+                expiresAt: values.subscriptionType === 'LIFETIME' ? null : values.subscriptionExpiresAt,
             };
             updateSubscription({id: organization.id, data}, {
                 onSuccess: () => onOpenChange(false),

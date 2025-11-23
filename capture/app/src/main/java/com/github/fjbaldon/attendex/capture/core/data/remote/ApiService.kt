@@ -22,6 +22,9 @@ interface ApiService {
 
     @POST("api/v1/capture/sync")
     suspend fun syncEntries(@Body syncRequest: EntrySyncRequest): BatchSyncResponse
+
+    @GET("api/v1/capture/events/{eventId}/stats")
+    suspend fun getEventStats(@Path("eventId") eventId: Long): EventStatsResponse
 }
 
 @kotlinx.serialization.Serializable
@@ -33,3 +36,10 @@ data class PaginatedResponse<T>(
 
 @kotlinx.serialization.Serializable
 data class ChangePasswordRequest(val newPassword: String)
+
+@kotlinx.serialization.Serializable
+data class EventStatsResponse(
+    val totalScans: Long,
+    val totalRoster: Long,
+    val attendanceRate: Double
+)

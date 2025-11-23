@@ -2,6 +2,7 @@ package com.github.fjbaldon.attendex.platform.organization;
 
 import com.github.fjbaldon.attendex.platform.organization.dto.*;
 import com.github.fjbaldon.attendex.platform.organization.events.OrganizationRegisteredEvent;
+import com.github.fjbaldon.attendex.platform.organization.events.PasswordResetInitiatedEvent;
 import com.github.fjbaldon.attendex.platform.organization.events.ScannerCreatedEvent;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,8 @@ public class OrganizationFacade {
     @Transactional
     public OrganizationDto registerOrganization(RegistrationRequestDto request) {
         Assert.isTrue(!organizerRepository.existsByOrganizationName(request.organizationName()), "Organization name is already taken");
-        Assert.isTrue(organizerRepository.findByEmail(request.email()).isEmpty(), "Email is already in use");
+
+        assertEmailIsGloballyUnique(request.email());
 
         Organization organization = Organization.register(request.organizationName());
         Organization savedOrganization = organizationRepository.save(organization);
@@ -85,7 +87,9 @@ public class OrganizationFacade {
 
     @Transactional
     public OrganizerDto createOrganizer(Long organizationId, CreateUserRequestDto request) {
-        assertEmailIsUniqueInOrganization(request.email(), organizationId);
+        // FIXED: Global check
+        assertEmailIsGloballyUnique(request.email());
+
         Organization organization = getOrganizationReference(organizationId);
 
         String encodedPassword = passwordEncoder.encode(request.password());
@@ -98,7 +102,6 @@ public class OrganizationFacade {
 
     @Transactional(readOnly = true)
     public Page<OrganizerDto> findOrganizers(Long organizationId, Pageable pageable) {
-        // FIXED: Now filters by organizationId
         return organizerRepository.findAllByOrganizationId(organizationId, pageable).map(this::toOrganizerDto);
     }
 
@@ -116,7 +119,9 @@ public class OrganizationFacade {
 
     @Transactional
     public ScannerDto createScanner(Long organizationId, CreateUserRequestDto request) {
-        assertEmailIsUniqueInOrganization(request.email(), organizationId);
+        // FIXED: Global check
+        assertEmailIsGloballyUnique(request.email());
+
         Organization organization = getOrganizationReference(organizationId);
 
         String encodedPassword = passwordEncoder.encode(request.password());
@@ -130,6 +135,17 @@ public class OrganizationFacade {
     @Transactional(readOnly = true)
     public Page<ScannerDto> findScanners(Long organizationId, Pageable pageable) {
         return scannerRepository.findAllByOrganizationId(organizationId, pageable).map(this::toScannerDto);
+    }
+
+    @Transactional
+    public ScannerDto toggleScannerStatus(Long organizationId, Long scannerId) {
+        Scanner scanner = scannerRepository.findById(scannerId)
+                .orElseThrow(() -> new EntityNotFoundException("Scanner not found"));
+
+        Assert.isTrue(scanner.getOrganization().getId().equals(organizationId), "Scanner does not belong to this organization.");
+
+        scanner.toggleStatus();
+        return toScannerDto(scannerRepository.save(scanner));
     }
 
     @Transactional
@@ -178,19 +194,37 @@ public class OrganizationFacade {
     @Transactional
     public void resetUserPassword(Long organizationId, Long userId, String newPassword) {
         String encodedPassword = passwordEncoder.encode(newPassword);
+        String userEmail; // We need to capture the email
+        String orgName;
 
-        organizerRepository.findById(userId)
-                .filter(user -> user.getOrganization().getId().equals(organizationId))
-                .ifPresentOrElse(
-                        organizer -> organizer.changePassword(encodedPassword),
-                        () -> {
-                            Scanner scanner = scannerRepository.findById(userId)
-                                    .filter(user -> user.getOrganization().getId().equals(organizationId))
-                                    .orElseThrow(() -> new EntityNotFoundException("User not found in this organization"));
-                            scanner.changePassword(encodedPassword);
-                            scanner.requirePasswordChange();
-                        }
-                );
+        // Fetch organization name
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+        orgName = org.getName();
+
+        var organizer = organizerRepository.findById(userId)
+                .filter(user -> user.getOrganization().getId().equals(organizationId));
+
+        if (organizer.isPresent()) {
+            organizer.get().changePassword(encodedPassword);
+            userEmail = organizer.get().getEmail();
+        } else {
+            var scanner = scannerRepository.findById(userId)
+                    .filter(user -> user.getOrganization().getId().equals(organizationId))
+                    .orElseThrow(() -> new EntityNotFoundException("User not found in this organization"));
+            scanner.changePassword(encodedPassword);
+            scanner.requirePasswordChange();
+            userEmail = scanner.getEmail();
+        }
+
+        // PUBLISH EVENT
+        if (userEmail != null) {
+            eventPublisher.publishEvent(new PasswordResetInitiatedEvent(
+                    userEmail,
+                    newPassword, // Send the raw temp password so it can be emailed
+                    orgName
+            ));
+        }
     }
 
     @Transactional
@@ -278,10 +312,14 @@ public class OrganizationFacade {
                 .collect(Collectors.toMap(Scanner::getId, Scanner::getEmail));
     }
 
-    private void assertEmailIsUniqueInOrganization(String email, Long organizationId) {
-        boolean emailExists = organizerRepository.existsByEmailAndOrganizationId(email, organizationId) ||
-                scannerRepository.existsByEmailAndOrganizationId(email, organizationId);
-        Assert.isTrue(!emailExists, "A user with this email already exists in this organization.");
+    private void assertEmailIsGloballyUnique(String email) {
+        boolean existsAsOrganizer = organizerRepository.findByEmail(email).isPresent();
+        boolean existsAsScanner = scannerRepository.findByEmail(email).isPresent();
+
+        // Note: In a real production app, we might also check the Steward repository here,
+        // but for now we ensure no collision between standard users.
+
+        Assert.isTrue(!existsAsOrganizer && !existsAsScanner, "This email is already in use by another user.");
     }
 
     private Organization getOrganizationReference(Long organizationId) {

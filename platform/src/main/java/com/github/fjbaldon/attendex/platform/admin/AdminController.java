@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.platform.admin;
 import com.github.fjbaldon.attendex.platform.admin.dto.CreateStewardRequestDto;
 import com.github.fjbaldon.attendex.platform.admin.dto.StewardDto;
 import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
+import com.github.fjbaldon.attendex.platform.organization.dto.PasswordResetRequestDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -31,6 +32,14 @@ class AdminController {
     public ResponseEntity<StewardDto> createSteward(@Valid @RequestBody CreateStewardRequestDto request) {
         StewardDto newSteward = adminFacade.createSteward(request);
         return new ResponseEntity<>(newSteward, HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{stewardId}/reset-password")
+    public ResponseEntity<Void> resetStewardPassword(
+            @PathVariable Long stewardId,
+            @Valid @RequestBody PasswordResetRequestDto request) {
+        adminFacade.resetStewardPassword(stewardId, request.newPassword());
+        return ResponseEntity.ok().build();
     }
 
     // ADDED: Delete Steward Endpoint
