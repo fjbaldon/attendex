@@ -1,0 +1,89 @@
+# ==========================================
+# IDE & Editor (IntelliJ / VS Code)
+# ==========================================
+# Ignore the entire IntelliJ config folder
+.idea/
+# Ignore module specific files
+*.iml
+*.iws
+*.ipr
+# VS Code (Just in case)
+.vscode/
+
+# ==========================================
+# Nix & Direnv (Dev Environment)
+# ==========================================
+# The local direnv cache
+.direnv/
+# The symlink to the JDK created by your flake.nix
+.jdk
+# Nix build artifacts
+result
+
+# ==========================================
+# Secrets & Local Configuration
+# ==========================================
+# Actual secrets (NEVER commit this)
+.env
+# Next.js local env overrides
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# (!) Exception: Always track the example file
+!.env.example
+
+# ==========================================
+# Local Infrastructure (Podman/Docker)
+# ==========================================
+# The folder where your database stores data (from compose.yaml)
+.dev/
+.data/
+postgres-data/
+
+# ==========================================
+# Web Module (Next.js / Node)
+# ==========================================
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# Platform Module (Java / Spring Boot)
+# ==========================================
+target/
+*.class
+*.log
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# ==========================================
+# Capture Module (Android / Gradle)
+# ==========================================
+.gradle/
+local.properties
+.cxx/
+*.hprof
+# Android build outputs (often in app/build)
+/capture/**/build/
+/capture/captures/
+
+# ==========================================
+# OS / System Files
+# ==========================================
+.DS_Store
+Thumbs.db
+*~
+*.swp

@@ -1,0 +1,76 @@
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import api from "@/lib/api";
+import {ApiErrorResponse, Organization, PaginatedResponse} from "@/types";
+import {toast} from "sonner";
+import {getErrorMessage} from "@/lib/utils";
+import {AxiosError} from "axios";
+
+type OrganizationStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+type SubscriptionType = 'LIFETIME' | 'ANNUAL' | 'TRIAL';
+
+interface OrganizationLifecycleUpdate {
+    lifecycle: OrganizationStatus;
+}
+
+interface OrganizationSubscriptionUpdate {
+    subscriptionType: SubscriptionType;
+    subscriptionExpiresAt: Date | null;
+}
+
+export const useAdminOrganizations = (page = 0, size = 10) => {
+    const queryClient = useQueryClient();
+    const queryKey = ["adminOrganizations", page, size];
+
+    const {data, isLoading: isLoadingOrganizations} = useQuery<PaginatedResponse<Organization>>({
+        queryKey,
+        queryFn: async () => {
+            const response = await api.get("/api/v1/admin/organizations", {
+                params: {page, size, sort: "name,asc"},
+            });
+            return response.data;
+        },
+    });
+
+    const updateStatusMutation = useMutation<
+        Organization,
+        AxiosError<ApiErrorResponse>,
+        { id: number; data: OrganizationLifecycleUpdate }
+    >({
+        mutationFn: ({id, data}) => api.put(`/api/v1/admin/organizations/${id}/status`, data),
+        onSuccess: async () => {
+            toast.success("Organization status updated successfully!");
+            await queryClient.invalidateQueries({queryKey: ["adminOrganizations"]});
+        },
+        onError: (error) => {
+            toast.error("Failed to update status", {
+                description: getErrorMessage(error, "An unknown error occurred."),
+            });
+        },
+    });
+
+    const updateSubscriptionMutation = useMutation<
+        Organization,
+        AxiosError<ApiErrorResponse>,
+        { id: number; data: OrganizationSubscriptionUpdate }
+    >({
+        mutationFn: ({id, data}) => api.put(`/api/v1/admin/organizations/${id}/subscription`, data),
+        onSuccess: async () => {
+            toast.success("Organization subscription updated successfully!");
+            await queryClient.invalidateQueries({queryKey: ["adminOrganizations"]});
+        },
+        onError: (error) => {
+            toast.error("Failed to update subscription", {
+                description: getErrorMessage(error, "An unknown error occurred."),
+            });
+        },
+    });
+
+    return {
+        organizationsData: data,
+        isLoadingOrganizations,
+        updateStatus: updateStatusMutation.mutate,
+        isUpdatingStatus: updateStatusMutation.isPending,
+        updateSubscription: updateSubscriptionMutation.mutate,
+        isUpdatingSubscription: updateSubscriptionMutation.isPending,
+    };
+};
