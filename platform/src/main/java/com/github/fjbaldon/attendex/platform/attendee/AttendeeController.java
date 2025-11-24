@@ -1,7 +1,6 @@
 package com.github.fjbaldon.attendex.platform.attendee;
 
-import com.github.fjbaldon.attendex.platform.attendee.dto.*;
-import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,13 +15,16 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/attendees")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ORGANIZER')")
 class AttendeeController {
+
     private final AttendeeFacade attendeeFacade;
 
     @PostMapping
@@ -36,9 +38,18 @@ class AttendeeController {
     @GetMapping
     public Page<AttendeeDto> getAttendees(
             @RequestParam(required = false) String query,
+            @RequestParam Map<String, String> allParams, // Capture everything
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return attendeeFacade.findAttendees(user.getOrganizationId(), query, pageable);
+
+        // Extract attribute filters by removing known params
+        Map<String, String> filters = new HashMap<>(allParams);
+        filters.remove("page");
+        filters.remove("size");
+        filters.remove("sort");
+        filters.remove("query");
+
+        return attendeeFacade.findAttendees(user.getOrganizationId(), query, filters, pageable);
     }
 
     @PutMapping("/{attendeeId}")
@@ -127,6 +138,15 @@ class AttendeeController {
             @PathVariable Long attributeId,
             @AuthenticationPrincipal CustomUserDetails user) {
         attendeeFacade.deleteAttribute(user.getOrganizationId(), attributeId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/batch")
+    public ResponseEntity<Void> deleteAttendees(
+            @Valid @RequestBody BatchDeleteRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        attendeeFacade.deleteAttendees(user.getOrganizationId(), request.ids());
         return ResponseEntity.noContent().build();
     }
 }

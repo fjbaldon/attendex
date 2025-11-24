@@ -36,14 +36,12 @@ export const useOrphans = (page = 0, size = 10) => {
         },
     });
 
-    // NEW: Bulk Delete Logic (Frontend Loop)
     const deleteOrphansMutation = useMutation<
         void,
         unknown,
         number[]
     >({
         mutationFn: async (ids) => {
-            // Execute all deletes in parallel
             await Promise.all(ids.map(id => api.delete(`/api/v1/capture/orphans/${id}`)));
         },
         onSuccess: async (_, variables) => {
@@ -52,7 +50,47 @@ export const useOrphans = (page = 0, size = 10) => {
         },
         onError: () => {
             toast.error("Failed to dismiss some entries.");
-            // Invalidate anyway to show what remains
+            queryClient.invalidateQueries({queryKey: ["orphans"]});
+        }
+    });
+
+    const recoverOrphanMutation = useMutation<
+        void,
+        AxiosError<ApiErrorResponse>,
+        { orphanId: number; targetEventId: number }
+    >({
+        mutationFn: ({orphanId, targetEventId}) =>
+            api.post(`/api/v1/capture/orphans/${orphanId}/recover?targetEventId=${targetEventId}`),
+        onSuccess: async () => {
+            toast.success("Entry recovered successfully!");
+            await queryClient.invalidateQueries({queryKey: ["orphans"]});
+        },
+        onError: (error) => {
+            toast.error("Failed to recover entry", {
+                description: getErrorMessage(error, "An unknown error occurred."),
+            });
+        },
+    });
+
+    // NEW: Bulk Recover Mutation
+    const recoverOrphansMutation = useMutation<
+        void,
+        unknown,
+        { orphanIds: number[]; targetEventId: number }
+    >({
+        mutationFn: async ({orphanIds, targetEventId}) => {
+            await Promise.all(
+                orphanIds.map(id =>
+                    api.post(`/api/v1/capture/orphans/${id}/recover?targetEventId=${targetEventId}`)
+                )
+            );
+        },
+        onSuccess: async (_, variables) => {
+            toast.success(`${variables.orphanIds.length} entries recovered!`);
+            await queryClient.invalidateQueries({queryKey: ["orphans"]});
+        },
+        onError: () => {
+            toast.error("Failed to recover some entries.");
             queryClient.invalidateQueries({queryKey: ["orphans"]});
         }
     });
@@ -63,6 +101,10 @@ export const useOrphans = (page = 0, size = 10) => {
         deleteOrphan: deleteOrphanMutation.mutate,
         isDeleting: deleteOrphanMutation.isPending,
         deleteOrphans: deleteOrphansMutation.mutate,
-        isDeletingMultiple: deleteOrphansMutation.isPending
+        isDeletingMultiple: deleteOrphansMutation.isPending,
+        recoverOrphan: recoverOrphanMutation.mutate,
+        isRecovering: recoverOrphanMutation.isPending,
+        recoverOrphans: recoverOrphansMutation.mutate,
+        isRecoveringMultiple: recoverOrphansMutation.isPending,
     };
 };

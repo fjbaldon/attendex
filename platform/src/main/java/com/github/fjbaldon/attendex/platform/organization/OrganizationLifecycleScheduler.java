@@ -1,6 +1,5 @@
 package com.github.fjbaldon.attendex.platform.organization;
 
-import com.github.fjbaldon.attendex.platform.organization.events.OrganizationLifecycleChangedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;

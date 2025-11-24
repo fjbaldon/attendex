@@ -12,10 +12,17 @@ import {ConfirmDialog} from "@/components/shared/confirm-dialog";
 import {Steward} from "@/types";
 import {ResetPasswordDialog} from "@/components/shared/reset-password-dialog";
 import {Input} from "@/components/ui/input";
+import {useDebounce} from "@uidotdev/usehooks";
 
 export default function AdminStewardsPage() {
     const [pagination, setPagination] = React.useState({pageIndex: 0, pageSize: 10});
-    const [filter, setFilter] = React.useState("");
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const debouncedQuery = useDebounce(searchQuery, 500);
+
+    // Reset pagination on search
+    React.useEffect(() => {
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, [debouncedQuery]);
 
     const {
         stewardsData,
@@ -24,7 +31,7 @@ export default function AdminStewardsPage() {
         isDeletingSteward,
         resetStewardPassword,
         isResettingStewardPassword
-    } = useStewards(pagination.pageIndex, pagination.pageSize);
+    } = useStewards(pagination.pageIndex, pagination.pageSize, debouncedQuery);
 
     const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
@@ -32,6 +39,7 @@ export default function AdminStewardsPage() {
     const [selectedSteward, setSelectedSteward] = React.useState<Steward | null>(null);
 
     const pageCount = stewardsData?.totalPages ?? 0;
+    const stewards = stewardsData?.content ?? [];
 
     const handleDeleteConfirm = () => {
         if (selectedSteward) {
@@ -42,7 +50,6 @@ export default function AdminStewardsPage() {
     };
 
     const handleResetPassword = (values: { userId: number, newTemporaryPassword: string }) => {
-        // FIX: Use specific steward function
         resetStewardPassword({
             id: values.userId,
             newPassword: values.newTemporaryPassword
@@ -50,19 +57,13 @@ export default function AdminStewardsPage() {
             onSuccess: () => setIsResetDialogOpen(false),
         });
     };
-    const filteredData = React.useMemo(() => {
-        const stewards = stewardsData?.content ?? [];
-        return stewards.filter(steward =>
-            steward.email.toLowerCase().includes(filter.toLowerCase())
-        );
-    }, [stewardsData, filter]);
 
     const toolbar = (
         <div className="flex items-center justify-between">
             <Input
-                placeholder="Filter stewards by email..."
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
+                placeholder="Search stewards by email..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 className="h-9 max-w-sm"
             />
             <Button size="sm" className="h-9" onClick={() => setIsAddDialogOpen(true)}>
@@ -91,11 +92,11 @@ export default function AdminStewardsPage() {
                         onOpenChange={setIsResetDialogOpen}
                         user={selectedSteward}
                         onSubmit={handleResetPassword}
-                        isLoading={isResettingStewardPassword} // FIX: Updated loading state
+                        isLoading={isResettingStewardPassword}
                     />
                     <DataTable
                         columns={columns}
-                        data={filteredData}
+                        data={stewards}
                         isLoading={isLoadingStewards}
                         pageCount={pageCount}
                         pagination={pagination}

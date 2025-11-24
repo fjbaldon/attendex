@@ -5,8 +5,8 @@ import {AppSidebar} from "@/components/layout/app-sidebar";
 import {SiteHeader} from "@/components/layout/site-header";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
 import {useScanners} from "@/hooks/use-scanners";
-import {getColumns} from "./columns";
 import {ScannersDataTable} from "./scanners-data-table";
+import {useDebounce} from "@uidotdev/usehooks";
 
 export default function ScannersPage() {
     const [{pageIndex, pageSize}, setPagination] = React.useState({
@@ -14,11 +14,17 @@ export default function ScannersPage() {
         pageSize: 10,
     });
 
-    const {scannersData, isLoadingScanners} = useScanners(pageIndex, pageSize);
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const debouncedQuery = useDebounce(searchQuery, 500);
+
+    // FIX: Reset to page 0 when search changes
+    React.useEffect(() => {
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, [debouncedQuery]);
+
+    const {scannersData, isLoadingScanners} = useScanners(pageIndex, pageSize, debouncedQuery);
     const scanners = scannersData?.content ?? [];
     const pageCount = scannersData?.totalPages ?? 0;
-
-    const columns = React.useMemo(() => getColumns(), []);
 
     return (
         <SidebarProvider
@@ -36,12 +42,13 @@ export default function ScannersPage() {
                     <div className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
                         <div className="w-full max-w-6xl mx-auto px-4 lg:px-6">
                             <ScannersDataTable
-                                columns={columns}
                                 data={scanners}
                                 isLoading={isLoadingScanners}
                                 pageCount={pageCount}
                                 pagination={{pageIndex, pageSize}}
                                 setPagination={setPagination}
+                                onSearchChange={setSearchQuery}
+                                searchValue={searchQuery}
                             />
                         </div>
                     </div>

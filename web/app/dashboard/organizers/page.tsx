@@ -7,6 +7,7 @@ import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
 import {useOrganizers} from "@/hooks/use-organizers";
 import {columns} from "./columns";
 import {OrganizersDataTable} from "./organizers-data-table";
+import {useDebounce} from "@uidotdev/usehooks";
 
 export default function OrganizersPage() {
     const [{pageIndex, pageSize}, setPagination] = React.useState({
@@ -14,7 +15,11 @@ export default function OrganizersPage() {
         pageSize: 10,
     });
 
-    const {organizersData, isLoadingOrganizers} = useOrganizers(pageIndex, pageSize);
+    // FIX: Server-side search state
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const debouncedQuery = useDebounce(searchQuery, 500);
+
+    const {organizersData, isLoadingOrganizers} = useOrganizers(pageIndex, pageSize, debouncedQuery);
     const organizers = organizersData?.content ?? [];
     const pageCount = organizersData?.totalPages ?? 0;
 
@@ -40,6 +45,9 @@ export default function OrganizersPage() {
                                 pageCount={pageCount}
                                 pagination={{pageIndex, pageSize}}
                                 setPagination={setPagination}
+                                // Pass search control
+                                onSearchChange={setSearchQuery}
+                                searchValue={searchQuery}
                             />
                         </div>
                     </div>

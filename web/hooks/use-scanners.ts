@@ -1,4 +1,4 @@
-import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {keepPreviousData, useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import api from "@/lib/api";
 import {ApiErrorResponse, PaginatedResponse, ScannerResponse, UserCreateRequest} from "@/types";
 import {toast} from "sonner";
@@ -7,18 +7,24 @@ import {getErrorMessage} from "@/lib/utils";
 
 type ScannerCreateRequest = Omit<UserCreateRequest, 'roleId'>;
 
-export const useScanners = (page = 0, size = 10) => {
+export const useScanners = (page = 0, size = 10, query = "") => {
     const queryClient = useQueryClient();
-    const queryKey = ["scanners", page, size];
+    const queryKey = ["scanners", page, size, query];
 
     const {data, isLoading: isLoadingScanners} = useQuery<PaginatedResponse<ScannerResponse>>({
         queryKey,
         queryFn: async () => {
             const response = await api.get("/api/v1/organization/scanners", {
-                params: {page, size, sort: "email,asc"},
+                params: {
+                    page,
+                    size,
+                    sort: "email,asc",
+                    ...(query && { query })
+                },
             });
             return response.data;
         },
+        placeholderData: keepPreviousData,
     });
 
     const createScannerMutation = useMutation<

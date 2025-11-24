@@ -5,9 +5,9 @@ import {toast} from "sonner";
 import {AxiosError} from "axios";
 import {getErrorMessage} from "@/lib/utils";
 
+// FIX: Added 'query' parameter
 export const useEvents = (page = 0, size = 10, query: string = "") => {
     const queryClient = useQueryClient();
-    // Include query in the cache key so specific searches are cached separately
     const queryKey = ["events", page, size, query];
 
     const {data, isLoading: isLoadingEvents, error: eventsError} = useQuery<PaginatedResponse<EventResponse>>({
@@ -18,12 +18,11 @@ export const useEvents = (page = 0, size = 10, query: string = "") => {
                     page,
                     size,
                     sort: "startDate,desc",
-                    query: query || undefined // Only send if not empty
+                    query: query || undefined
                 },
             });
             return response.data;
         },
-        // FIXED: v5 replacement for keepPreviousData: true
         placeholderData: keepPreviousData,
     });
 

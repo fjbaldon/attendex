@@ -7,6 +7,7 @@ import {UploadStep} from "./upload-step";
 import {MappingStep} from "./mapping-step";
 import {ReviewStep} from "./review-step";
 import {SuccessStep} from "./success-step";
+import {ImportStepper} from "@/components/shared/import-stepper"; // Import the new component
 
 interface AttendeeImportDialogProps {
     open: boolean;
@@ -15,8 +16,15 @@ interface AttendeeImportDialogProps {
 
 type Step = "upload" | "mapping" | "review" | "success";
 
+const IMPORT_STEPS = [
+    { id: "upload", label: "Upload CSV" },
+    { id: "mapping", label: "Map Columns" },
+    { id: "review", label: "Review" },
+];
+
 export function AttendeeImportDialog({open, onOpenChange}: AttendeeImportDialogProps) {
     const [step, setStep] = React.useState<Step>("upload");
+    // ... keep existing state ...
     const [file, setFile] = React.useState<File | null>(null);
     const [csvHeaders, setCsvHeaders] = React.useState<string[]>([]);
     const [analysisResult, setAnalysisResult] = React.useState<AttendeeImportAnalysis | null>(null);
@@ -24,6 +32,7 @@ export function AttendeeImportDialog({open, onOpenChange}: AttendeeImportDialogP
 
     const {extractHeaders, isExtractingHeaders, analyzeAttendees, isAnalyzingAttendees} = useAttendees();
 
+    // ... keep existing useEffect ...
     React.useEffect(() => {
         if (!open) {
             setTimeout(() => {
@@ -36,6 +45,7 @@ export function AttendeeImportDialog({open, onOpenChange}: AttendeeImportDialogP
         }
     }, [open]);
 
+    // ... keep handlers (handleFileSelect, handleAnalyze, handleCommitSuccess) ...
     const handleFileSelect = async (selectedFile: File) => {
         setFile(selectedFile);
         try {
@@ -65,16 +75,15 @@ export function AttendeeImportDialog({open, onOpenChange}: AttendeeImportDialogP
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-6 pb-4">
-                    <DialogTitle>
-                        {step === 'upload' && "Import Attendees"}
-                        {step === 'mapping' && "Map Columns"}
-                        {step === 'review' && "Review Data"}
-                        {step === 'success' && "Import Complete"}
-                    </DialogTitle>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] h-[800px] flex flex-col p-0 gap-0 overflow-hidden">
+                <DialogHeader className="p-6 pb-2 shrink-0">
+                    <DialogTitle className="text-xl text-center mb-4">Import Attendees</DialogTitle>
+                    {step !== 'success' && (
+                        <ImportStepper currentStep={step} steps={IMPORT_STEPS} />
+                    )}
                 </DialogHeader>
-                <div className="flex-grow overflow-y-auto px-6 pb-6">
+
+                <div className="flex-grow overflow-y-auto px-6 pb-6 min-h-0">
                     {step === "upload" && (
                         <UploadStep onFileSelect={handleFileSelect} isAnalyzing={isExtractingHeaders}/>
                     )}

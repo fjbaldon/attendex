@@ -4,7 +4,7 @@ import * as React from "react";
 import {z} from "zod";
 import {attendeeSchema} from "@/lib/schemas";
 import {useIsMobile} from "@/hooks/use-mobile";
-import {AttendeeResponse} from "@/types";
+import {AttendeeResponse, UpdateAttendeeRequest} from "@/types";
 import {
     Dialog,
     DialogContent,
@@ -46,7 +46,13 @@ export function AttendeeDialog({open, onOpenChange, attendee}: AttendeeDialogPro
 
     const handleSubmit = (values: z.infer<typeof attendeeSchema>) => {
         if (isEditing && attendee) {
-            updateAttendee({id: attendee.id, data: values}, {
+            const updatePayload: UpdateAttendeeRequest = {
+                firstName: values.firstName,
+                lastName: values.lastName,
+                attributes: values.attributes,
+            };
+
+            updateAttendee({id: attendee.id, data: updatePayload}, {
                 onSuccess: () => onOpenChange(false),
             });
         } else {

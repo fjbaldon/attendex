@@ -20,6 +20,9 @@ interface OrganizersDataTableProps {
     pageCount: number;
     pagination: { pageIndex: number; pageSize: number; };
     setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
+    // FIX: Add search props
+    onSearchChange: (value: string) => void;
+    searchValue: string;
 }
 
 export function OrganizersDataTable({
@@ -28,8 +31,11 @@ export function OrganizersDataTable({
                                         isLoading,
                                         pageCount,
                                         pagination,
-                                        setPagination
+                                        setPagination,
+                                        onSearchChange,
+                                        searchValue
                                     }: OrganizersDataTableProps) {
+    // No page/size needed here for mutations
     const {deleteOrganizer, isDeletingOrganizer} = useOrganizers();
     const {resetPassword, isResettingPassword} = useUserActions();
 
@@ -37,7 +43,6 @@ export function OrganizersDataTable({
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
     const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
     const [selectedOrganizer, setSelectedOrganizer] = React.useState<OrganizerResponse | null>(null);
-    const [filter, setFilter] = React.useState("");
 
     const handleDeleteConfirm = () => {
         if (selectedOrganizer) {
@@ -57,8 +62,8 @@ export function OrganizersDataTable({
         <div className="flex items-center justify-between">
             <Input
                 placeholder="Filter organizers by email..."
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
+                value={searchValue}
+                onChange={(event) => onSearchChange(event.target.value)}
                 className="h-9 max-w-sm"
             />
             <Button size="sm" className="h-9" onClick={() => setIsFormDialogOpen(true)}>
@@ -68,10 +73,7 @@ export function OrganizersDataTable({
         </div>
     );
 
-    const filteredData = React.useMemo(() =>
-        data.filter(organizer =>
-            organizer.email.toLowerCase().includes(filter.toLowerCase())
-        ), [data, filter]);
+    // FIX: Removed client-side filtering. Data is already filtered by server.
 
     return (
         <>
@@ -96,7 +98,7 @@ export function OrganizersDataTable({
             />
             <DataTable
                 columns={columns}
-                data={filteredData}
+                data={data}
                 isLoading={isLoading}
                 pageCount={pageCount}
                 pagination={pagination}

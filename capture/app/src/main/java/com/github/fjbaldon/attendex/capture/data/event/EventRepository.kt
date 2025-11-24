@@ -12,9 +12,11 @@ import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.capture.core.data.local.model.SyncStatus
 import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
 import com.github.fjbaldon.attendex.capture.core.data.remote.EntrySyncRequest
-import com.github.fjbaldon.attendex.capture.core.data.remote.EventStatsResponse
+import com.github.fjbaldon.attendex.capture.core.data.remote.RosterItemResponse
 import com.github.fjbaldon.attendex.capture.feature.scanner.ScannedItemUi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -35,6 +37,8 @@ class EventRepository @Inject constructor(
     private var lastScannedIdentity: String? = null
     private val syncMutex = Mutex()
 
+    fun getUnsyncedCountFlow(): Flow<Int> = entryDao.getUnsyncedEntryCount()
+
     val hasUnsyncedRecords: Flow<Boolean> = entryDao.getUnsyncedEntryCount()
         .map { count -> count > 0 }
 
@@ -44,6 +48,12 @@ class EventRepository @Inject constructor(
 
     fun searchAttendees(eventId: Long, query: String): Flow<List<AttendeeEntity>> {
         return attendeeDao.searchAttendees(eventId, query)
+    }
+
+    suspend fun getLocalEventStats(eventId: Long): Pair<Long, Long> {
+        val rosterCount = attendeeDao.countAttendeesForEvent(eventId)
+        val scanCount = entryDao.countEntriesForEvent(eventId)
+        return Pair(scanCount, rosterCount)
     }
 
     suspend fun isEventActive(eventId: Long): Boolean {
@@ -74,6 +84,18 @@ class EventRepository @Inject constructor(
                     eventDao.clearAll()
                 }
             }
+
+            // FIX: Eagerly sync rosters for all active events
+            // This ensures that if the user goes offline immediately after this screen,
+            // the rosters are populated.
+            eventEntities.forEach { event ->
+                try {
+                    syncRosterForEvent(event.id)
+                } catch (e: Exception) {
+                    Log.w("EventRepository", "Failed to pre-fetch roster for ${event.name}", e)
+                }
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("EventRepository", "Refresh failed", e)
@@ -83,44 +105,55 @@ class EventRepository @Inject constructor(
 
     suspend fun syncRosterForEvent(eventId: Long): Result<Int> = withContext(Dispatchers.IO) {
         try {
-            // 1. Clear existing roster first (Transaction safe)
-            attendeeDao.clearAttendeesForEvent(eventId)
+            // 1. Fetch First Page
+            val firstPageResponse = try {
+                apiService.getAttendeesForEvent(eventId, 0, 500)
+            } catch (e: Exception) {
+                return@withContext Result.failure(e)
+            }
 
-            var page = 0
-            var isLast = false
-            var totalSynced = 0
+            // 2. Accumulate all data in memory
+            val allAttendees = ArrayList<AttendeeEntity>()
+            allAttendees.addAll(firstPageResponse.content.map { mapToAttendeeEntity(eventId, it) })
+
+            var isLast = firstPageResponse.last
+            var page = 1
 
             while (!isLast) {
-                // Fetch Batch
+                // FIXED: 'isActive' replaced with 'ensureActive()'
+                currentCoroutineContext().ensureActive()
+
                 val res = apiService.getAttendeesForEvent(eventId, page, 500)
+                allAttendees.addAll(res.content.map { mapToAttendeeEntity(eventId, it) })
 
-                // Map to Entity
-                val batchEntities = res.content.map {
-                    AttendeeEntity(
-                        localId = 0,
-                        eventId = eventId,
-                        attendeeId = it.attendeeId,
-                        identity = it.identity,
-                        firstName = it.firstName,
-                        lastName = it.lastName
-                    )
-                }
-
-                // 2. Insert immediately
-                if (batchEntities.isNotEmpty()) {
-                    attendeeDao.insertAll(batchEntities)
-                }
-
-                totalSynced += batchEntities.size
                 isLast = res.last
                 page++
             }
 
-            Result.success(totalSynced)
+            // 3. Atomic DB Update
+            appDatabase.withTransaction {
+                attendeeDao.clearAttendeesForEvent(eventId)
+                if (allAttendees.isNotEmpty()) {
+                    attendeeDao.insertAll(allAttendees)
+                }
+            }
+
+            Result.success(allAttendees.size)
         } catch (e: Exception) {
-            Log.e("EventRepository", "Roster sync failed for $eventId", e)
+            Log.e("EventRepository", "Roster sync interrupted", e)
             Result.failure(e)
         }
+    }
+
+    private fun mapToAttendeeEntity(eventId: Long, dto: RosterItemResponse): AttendeeEntity {
+        return AttendeeEntity(
+            localId = 0,
+            eventId = eventId,
+            attendeeId = dto.attendeeId,
+            identity = dto.identity,
+            firstName = dto.firstName,
+            lastName = dto.lastName
+        )
     }
 
     suspend fun retryFailedEntries(eventId: Long): Result<Int> = withContext(Dispatchers.IO) {
@@ -132,24 +165,18 @@ class EventRepository @Inject constructor(
         }
     }
 
-    suspend fun fetchEventStats(eventId: Long): Result<EventStatsResponse> = withContext(Dispatchers.IO) {
-        try {
-            Result.success(apiService.getEventStats(eventId))
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
     suspend fun primeLastScannedIdentifier(eventId: Long) {
         val lastEntry = entryDao.findMostRecentEntryForEvent(eventId)
         lastScannedIdentity = lastEntry?.snapshotIdentity
     }
 
     suspend fun processScan(eventId: Long, identity: String): ScanResult {
-        if (identity == lastScannedIdentity) return ScanResult.AlreadyScanned
-
         val attendee = attendeeDao.findAttendeeByIdentity(eventId, identity)
             ?: return ScanResult.AttendeeNotFound
+
+        if (identity == lastScannedIdentity) {
+            return ScanResult.AlreadyScanned(attendee)
+        }
 
         val entry = EntryEntity(
             eventId = eventId,
@@ -200,7 +227,7 @@ class EventRepository @Inject constructor(
                 }
 
                 if (failedUuids.isNotEmpty()) {
-                    entryDao.markAsFailedByUuid(failedUuids.toList())
+                    entryDao.markAsFailedByUuid(failedUuids.toList(), "Server Rejected")
                 }
 
                 if (batch.size == 50 && failedUuids.isEmpty()) {
@@ -209,9 +236,13 @@ class EventRepository @Inject constructor(
 
                 Result.success(response.successCount)
             } catch (e: Exception) {
+                val batchUuids = entryDao.getPendingEntriesBatch(50).map { it.scanUuid }
+                if (batchUuids.isNotEmpty()) {
+                    val errorMessage = e.message ?: "Unknown Sync Error"
+                    entryDao.markAsFailedByUuid(batchUuids, errorMessage)
+                }
+
                 if (e is HttpException && e.code() in 400..499) {
-                    val batchUuids = entryDao.getPendingEntriesBatch(50).map { it.scanUuid }
-                    entryDao.markAsFailedByUuid(batchUuids)
                     Result.failure(Exception("Sync Rejected by Server (Code ${e.code()}). Marked as Failed."))
                 } else {
                     Result.failure(e)
@@ -222,28 +253,32 @@ class EventRepository @Inject constructor(
 
     suspend fun runHousekeeping() = withContext(Dispatchers.IO) {
         try {
-            // Delete entries older than 24 hours
             val threshold = Instant.now().minus(24, ChronoUnit.HOURS).toEpochMilli()
             val count = entryDao.deleteSyncedEntriesOlderThan(threshold)
-            if (count > 0) {
-                Log.i("EventRepository", "Housekeeping: Deleted $count old synced entries.")
-            }
+            if (count > 0) Log.i("EventRepository", "Housekeeping: Deleted $count entries.")
         } catch (e: Exception) {
             Log.e("EventRepository", "Housekeeping failed", e)
         }
     }
 
-    fun getScannedItemsStream(eventId: Long): Flow<List<ScannedItemUi>> {
-        return entryDao.getEntriesForEventStream(eventId).map { entries ->
-            entries.map { entry ->
-                ScannedItemUi(
-                    id = entry.id.toLong(),
-                    name = "${entry.snapshotLastName}, ${entry.snapshotFirstName}",
-                    identity = entry.snapshotIdentity,
-                    isSynced = entry.syncStatus == SyncStatus.SYNCED,
-                    isFailed = entry.syncStatus == SyncStatus.FAILED
-                )
-            }
+    // FIX: Added 'limit' parameter
+    fun getScannedItemsStream(eventId: Long, limit: Int): Flow<List<ScannedItemUi>> {
+        return entryDao.getEntriesForEventStream(eventId, limit).map { mapEntriesToUi(it) }
+    }
+
+    fun searchScannedItems(eventId: Long, query: String): Flow<List<ScannedItemUi>> {
+        return entryDao.searchEntries(eventId, query).map { mapEntriesToUi(it) }
+    }
+
+    private fun mapEntriesToUi(entries: List<EntryEntity>): List<ScannedItemUi> {
+        return entries.map { entry ->
+            ScannedItemUi(
+                id = entry.id.toLong(),
+                name = "${entry.snapshotLastName}, ${entry.snapshotFirstName}",
+                identity = entry.snapshotIdentity,
+                isSynced = entry.syncStatus == SyncStatus.SYNCED,
+                isFailed = entry.syncStatus == SyncStatus.FAILED
+            )
         }
     }
 

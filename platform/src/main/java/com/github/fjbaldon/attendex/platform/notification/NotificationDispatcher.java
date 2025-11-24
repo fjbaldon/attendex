@@ -1,12 +1,14 @@
 package com.github.fjbaldon.attendex.platform.notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.fjbaldon.attendex.platform.organization.events.OrganizationRegisteredEvent;
-import com.github.fjbaldon.attendex.platform.organization.events.PasswordResetInitiatedEvent;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationRegisteredEvent;
+import com.github.fjbaldon.attendex.platform.organization.PasswordResetInitiatedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+@Component // Added annotation
 @RequiredArgsConstructor
 class NotificationDispatcher {
 

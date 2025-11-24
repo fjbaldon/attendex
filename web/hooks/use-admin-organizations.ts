@@ -17,18 +17,34 @@ interface OrganizationSubscriptionUpdate {
     expiresAt: Date | null;
 }
 
-export const useAdminOrganizations = (page = 0, size = 10) => {
+export const useAdminOrganizations = (
+    page = 0,
+    size = 10,
+    query = "",
+    lifecycle = "ALL",
+    subscriptionType = "ALL"
+) => {
     const queryClient = useQueryClient();
-    const queryKey = ["adminOrganizations", page, size];
+    // Include filters in query key for caching
+    const queryKey = ["adminOrganizations", page, size, query, lifecycle, subscriptionType];
 
     const {data, isLoading: isLoadingOrganizations} = useQuery<PaginatedResponse<Organization>>({
         queryKey,
         queryFn: async () => {
-            const response = await api.get("/api/v1/admin/organizations", {
-                params: {page, size, sort: "name,asc"},
-            });
+            const params: Record<string, string | number> = {
+                page,
+                size,
+                sort: "name,asc",
+            };
+
+            if (query) params.query = query;
+            if (lifecycle && lifecycle !== "ALL") params.lifecycle = lifecycle;
+            if (subscriptionType && subscriptionType !== "ALL") params.subscriptionType = subscriptionType;
+
+            const response = await api.get("/api/v1/admin/organizations", { params });
             return response.data;
         },
+        placeholderData: (prev) => prev,
     });
 
     const updateStatusMutation = useMutation<

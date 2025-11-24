@@ -1,7 +1,5 @@
 package com.github.fjbaldon.attendex.platform.organization;
 
-import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
-import com.github.fjbaldon.attendex.platform.organization.dto.RegistrationRequestDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

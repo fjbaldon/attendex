@@ -23,9 +23,21 @@ export const getDeparturesColumns = (attributes: Attribute[]): ColumnDef<EntryDe
         },
     };
 
+    // ADDED: Status Column
+    const punctualityColumn: ColumnDef<EntryDetailsDto> = {
+        accessorKey: "punctuality",
+        header: "Status",
+        cell: ({row}) => (
+            <div className="text-sm capitalize text-muted-foreground">
+                {row.original.punctuality.toLowerCase()}
+            </div>
+        ),
+    };
+
     return [
         selectColumn<EntryDetailsDto>(),
         ...baseColumns,
-        timestampColumn
+        timestampColumn,
+        punctualityColumn // Added here
     ];
 };

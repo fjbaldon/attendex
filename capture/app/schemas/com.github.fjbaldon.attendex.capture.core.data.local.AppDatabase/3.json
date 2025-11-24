@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "bb3ebb3bbb39ff05846570bd3a14ffb3",
+    "identityHash": "1f557c352ed5eaad606cd432aef91f8e",
     "entities": [
       {
         "tableName": "events",
@@ -112,6 +112,24 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_attendees_identity` ON `${TABLE_NAME}` (`identity`)"
+          },
+          {
+            "name": "index_attendees_firstName",
+            "unique": false,
+            "columnNames": [
+              "firstName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_attendees_firstName` ON `${TABLE_NAME}` (`firstName`)"
+          },
+          {
+            "name": "index_attendees_lastName",
+            "unique": false,
+            "columnNames": [
+              "lastName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_attendees_lastName` ON `${TABLE_NAME}` (`lastName`)"
           }
         ]
       },
@@ -189,7 +207,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bb3ebb3bbb39ff05846570bd3a14ffb3')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1f557c352ed5eaad606cd432aef91f8e')"
     ]
   }
 }

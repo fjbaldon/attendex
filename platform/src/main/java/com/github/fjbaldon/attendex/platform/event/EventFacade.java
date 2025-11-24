@@ -1,334 +1,144 @@
 package com.github.fjbaldon.attendex.platform.event;
 
-import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
-import com.github.fjbaldon.attendex.platform.attendee.dto.AttendeeDto;
-import com.github.fjbaldon.attendex.platform.capture.CaptureFacade;
-import com.github.fjbaldon.attendex.platform.capture.dto.EntryDetailsDto;
-import com.github.fjbaldon.attendex.platform.capture.dto.EventSyncDto;
-import com.github.fjbaldon.attendex.platform.event.dto.*;
-import com.github.fjbaldon.attendex.platform.event.events.EventCreatedEvent;
-import com.github.fjbaldon.attendex.platform.event.events.RosterEntryAddedEvent;
-import jakarta.persistence.EntityNotFoundException;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Lazy;
+import com.github.fjbaldon.attendex.platform.attendee.AttendeeDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.Assert;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class EventFacade {
 
-    private final EventRepository eventRepository;
-    private final RosterRepository rosterRepository;
-    private final SessionRepository sessionRepository;
-    private final AttendeeFacade attendeeFacade;
-    private final CaptureFacade captureFacade;
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventIngestService ingestService;
+    private final EventQueryService queryService;
+    private final RosterService rosterService;
+    private final EventSyncService syncService;
 
+    // NOTE: CaptureFacade dependency removed
     EventFacade(
-            EventRepository eventRepository,
-            RosterRepository rosterRepository,
-            SessionRepository sessionRepository,
-            AttendeeFacade attendeeFacade,
-            @Lazy CaptureFacade captureFacade,
-            ApplicationEventPublisher eventPublisher
+            EventIngestService ingestService,
+            EventQueryService queryService,
+            RosterService rosterService,
+            EventSyncService syncService
     ) {
-        this.eventRepository = eventRepository;
-        this.rosterRepository = rosterRepository;
-        this.sessionRepository = sessionRepository;
-        this.attendeeFacade = attendeeFacade;
-        this.captureFacade = captureFacade;
-        this.eventPublisher = eventPublisher;
+        this.ingestService = ingestService;
+        this.queryService = queryService;
+        this.rosterService = rosterService;
+        this.syncService = syncService;
     }
+
+    // --- INGEST ---
 
     @Transactional
     public EventDto createEvent(Long organizationId, Long organizerId, CreateEventRequestDto dto) {
-        Event event = Event.create(
-                organizationId,
-                organizerId,
-                dto.name(),
-                dto.startDate(),
-                dto.endDate(),
-                dto.graceMinutesBefore(),
-                dto.graceMinutesAfter()
-        );
-
-        dto.sessions().forEach(sessionDto -> {
-            Session session = Session.create(sessionDto.activityName(), sessionDto.targetTime(), sessionDto.intent());
-            event.addSession(session);
-        });
-
-        Event saved = eventRepository.save(event);
-        eventPublisher.publishEvent(new EventCreatedEvent(saved.getId(), saved.getOrganizationId(), saved.getName()));
-
-        return toDto(saved);
+        return ingestService.createEvent(organizationId, organizerId, dto);
     }
 
     @Transactional
     public EventDto updateEvent(Long organizationId, Long eventId, UpdateEventRequestDto dto) {
-        Event event = eventRepository.findByIdAndOrganizationId(eventId, organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
-
-        event.updateDetails(
-                dto.name(),
-                dto.startDate(),
-                dto.endDate(),
-                dto.graceMinutesBefore(),
-                dto.graceMinutesAfter()
-        );
-
-        Map<Long, UpdateSessionDto> incomingSessionsMap = dto.sessions().stream()
-                .filter(s -> s.id() != null)
-                .collect(Collectors.toMap(UpdateSessionDto::id, s -> s));
-
-        List<Session> existingSessions = new ArrayList<>(event.getSessions());
-
-        for (Session session : existingSessions) {
-            if (incomingSessionsMap.containsKey(session.getId())) {
-                UpdateSessionDto updateDto = incomingSessionsMap.get(session.getId());
-                session.update(updateDto.activityName(), updateDto.targetTime(), updateDto.intent());
-            } else {
-                event.removeSession(session);
-            }
-        }
-
-        dto.sessions().stream()
-                .filter(s -> s.id() == null)
-                .forEach(s -> {
-                    Session newSession = Session.create(s.activityName(), s.targetTime(), s.intent());
-                    event.addSession(newSession);
-                });
-
-        return toDto(eventRepository.save(event));
+        return ingestService.updateEvent(organizationId, eventId, dto);
     }
 
     @Transactional
     public void deleteEvent(Long organizationId, Long eventId) {
-        Event event = eventRepository.findByIdAndOrganizationId(eventId, organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
-
-        event.markAsDeleted();
-        eventRepository.save(event);
+        ingestService.deleteEvent(organizationId, eventId);
     }
+
+    // --- QUERY ---
 
     @Transactional(readOnly = true)
     public Page<EventDto> findEvents(Long organizationId, String query, Pageable pageable) {
-        if (query != null && !query.isBlank()) {
-            return eventRepository.searchByOrganizationId(organizationId, query.trim(), pageable)
-                    .map(this::toDto);
-        }
-        return eventRepository.findAllByOrganizationId(organizationId, pageable)
-                .map(this::toDto);
+        return queryService.findEvents(organizationId, query, pageable);
     }
 
     @Transactional(readOnly = true)
     public EventDto findEventById(Long eventId, Long organizationId) {
-        return eventRepository.findByIdAndOrganizationId(eventId, organizationId)
-                .map(this::toDto)
-                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
-    }
-
-    @Transactional
-    public void addAttendeeToRoster(Long eventId, Long attendeeId, Long organizationId) {
-        attendeeFacade.findAttendeeById(attendeeId, organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Attendee not found in this organization."));
-
-        Event event = eventRepository.findByIdAndOrganizationId(eventId, organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
-
-        RosterEntryId id = new RosterEntryId(eventId, attendeeId);
-        Assert.isTrue(!rosterRepository.existsById(id), "Attendee is already on the roster for this event.");
-
-        RosterEntry rosterEntry = RosterEntry.create(event, attendeeId);
-        rosterRepository.save(rosterEntry);
-
-        eventPublisher.publishEvent(new RosterEntryAddedEvent(eventId, organizationId, attendeeId));
-    }
-
-    @Transactional
-    public void removeAttendeeFromRoster(Long eventId, Long attendeeId) {
-        RosterEntryId id = new RosterEntryId(eventId, attendeeId);
-        rosterRepository.deleteById(id);
-    }
-
-    @Transactional(readOnly = true)
-    public Page<AttendeeDto> findRosterForEvent(Long eventId, Long organizationId, Pageable pageable) {
-        eventRepository.findByIdAndOrganizationId(eventId, organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
-
-        return rosterRepository.findAttendeeIdsByEventId(eventId, pageable)
-                .map(attendeeId -> attendeeFacade.findAttendeeById(attendeeId, organizationId)
-                        .orElseThrow(() -> new IllegalStateException("Roster data inconsistency: Attendee " + attendeeId + " not found")));
-    }
-
-    @Transactional(readOnly = true)
-    public Page<EntryDetailsDto> findEntriesByIntent(Long eventId, Long organizationId, String intent, Pageable pageable) {
-        if (eventRepository.findByIdAndOrganizationId(eventId, organizationId).isEmpty()) {
-            throw new EntityNotFoundException("Event not found");
-        }
-
-        List<Long> sessionIds = sessionRepository.findSessionIdsByEventIdAndIntent(eventId, intent);
-        if (sessionIds.isEmpty()) {
-            return Page.empty(pageable);
-        }
-        return captureFacade.findEntriesBySessionIds(sessionIds, pageable);
+        return queryService.findEventById(eventId, organizationId);
     }
 
     @Transactional(readOnly = true)
     public Page<EventDto> findUpcomingEvents(Long organizationId, Pageable pageable) {
-        return eventRepository.findByOrganizationIdAndStartDateAfterOrderByStartDateAsc(
-                organizationId,
-                Instant.now(),
-                pageable
-        ).map(this::toDto);
-    }
-
-    @Transactional(readOnly = true)
-    public List<EventForSyncDto> findActiveEventsForSync(Long organizationId) {
-        Page<Event> events = eventRepository.findAllByOrganizationId(organizationId, Pageable.unpaged());
-        return events.stream()
-                .map(this::toEventForSyncDto)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public List<EventSyncDto> getEventsForSync(Long organizationId) {
-        List<EventForSyncDto> events = findActiveEventsForSync(organizationId);
-
-        return events.stream().map(e -> {
-            List<EventSyncDto.SessionSyncDto> sessionSyncDtos = e.sessions().stream()
-                    .map(s -> new EventSyncDto.SessionSyncDto(
-                            s.id(),
-                            s.activityName(),
-                            s.targetTime(),
-                            s.intent()
-                    ))
-                    .collect(Collectors.toList());
-
-            return new EventSyncDto(
-                    e.id(),
-                    e.name(),
-                    e.startDate(),
-                    e.endDate(),
-                    sessionSyncDtos,
-                    List.of()
-            );
-        }).collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public Page<EventSyncDto.RosterSyncDto> getFormattedRosterForSync(Long eventId, Long organizationId, Pageable pageable) {
-        eventRepository.findByIdAndOrganizationId(eventId, organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
-
-        return rosterRepository.findRosterProjectionsByEventId(eventId, pageable)
-                .map(proj -> new EventSyncDto.RosterSyncDto(
-                        proj.attendeeId(),
-                        proj.identity(),
-                        proj.firstName(),
-                        proj.lastName()
-                ));
+        return queryService.findUpcomingEvents(organizationId, pageable);
     }
 
     @Transactional(readOnly = true)
     public List<SessionDetailsDto> findAllSessionsForEvent(Long eventId) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
-
-        return event.getSessions().stream()
-                .map(s -> new SessionDetailsDto(
-                        s.getId(),
-                        s.getTargetTime(),
-                        event.getGraceMinutesBefore(),
-                        event.getGraceMinutesAfter()
-                ))
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public long countRosterForEvent(Long eventId) {
-        return rosterRepository.countByIdEventId(eventId);
+        return queryService.findAllSessionsForEvent(eventId);
     }
 
     @Transactional(readOnly = true)
     public Map<Long, String> getSessionNamesByIds(Set<Long> sessionIds) {
-        return sessionRepository.findAllById(sessionIds).stream()
-                .collect(Collectors.toMap(Session::getId, Session::getActivityName));
+        return queryService.getSessionNamesByIds(sessionIds);
     }
 
     @Transactional(readOnly = true)
     public Map<Long, String> getEventNamesByIds(Set<Long> eventIds) {
-        return eventRepository.findAllById(eventIds).stream()
-                .collect(Collectors.toMap(Event::getId, Event::getName));
+        return queryService.getEventNamesByIds(eventIds);
     }
 
-    private EventDto toDto(Event event) {
-        return new EventDto(
-                event.getId(),
-                event.getName(),
-                event.getStartDate(),
-                event.getEndDate(),
-                event.getGraceMinutesBefore(),
-                event.getGraceMinutesAfter(),
-                event.getCreatedAt(),
-                calculateEventStatus(event),
-                event.getSessions().stream().map(this::toDto).collect(Collectors.toList())
-        );
+    @Transactional(readOnly = true)
+    public boolean exists(Long eventId) {
+        return queryService.exists(eventId);
     }
 
-    private String calculateEventStatus(Event event) {
-        Instant now = Instant.now();
-        if (now.isAfter(event.getEndDate())) {
-            return "PAST";
-        }
-        if (now.isBefore(event.getStartDate())) {
-            return "UPCOMING";
-        }
-
-        boolean isActive = event.getSessions().stream().anyMatch(session -> {
-            Instant startWindow = session.getTargetTime().minus(event.getGraceMinutesBefore(), ChronoUnit.MINUTES);
-            Instant endWindow = session.getTargetTime().plus(event.getGraceMinutesAfter(), ChronoUnit.MINUTES);
-            return !now.isBefore(startWindow) && !now.isAfter(endWindow);
-        });
-
-        return isActive ? "ACTIVE" : "ONGOING";
+    @Transactional(readOnly = true)
+    public void ensureEventExists(Long eventId, Long organizationId) {
+        queryService.ensureEventExists(eventId, organizationId);
     }
 
-    private SessionDto toDto(Session session) {
-        return new SessionDto(
-                session.getActivityName(),
-                session.getTargetTime(),
-                session.getIntent()
-        );
+    // Exposed for Capture Module usage
+    @Transactional(readOnly = true)
+    public List<Long> findSessionIdsByIntent(Long eventId, String intent) {
+        return queryService.findSessionIdsByIntent(eventId, intent);
     }
 
-    private EventForSyncDto toEventForSyncDto(Event event) {
-        var sessions = event.getSessions().stream()
-                .map(s -> new EventForSyncDto.SessionForSyncDto(s.getId(), s.getActivityName(), s.getTargetTime(), s.getIntent()))
-                .toList();
+    // REMOVED: findEntriesByIntent (moved to CaptureFacade)
 
-        var roster = event.getRosterEntries().stream()
-                .map(re -> new EventForSyncDto.RosterEntryForSyncDto(re.getId().getAttendeeId()))
-                .toList();
+    // --- ROSTER ---
 
-        return new EventForSyncDto(
-                event.getId(),
-                event.getOrganizationId(),
-                event.getName(),
-                event.getStartDate(),
-                event.getEndDate(),
-                sessions,
-                roster
-        );
+    @Transactional
+    public void addAttendeeToRoster(Long eventId, Long attendeeId, Long organizationId) {
+        rosterService.addAttendeeToRoster(eventId, attendeeId, organizationId);
+    }
+
+    @Transactional
+    public void removeAttendeeFromRoster(Long eventId, Long attendeeId) {
+        rosterService.removeAttendeeFromRoster(eventId, attendeeId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AttendeeDto> findRosterForEvent(Long eventId, Long organizationId, String query, Pageable pageable) {
+        return rosterService.findRosterForEvent(eventId, organizationId, query, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public long countRosterForEvent(Long eventId) {
+        return rosterService.countRosterForEvent(eventId);
+    }
+
+    @Transactional
+    public int bulkAddAttendeesByCriteria(Long eventId, Long organizationId, BulkAddCriteriaRequestDto criteria) {
+        return rosterService.bulkAddAttendeesByCriteria(eventId, organizationId, criteria);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EventDto> findEventsForAttendee(Long attendeeId) {
+        return rosterService.findEventsForAttendee(attendeeId);
+    }
+
+    // --- SYNC ---
+
+    @Transactional(readOnly = true)
+    public List<EventSyncDto> getEventsForSync(Long organizationId) {
+        return syncService.getEventsForSync(organizationId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<EventSyncDto.RosterSyncDto> getFormattedRosterForSync(Long eventId, Long organizationId, Pageable pageable) {
+        return syncService.getFormattedRosterForSync(eventId, organizationId, pageable);
     }
 }

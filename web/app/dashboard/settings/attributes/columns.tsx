@@ -20,8 +20,30 @@ export const columns: ColumnDef<Attribute>[] = [
     {
         accessorKey: "options",
         header: "Options",
-        cell: ({row}) => <div
-            className="text-muted-foreground text-sm truncate max-w-xs">{row.original.options?.join(', ') || 'N/A'}</div>,
+        cell: ({row}) => {
+            const options = row.original.options || [];
+
+            if (options.length === 0) return <span className="text-muted-foreground text-sm italic">None</span>;
+
+            // Show first 3 options, then a "+N more" badge if there are many
+            const displayOptions = options.slice(0, 3);
+            const remainder = options.length - 3;
+
+            return (
+                <div className="flex flex-wrap gap-1">
+                    {displayOptions.map((opt, i) => (
+                        <Badge key={i} variant="secondary" className="font-normal text-xs border bg-muted/50 text-muted-foreground">
+                            {opt}
+                        </Badge>
+                    ))}
+                    {remainder > 0 && (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                            +{remainder}
+                        </Badge>
+                    )}
+                </div>
+            );
+        },
     },
     createActionsColumn<Attribute>([
         {

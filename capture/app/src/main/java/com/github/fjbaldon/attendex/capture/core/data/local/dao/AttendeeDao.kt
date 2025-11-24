@@ -40,4 +40,7 @@ interface AttendeeDao {
         LIMIT 50
     """)
     fun searchAttendees(eventId: Long, query: String): Flow<List<AttendeeEntity>>
+
+    @Query("SELECT COUNT(*) FROM attendees WHERE eventId = :eventId")
+    suspend fun countAttendeesForEvent(eventId: Long): Long
 }

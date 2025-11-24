@@ -2,13 +2,15 @@ package com.github.fjbaldon.attendex.platform.notification;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.fjbaldon.attendex.platform.organization.events.OrganizationRegisteredEvent;
-import com.github.fjbaldon.attendex.platform.organization.events.PasswordResetInitiatedEvent;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationRegisteredEvent;
+import com.github.fjbaldon.attendex.platform.organization.PasswordResetInitiatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+@Component // Added annotation
 @RequiredArgsConstructor
 @Slf4j
 class OrganizationEventListener {

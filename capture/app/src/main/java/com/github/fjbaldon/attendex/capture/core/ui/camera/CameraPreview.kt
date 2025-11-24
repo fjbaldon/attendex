@@ -23,13 +23,16 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.github.fjbaldon.attendex.capture.feature.scanner.ScanMode
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
 fun CameraPreview(
     scanMode: ScanMode,
     onTextFound: (String) -> Unit,
     torchEnabled: Boolean,
-    onTorchToggle: (Boolean) -> Unit
+    onTorchToggle: (Boolean) -> Unit,
+    isScanningEnabled: Boolean,
+    customRegex: String?
 ) {
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -37,7 +40,7 @@ fun CameraPreview(
     var hasCamPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
-                context, // This usage makes the initializer NOT redundant
+                context,
                 Manifest.permission.CAMERA
             ) == PackageManager.PERMISSION_GRANTED
         )
@@ -48,44 +51,44 @@ fun CameraPreview(
         onResult = { granted -> hasCamPermission = granted }
     )
 
-    // Hold references to re-bind camera when ScanMode changes
     var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
 
-    // 1. Check Permissions
+    val isScanningRef = remember { AtomicBoolean(isScanningEnabled) }
+
+    LaunchedEffect(isScanningEnabled) {
+        isScanningRef.set(isScanningEnabled)
+    }
+
     LaunchedEffect(key1 = true) {
         if (!hasCamPermission) {
             launcher.launch(Manifest.permission.CAMERA)
         }
     }
 
-    // 2. Handle Torch
     LaunchedEffect(camera, torchEnabled) {
         camera?.cameraControl?.enableTorch(torchEnabled)
     }
 
-    // 3. Bind Camera (Runs when Provider, View, or ScanMode changes)
-    // This replaces the 'key(scanMode)' wrapper
-    LaunchedEffect(cameraProvider, previewView, scanMode) {
+    // FIXED: Use DisposableEffect to manage the ExecutorService lifecycle
+    DisposableEffect(cameraProvider, previewView, scanMode) {
         val provider = cameraProvider
         val view = previewView
+        // Create executor within the effect scope
+        val cameraExecutor = Executors.newSingleThreadExecutor()
 
         if (provider != null && view != null) {
-            val cameraExecutor = Executors.newSingleThreadExecutor()
-
-            // Unbind previous use cases (e.g. the old analyzer)
             provider.unbindAll()
 
             val preview = Preview.Builder().build().also {
                 it.surfaceProvider = view.surfaceProvider
             }
 
-            // Switch Analyzer based on Mode
             val analyzer = if (scanMode == ScanMode.QR) {
-                BarcodeScanningAnalyzer(onTextFound)
+                BarcodeScanningAnalyzer(onTextFound, isScanningRef)
             } else {
-                TextRecognitionAnalyzer(onTextFound)
+                TextRecognitionAnalyzer(onTextFound, isScanningRef, customRegex)
             }
 
             val imageAnalyzer = ImageAnalysis.Builder()
@@ -101,20 +104,20 @@ fun CameraPreview(
                 camera = provider.bindToLifecycle(
                     lifecycleOwner, cameraSelector, preview, imageAnalyzer
                 )
-                // Restore torch state after re-binding
                 onTorchToggle(camera?.cameraInfo?.hasFlashUnit() ?: false)
                 camera?.cameraControl?.enableTorch(torchEnabled)
             } catch (_: Exception) {
-                // Log error
             }
+        }
+
+        onDispose {
+            cameraExecutor.shutdown()
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (hasCamPermission) {
-            // REMOVED: key(scanMode) wrapper
-            // ADDED: <PreviewView> explicit type
-            AndroidView<PreviewView>(
+            AndroidView(
                 factory = { ctx ->
                     val view = PreviewView(ctx).apply {
                         layoutParams = ViewGroup.LayoutParams(
@@ -122,7 +125,7 @@ fun CameraPreview(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                     }
-                    previewView = view // Capture for LaunchedEffect
+                    previewView = view
 
                     val providerFuture = ProcessCameraProvider.getInstance(ctx)
                     providerFuture.addListener({
@@ -136,10 +139,6 @@ fun CameraPreview(
                 },
                 modifier = Modifier.fillMaxSize()
             )
-
-            // Visual Overlay
-            CameraOverlay(scanMode = scanMode, modifier = Modifier.fillMaxSize())
-
         } else {
             PermissionRequiredScreen(onRequestPermission = {
                 launcher.launch(Manifest.permission.CAMERA)

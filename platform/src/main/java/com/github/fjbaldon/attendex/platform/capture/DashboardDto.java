@@ -1,0 +1,34 @@
+package com.github.fjbaldon.attendex.platform.capture;
+
+import java.time.Instant;
+import java.util.List;
+
+public record DashboardDto(
+        DashboardStatsDto stats,
+        List<UpcomingEventDto> upcomingEvents,
+        List<RecentEventStatsDto> recentEventStats,
+        List<RecentActivityDto> recentActivity
+) {
+    public record DashboardStatsDto(
+            long totalEvents,
+            long totalAttendees,
+            long totalScanners,
+            long liveEntries
+    ) {
+    }
+
+    public record UpcomingEventDto(
+            Long id,
+            String eventName,
+            Instant startDate
+    ) {
+    }
+
+    public record RecentEventStatsDto(
+            Long id,
+            String eventName,
+            long rosterCount,
+            long entryCount
+    ) {
+    }
+}

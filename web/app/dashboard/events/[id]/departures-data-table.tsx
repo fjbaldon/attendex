@@ -3,7 +3,8 @@
 import * as React from "react";
 import {ColumnDef} from "@tanstack/react-table";
 import {EntryDetailsDto} from "@/types";
-import {SimpleFilteredDataTable} from "@/components/shared/simple-filtered-data-table";
+import {Input} from "@/components/ui/input";
+import {DataTable} from "@/components/shared/data-table";
 
 interface DeparturesDataTableProps {
     columns: ColumnDef<EntryDetailsDto>[];
@@ -12,14 +13,41 @@ interface DeparturesDataTableProps {
     pageCount: number;
     pagination: { pageIndex: number; pageSize: number; };
     setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
+    // FIX: Search props
+    searchQuery: string;
+    onSearchChange: (val: string) => void;
 }
 
-export function DeparturesDataTable(props: DeparturesDataTableProps) {
+export function DeparturesDataTable({
+                                        columns,
+                                        data,
+                                        isLoading,
+                                        pageCount,
+                                        pagination,
+                                        setPagination,
+                                        searchQuery,
+                                        onSearchChange
+                                    }: DeparturesDataTableProps) {
+    const toolbar = (
+        <div className="flex items-center justify-between">
+            <Input
+                placeholder="Filter by name..."
+                value={searchQuery}
+                onChange={(event) => onSearchChange(event.target.value)}
+                className="h-9 max-w-sm"
+            />
+        </div>
+    );
+
     return (
-        <SimpleFilteredDataTable
-            {...props}
-            filterPlaceholder="Filter by name..."
-            filterColumnFn={(item) => `${item.attendee.firstName} ${item.attendee.lastName}`}
+        <DataTable
+            columns={columns}
+            data={data}
+            isLoading={isLoading}
+            pageCount={pageCount}
+            pagination={pagination}
+            setPagination={setPagination}
+            toolbar={toolbar}
         />
     );
 }

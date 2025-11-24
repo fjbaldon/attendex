@@ -1,8 +1,6 @@
 package com.github.fjbaldon.attendex.platform.organization;
 
-import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
-import com.github.fjbaldon.attendex.platform.organization.dto.CreateUserRequestDto;
-import com.github.fjbaldon.attendex.platform.organization.dto.ScannerDto;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -30,10 +28,11 @@ class ScannerController {
 
     @GetMapping
     public Page<ScannerDto> getScanners(
+            @RequestParam(required = false) String query, // FIX: Added query
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails user) {
 
-        return organizationFacade.findScanners(user.getOrganizationId(), pageable);
+        return organizationFacade.findScanners(user.getOrganizationId(), query, pageable);
     }
 
     @PatchMapping("/{scannerId}/status")

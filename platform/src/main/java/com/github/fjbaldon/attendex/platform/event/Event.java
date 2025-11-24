@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.util.Assert;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -31,7 +32,7 @@ class Event {
 
     private Instant deletedAt;
 
-    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL)
     private final Set<Session> sessions = new HashSet<>();
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -84,5 +85,22 @@ class Event {
 
     void markAsDeleted() {
         this.deletedAt = Instant.now();
+    }
+
+    String calculateStatus(Instant now) {
+        if (now.isAfter(this.endDate)) {
+            return "PAST";
+        }
+        if (now.isBefore(this.startDate)) {
+            return "UPCOMING";
+        }
+
+        boolean isActive = this.sessions.stream().anyMatch(session -> {
+            Instant startWindow = session.getTargetTime().minus(this.graceMinutesBefore, ChronoUnit.MINUTES);
+            Instant endWindow = session.getTargetTime().plus(this.graceMinutesAfter, ChronoUnit.MINUTES);
+            return !now.isBefore(startWindow) && !now.isAfter(endWindow);
+        });
+
+        return isActive ? "ACTIVE" : "ONGOING";
     }
 }

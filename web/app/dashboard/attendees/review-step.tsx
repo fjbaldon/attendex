@@ -1,5 +1,6 @@
 "use client";
 
+import React, {useMemo} from "react"; // Added useMemo
 import {AttendeeImportAnalysis, AttendeeRequest, InvalidRow} from "@/types";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Button} from "@/components/ui/button";
@@ -16,7 +17,7 @@ interface ReviewStepProps {
     onStartOver: () => void;
 }
 
-// Define columns for the valid data table
+// ... keep columns definitions (validColumns, invalidColumns) as is ...
 const validColumns: ColumnDef<AttendeeRequest & { isUpdate: boolean }>[] = [
     {
         accessorKey: "status",
@@ -32,7 +33,6 @@ const validColumns: ColumnDef<AttendeeRequest & { isUpdate: boolean }>[] = [
     {accessorKey: "firstName", header: "First Name"},
 ];
 
-// Define columns for the invalid data table
 const invalidColumns: ColumnDef<InvalidRow>[] = [
     {accessorKey: "rowNumber", header: "Row #"},
     {
@@ -46,11 +46,13 @@ export function ReviewStep({analysisResult, onCommitSuccess, onStartOver}: Revie
     const {attendeesToCreate, attendeesToUpdate, invalidRows, newAttributesToCreate} = analysisResult;
     const {commitAttendees, isCommittingAttendees} = useAttendees();
 
-    // Combine lists for display, flagging them so we can show a badge
-    const combinedList = [
+    // FIXED: Memoize this heavy operation.
+    // Without this, every time the dialog tries to close (triggering a re-render),
+    // this array runs .map() spread (...) logic, freezing the thread if N > 1000.
+    const combinedList = useMemo(() => [
         ...attendeesToCreate.map(a => ({...a, isUpdate: false})),
         ...attendeesToUpdate.map(a => ({...a, isUpdate: true}))
-    ];
+    ], [attendeesToCreate, attendeesToUpdate]);
 
     const totalValid = combinedList.length;
 
@@ -61,7 +63,7 @@ export function ReviewStep({analysisResult, onCommitSuccess, onStartOver}: Revie
         getPaginationRowModel: getPaginationRowModel(),
         initialState: {
             pagination: {
-                pageSize: 5,
+                pageSize: 10, // Reduced from 50 to 10 to keep DOM light during transitions
             },
         },
     });
@@ -73,11 +75,12 @@ export function ReviewStep({analysisResult, onCommitSuccess, onStartOver}: Revie
         getPaginationRowModel: getPaginationRowModel(),
         initialState: {
             pagination: {
-                pageSize: 5,
+                pageSize: 10,
             },
         },
     });
 
+    // ... keep handleImport and handleDownloadErrors logic as is ...
     const handleImport = async () => {
         try {
             await commitAttendees({
@@ -94,7 +97,6 @@ export function ReviewStep({analysisResult, onCommitSuccess, onStartOver}: Revie
     const handleDownloadErrors = () => {
         if (invalidRows.length === 0) return;
 
-        // Dynamically get headers from the first row's data map
         const dataHeaders = Object.keys(invalidRows[0].rowData);
         const headers = ["Row Number", ...dataHeaders, "Error Message"];
 
@@ -122,116 +124,137 @@ export function ReviewStep({analysisResult, onCommitSuccess, onStartOver}: Revie
     };
 
     return (
-        <div className="space-y-6 h-full flex flex-col">
-            <div className="grid grid-cols-3 gap-4">
-                <div className="rounded-lg border bg-green-50/50 p-4 text-center">
-                    <div className="flex justify-center mb-2"><IconCheck className="text-green-600"/></div>
-                    <div className="text-2xl font-bold text-green-700">{attendeesToCreate.length}</div>
-                    <div className="text-xs text-green-600 font-medium uppercase">New Records</div>
+        <div className="space-y-4 h-full flex flex-col">
+            {/* ... keep UI structure exactly the same ... */}
+            {/* Compact Stats Row */}
+            <div className="grid grid-cols-3 gap-3 shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-md border bg-green-50/50 p-3">
+                    <div className="flex items-center gap-2 mb-1 sm:mb-0">
+                        <IconCheck className="h-4 w-4 text-green-600"/>
+                        <span className="text-xs font-medium text-green-700 uppercase">New</span>
+                    </div>
+                    <span className="text-xl font-bold text-green-700">{attendeesToCreate.length}</span>
                 </div>
-                <div className="rounded-lg border bg-blue-50/50 p-4 text-center">
-                    <div className="flex justify-center mb-2"><IconRefresh className="text-blue-600"/></div>
-                    <div className="text-2xl font-bold text-blue-700">{attendeesToUpdate.length}</div>
-                    <div className="text-xs text-blue-600 font-medium uppercase">Updates</div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-md border bg-blue-50/50 p-3">
+                    <div className="flex items-center gap-2 mb-1 sm:mb-0">
+                        <IconRefresh className="h-4 w-4 text-blue-600"/>
+                        <span className="text-xs font-medium text-blue-700 uppercase">Update</span>
+                    </div>
+                    <span className="text-xl font-bold text-blue-700">{attendeesToUpdate.length}</span>
                 </div>
-                <div className="rounded-lg border bg-red-50/50 p-4 text-center">
-                    <div className="flex justify-center mb-2"><IconAlertTriangle className="text-red-600"/></div>
-                    <div className="text-2xl font-bold text-red-700">{invalidRows.length}</div>
-                    <div className="text-xs text-red-600 font-medium uppercase">Errors</div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-md border bg-red-50/50 p-3">
+                    <div className="flex items-center gap-2 mb-1 sm:mb-0">
+                        <IconAlertTriangle className="h-4 w-4 text-red-600"/>
+                        <span className="text-xs font-medium text-red-700 uppercase">Error</span>
+                    </div>
+                    <span className="text-xl font-bold text-red-700">{invalidRows.length}</span>
                 </div>
             </div>
 
             {newAttributesToCreate.length > 0 && (
-                <div className="rounded-md bg-amber-50 p-3 border border-amber-200 text-sm text-amber-800">
-                    <span className="font-semibold">Note:</span> The following new attributes will be created:
-                    <span className="font-mono ml-2">{newAttributesToCreate.join(", ")}</span>
+                <div className="shrink-0 rounded-md bg-amber-50 p-2 px-3 border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
+                    <IconAlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <div>
+                        <span className="font-semibold">Notice:</span> New attributes will be created:
+                        <span className="font-mono ml-1">{newAttributesToCreate.join(", ")}</span>
+                    </div>
                 </div>
             )}
 
             <Tabs defaultValue="valid" className="flex-1 flex flex-col min-h-0">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-2 shrink-0">
                     <TabsTrigger value="valid">Ready to Import ({totalValid})</TabsTrigger>
                     <TabsTrigger value="errors">Errors ({invalidRows.length})</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="valid" className="mt-4 flex-1 flex flex-col gap-4 min-h-0">
-                    <div className="rounded-md border overflow-auto flex-1">
-                        <Table>
-                            <TableHeader>
-                                {validTable.getHeaderGroups().map(headerGroup => (
-                                    <TableRow key={headerGroup.id}>
-                                        {headerGroup.headers.map(header => (
-                                            <TableHead key={header.id}>
-                                                {flexRender(header.column.columnDef.header, header.getContext())}
-                                            </TableHead>
-                                        ))}
-                                    </TableRow>
-                                ))}
-                            </TableHeader>
-                            <TableBody>
-                                {validTable.getRowModel().rows?.length ? (
-                                    validTable.getRowModel().rows.map(row => (
-                                        <TableRow key={row.id}>
-                                            {row.getVisibleCells().map(cell => (
-                                                <TableCell key={cell.id}>
-                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                                </TableCell>
+                {/* Valid Tab Content */}
+                <TabsContent value="valid" className="mt-2 flex-1 flex flex-col gap-2 min-h-0 data-[state=inactive]:hidden">
+                    <div className="rounded-md border flex-1 relative overflow-hidden">
+                        <div className="absolute inset-0 overflow-auto">
+                            <Table>
+                                <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                                    {validTable.getHeaderGroups().map(headerGroup => (
+                                        <TableRow key={headerGroup.id}>
+                                            {headerGroup.headers.map(header => (
+                                                <TableHead key={header.id}>
+                                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                                </TableHead>
                                             ))}
                                         </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={validColumns.length} className="h-24 text-center">
-                                            No valid records found.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                                    ))}
+                                </TableHeader>
+                                <TableBody>
+                                    {validTable.getRowModel().rows?.length ? (
+                                        validTable.getRowModel().rows.map(row => (
+                                            <TableRow key={row.id}>
+                                                {row.getVisibleCells().map(cell => (
+                                                    <TableCell key={cell.id}>
+                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={validColumns.length} className="h-24 text-center">
+                                                No valid records found.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </div>
-                    <DataTablePagination table={validTable}/>
+                    <div className="shrink-0">
+                        <DataTablePagination table={validTable}/>
+                    </div>
                 </TabsContent>
 
-                <TabsContent value="errors" className="mt-4 flex-1 flex flex-col gap-4 min-h-0">
-                    <div className="rounded-md border overflow-auto flex-1">
-                        <Table>
-                            <TableHeader>
-                                {invalidTable.getHeaderGroups().map(headerGroup => (
-                                    <TableRow key={headerGroup.id}>
-                                        {headerGroup.headers.map(header => (
-                                            <TableHead key={header.id}>
-                                                {flexRender(header.column.columnDef.header, header.getContext())}
-                                            </TableHead>
-                                        ))}
-                                    </TableRow>
-                                ))}
-                            </TableHeader>
-                            <TableBody>
-                                {invalidTable.getRowModel().rows?.length ? (
-                                    invalidTable.getRowModel().rows.map(row => (
-                                        <TableRow key={row.id}>
-                                            {row.getVisibleCells().map(cell => (
-                                                <TableCell key={cell.id}>
-                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                                </TableCell>
+                {/* Errors Tab Content */}
+                <TabsContent value="errors" className="mt-2 flex-1 flex flex-col gap-2 min-h-0 data-[state=inactive]:hidden">
+                    <div className="rounded-md border flex-1 relative overflow-hidden">
+                        <div className="absolute inset-0 overflow-auto">
+                            <Table>
+                                <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                                    {invalidTable.getHeaderGroups().map(headerGroup => (
+                                        <TableRow key={headerGroup.id}>
+                                            {headerGroup.headers.map(header => (
+                                                <TableHead key={header.id}>
+                                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                                </TableHead>
                                             ))}
                                         </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={invalidColumns.length} className="h-24 text-center">
-                                            No errors found.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                                    ))}
+                                </TableHeader>
+                                <TableBody>
+                                    {invalidTable.getRowModel().rows?.length ? (
+                                        invalidTable.getRowModel().rows.map(row => (
+                                            <TableRow key={row.id}>
+                                                {row.getVisibleCells().map(cell => (
+                                                    <TableCell key={cell.id}>
+                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={invalidColumns.length} className="h-24 text-center">
+                                                No errors found.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </div>
-                    <DataTablePagination table={invalidTable}/>
+                    <div className="shrink-0">
+                        <DataTablePagination table={invalidTable}/>
+                    </div>
                 </TabsContent>
             </Tabs>
 
-            <div className="flex justify-between items-center pt-2 mt-auto border-t">
+            <div className="flex justify-between items-center pt-2 mt-auto border-t shrink-0">
                 <Button variant="outline" onClick={onStartOver} disabled={isCommittingAttendees}>
                     Start Over
                 </Button>

@@ -11,7 +11,7 @@ import javax.inject.Inject
 
 sealed class AuthState {
     data object Loading : AuthState()
-    data object Authenticated : AuthState()
+    data class Authenticated(val requirePasswordChange: Boolean) : AuthState()
     data object Unauthenticated : AuthState()
 }
 
@@ -30,8 +30,10 @@ class SplashViewModel @Inject constructor(
     private fun checkLoginStatus() {
         viewModelScope.launch {
             kotlinx.coroutines.delay(500)
+
             if (authRepository.isLoggedIn()) {
-                _authState.value = AuthState.Authenticated
+                val needsChange = authRepository.isPasswordChangeRequired()
+                _authState.value = AuthState.Authenticated(needsChange)
             } else {
                 _authState.value = AuthState.Unauthenticated
             }

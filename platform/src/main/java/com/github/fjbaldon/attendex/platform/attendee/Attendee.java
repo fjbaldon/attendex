@@ -39,6 +39,9 @@ class Attendee {
     @Column(nullable = false)
     private Instant createdAt;
 
+    // NEW: Soft Delete Field
+    private Instant deletedAt;
+
     private Attendee(Long organizationId, String identity, String firstName, String lastName, Map<String, Object> attributes) {
         Assert.notNull(organizationId, "Organization ID must not be null");
         Assert.hasText(identity, "Identity must not be blank");
@@ -63,5 +66,17 @@ class Attendee {
         this.firstName = newFirstName;
         this.lastName = newLastName;
         this.attributes = newAttributes;
+    }
+
+    void markAsDeleted() {
+        this.deletedAt = Instant.now();
+    }
+
+    boolean isActive() {
+        return this.deletedAt == null;
+    }
+
+    void reactivate() {
+        this.deletedAt = null;
     }
 }

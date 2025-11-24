@@ -17,13 +17,14 @@ import {Button} from "@/components/ui/button";
 import {useDebounce} from "@uidotdev/usehooks";
 import {flexRender, getCoreRowModel, useReactTable} from "@tanstack/react-table";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
-import {Input} from "@/components/ui/input";
 import {DataTablePagination} from "@/components/shared/data-table-pagination";
 import {getColumns} from "./add-attendees-columns";
 import {useAttributes} from "@/hooks/use-attributes";
 import {toast} from "sonner";
 import {useQuery} from "@tanstack/react-query";
 import api from "@/lib/api";
+import {FilterToolbar} from "@/components/shared/filter-toolbar";
+import {IconBuilding, IconUsersPlus} from "@tabler/icons-react"; // Added IconBuilding
 
 interface AddAttendeeDialogProps {
     open: boolean;
@@ -44,23 +45,29 @@ const useEventRosterIds = (eventId: number) => {
 
 export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDialogProps) {
     const [searchQuery, setSearchQuery] = useState("");
-    const debouncedSearchQuery = useDebounce(searchQuery, 500);
-
+    const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
     const [pagination, setPagination] = useState({pageIndex: 0, pageSize: 10});
-
     const [rowSelection, setRowSelection] = useState({});
 
+    const debouncedSearchQuery = useDebounce(searchQuery, 500);
+
     const {attendeesData, isLoadingAttendees, refetch: refetchAttendees} =
-        useAttendees(pagination.pageIndex, pagination.pageSize, debouncedSearchQuery);
+        useAttendees(pagination.pageIndex, pagination.pageSize, debouncedSearchQuery, activeFilters);
 
     const {data: rosterIds, refetch: refetchRoster} = useEventRosterIds(eventId);
 
-    const {addAttendee, isAddingAttendee} = useEventDetails(eventId, {pageIndex: 0, pageSize: 10});
+    const {
+        addAttendee,
+        isAddingAttendee,
+        bulkAddByCriteria,
+        isBulkAddingByCriteria
+    } = useEventDetails(eventId, {pageIndex: 0, pageSize: 10});
+
     const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
 
     const columns = useMemo(() => getColumns(attributes), [attributes]);
-
     const attendees = attendeesData?.content ?? [];
+    const totalMatches = attendeesData?.totalElements ?? 0;
 
     const table = useReactTable({
         data: attendees,
@@ -81,6 +88,7 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
     useEffect(() => {
         if (open) {
             setSearchQuery("");
+            setActiveFilters({});
             setRowSelection({});
             setPagination({pageIndex: 0, pageSize: 10});
             void refetchAttendees();
@@ -124,6 +132,23 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
         }
     };
 
+    // This function handles both "Add All Matching" AND "Add Entire Organization"
+    const handleBulkAddCriteria = () => {
+        bulkAddByCriteria({
+            eventId,
+            criteria: {
+                query: searchQuery,
+                attributes: activeFilters
+            }
+        }, {
+            onSuccess: () => {
+                onOpenChange(false);
+            }
+        });
+    };
+
+    const hasCriteria = searchQuery.length > 0 || Object.keys(activeFilters).length > 0;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
@@ -135,15 +160,21 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                 </DialogHeader>
 
                 <div className="space-y-4 flex-grow flex flex-col min-h-0">
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <Input
-                            placeholder="Search by name or identity..."
-                            value={searchQuery}
-                            onChange={(e) => {
-                                setSearchQuery(e.target.value);
+                    {/* FIX: Wrapped FilterToolbar in shrink-0 div to prevent vertical growing/squashing in flex-col */}
+                    <div className="shrink-0">
+                        <FilterToolbar
+                            searchQuery={searchQuery}
+                            onSearchChange={(val) => {
+                                setSearchQuery(val);
                                 setPagination(prev => ({...prev, pageIndex: 0}));
                             }}
-                            className="h-9 max-w-sm"
+                            searchPlaceholder="Search name or ID..."
+                            activeFilters={activeFilters}
+                            onFiltersChange={(filters) => {
+                                setActiveFilters(filters);
+                                setPagination(prev => ({...prev, pageIndex: 0}));
+                            }}
+                            attributes={attributes}
                         />
                     </div>
 
@@ -190,12 +221,45 @@ export function AddAttendeeDialog({open, onOpenChange, eventId}: AddAttendeeDial
                     </div>
                     <DataTablePagination table={table}/>
                 </div>
-                <DialogFooter className="pt-4 border-t">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-                    <Button onClick={handleAddSelected}
-                            disabled={isAddingAttendee || Object.keys(rowSelection).length === 0}>
-                        {isAddingAttendee ? "Adding..." : `Add ${Object.keys(rowSelection).length} Selected`}
-                    </Button>
+
+                <DialogFooter className="pt-4 border-t flex !justify-between items-center sm:justify-between">
+                    {/* LEFT: Smart Bulk Add Button */}
+                    <div>
+                        {totalMatches > 0 && (
+                            <Button
+                                variant="secondary"
+                                onClick={handleBulkAddCriteria}
+                                disabled={isBulkAddingByCriteria}
+                                className="gap-2"
+                            >
+                                {hasCriteria ? (
+                                    <>
+                                        <IconUsersPlus className="w-4 h-4" />
+                                        {isBulkAddingByCriteria
+                                            ? "Adding..."
+                                            : `Add ${totalMatches} Matching`}
+                                    </>
+                                ) : (
+                                    <>
+                                        {/* NEW: Visible when no filters are active */}
+                                        <IconBuilding className="w-4 h-4" />
+                                        {isBulkAddingByCriteria
+                                            ? "Adding All..."
+                                            : `Add Entire Organization (${totalMatches})`}
+                                    </>
+                                )}
+                            </Button>
+                        )}
+                    </div>
+
+                    {/* RIGHT: Add Selected / Close */}
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+                        <Button onClick={handleAddSelected}
+                                disabled={isAddingAttendee || Object.keys(rowSelection).length === 0}>
+                            {isAddingAttendee ? "Adding..." : `Add ${Object.keys(rowSelection).length} Selected`}
+                        </Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

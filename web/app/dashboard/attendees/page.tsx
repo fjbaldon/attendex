@@ -9,6 +9,7 @@ import {useAttendees} from "@/hooks/use-attendees";
 import {getColumns} from "./columns";
 import {AttendeesDataTable} from "./attendees-data-table";
 import {useAttributes} from "@/hooks/use-attributes";
+import {useDebounce} from "@uidotdev/usehooks";
 
 export default function AttendeesPage() {
     const [{pageIndex, pageSize}, setPagination] = React.useState({
@@ -16,7 +17,21 @@ export default function AttendeesPage() {
         pageSize: 10,
     });
 
-    const {attendeesData, isLoadingAttendees} = useAttendees(pageIndex, pageSize);
+    // 1. LIFTED STATE: Manage search and filters here
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const [activeFilters, setActiveFilters] = React.useState<Record<string, string>>({});
+
+    // Debounce the search query to prevent excessive API calls
+    const debouncedQuery = useDebounce(searchQuery, 500);
+
+    // 2. PASS STATE TO HOOK: Now fetching includes the filters
+    const {attendeesData, isLoadingAttendees} = useAttendees(
+        pageIndex,
+        pageSize,
+        debouncedQuery,
+        activeFilters
+    );
+
     const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
 
     const attendees = attendeesData?.content ?? [];
@@ -46,6 +61,11 @@ export default function AttendeesPage() {
                                 pageCount={pageCount}
                                 pagination={{pageIndex, pageSize}}
                                 setPagination={setPagination}
+                                // 3. PASS PROPS DOWN
+                                searchQuery={searchQuery}
+                                onSearchChange={setSearchQuery}
+                                activeFilters={activeFilters}
+                                onFiltersChange={setActiveFilters}
                             />
                         </div>
                     </div>

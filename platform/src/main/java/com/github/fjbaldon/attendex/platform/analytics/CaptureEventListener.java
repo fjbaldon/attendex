@@ -1,7 +1,7 @@
 package com.github.fjbaldon.attendex.platform.analytics;
 
 import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
-import com.github.fjbaldon.attendex.platform.capture.events.EntriesSyncedEvent;
+import com.github.fjbaldon.attendex.platform.capture.EntriesSyncedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;

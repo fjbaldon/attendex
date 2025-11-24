@@ -1,12 +1,8 @@
 package com.github.fjbaldon.attendex.platform.capture;
 
-import com.github.fjbaldon.attendex.platform.analytics.dto.EventStatsDto;
-import com.github.fjbaldon.attendex.platform.capture.dto.BatchSyncResponse;
-import com.github.fjbaldon.attendex.platform.capture.dto.EntrySyncRequestDto;
-import com.github.fjbaldon.attendex.platform.capture.dto.EventSyncDto;
-import com.github.fjbaldon.attendex.platform.capture.dto.OrphanedEntryDto;
 import com.github.fjbaldon.attendex.platform.event.EventFacade;
-import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
+import com.github.fjbaldon.attendex.platform.event.EventSyncDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -73,6 +69,17 @@ class CaptureController {
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(captureFacade.getOrphanedEntries(user.getOrganizationId(), pageable));
+    }
+
+    @PostMapping("/orphans/{id}/recover")
+    @PreAuthorize("hasRole('ORGANIZER')")
+    public ResponseEntity<Void> recoverOrphan(
+            @PathVariable Long id,
+            @RequestParam Long targetEventId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        captureFacade.recoverOrphan(user.getOrganizationId(), id, targetEventId, user.getId());
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/orphans/{id}")

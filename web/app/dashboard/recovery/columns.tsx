@@ -4,27 +4,45 @@ import {ColumnDef} from "@tanstack/react-table";
 import {OrphanedEntry} from "@/types";
 import {format} from "date-fns";
 import {Badge} from "@/components/ui/badge";
-import {IconTrash} from "@tabler/icons-react";
+import {IconRestore, IconTrash} from "@tabler/icons-react";
 import {createActionsColumn} from "@/components/shared/data-table-action-column";
 import {selectColumn} from "@/components/shared/data-table-columns";
+
+interface OrphanedPayload {
+    snapshotFirstName?: string;
+    snapshotLastName?: string;
+    snapshotIdentity?: string;
+    [key: string]: unknown;
+}
 
 export const columns: ColumnDef<OrphanedEntry>[] = [
     selectColumn<OrphanedEntry>(),
     {
-        accessorKey: "originalEventId",
-        header: "Target Event ID",
-        cell: ({row}) => <div className="font-mono text-xs">{row.original.originalEventId}</div>,
+        id: "eventInfo",
+        header: "Target Event",
+        cell: ({row}) => (
+            <div className="flex flex-col">
+                <span className="font-medium">{row.original.originalEventName}</span>
+                <span className="text-xs text-muted-foreground font-mono">ID: {row.original.originalEventId}</span>
+            </div>
+        ),
     },
     {
         id: "attendee",
         header: "Raw Attendee Data",
         cell: ({row}) => {
             try {
-                const payload = JSON.parse(row.original.rawPayload);
+                const raw = row.original.rawPayload;
+                const payload = (typeof raw === 'string' ? JSON.parse(raw) : raw) as OrphanedPayload;
+
                 return (
                     <div className="flex flex-col">
-                        <span className="font-medium">{payload.snapshotFirstName} {payload.snapshotLastName}</span>
-                        <span className="text-xs text-muted-foreground">ID: {payload.snapshotIdentity}</span>
+                        <span className="font-medium">
+                            {payload.snapshotFirstName || "?"} {payload.snapshotLastName || "?"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                            ID: {payload.snapshotIdentity || "Unknown"}
+                        </span>
                     </div>
                 );
             } catch {
@@ -51,6 +69,11 @@ export const columns: ColumnDef<OrphanedEntry>[] = [
         ),
     },
     createActionsColumn<OrphanedEntry>([
+        {
+            icon: IconRestore,
+            label: "Recover",
+            onClick: (row, table) => table.options.meta?.openRecoverDialog?.(row.original),
+        },
         {
             icon: IconTrash,
             label: "Dismiss",

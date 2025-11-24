@@ -14,18 +14,33 @@ import java.util.Optional;
 
 interface EventRepository extends PagingAndSortingRepository<Event, Long>, CrudRepository<Event, Long> {
 
-    @Query(value = "SELECT e FROM Event e LEFT JOIN FETCH e.sessions WHERE e.organizationId = :organizationId AND e.deletedAt IS NULL",
+    @Query(value = "SELECT e FROM Event e WHERE e.organizationId = :organizationId AND e.deletedAt IS NULL",
             countQuery = "SELECT COUNT(e) FROM Event e WHERE e.organizationId = :organizationId AND e.deletedAt IS NULL")
     Page<Event> findAllByOrganizationId(@Param("organizationId") Long organizationId, Pageable pageable);
 
+    @Query("SELECT DISTINCT e FROM Event e " +
+            "LEFT JOIN FETCH e.sessions " +
+            "WHERE e.organizationId = :organizationId " +
+            "AND e.deletedAt IS NULL " +
+            "AND e.endDate >= :lookback " +
+            "AND e.startDate <= :lookahead " +
+            "ORDER BY e.startDate ASC")
+    List<Event> findAllForSync(
+            @Param("organizationId") Long organizationId,
+            @Param("lookback") Instant lookback,
+            @Param("lookahead") Instant lookahead
+    );
+
     @Query("SELECT e FROM Event e WHERE e.organizationId = :organizationId AND " +
-            "LOWER(e.name) LIKE LOWER(CONCAT('%', :query, '%'))")
+            "LOWER(e.name) LIKE LOWER(CONCAT('%', :query, '%')) AND e.deletedAt IS NULL")
     Page<Event> searchByOrganizationId(@Param("organizationId") Long organizationId, @Param("query") String query, Pageable pageable);
 
     @Query("SELECT e FROM Event e LEFT JOIN FETCH e.sessions WHERE e.id = :id AND e.organizationId = :organizationId")
     Optional<Event> findByIdAndOrganizationId(@Param("id") Long id, @Param("organizationId") Long organizationId);
 
     Page<Event> findByOrganizationIdAndStartDateAfterOrderByStartDateAsc(Long organizationId, Instant date, Pageable pageable);
+
+    boolean existsByIdAndDeletedAtIsNull(Long id);
 
     @Override
     @NonNull

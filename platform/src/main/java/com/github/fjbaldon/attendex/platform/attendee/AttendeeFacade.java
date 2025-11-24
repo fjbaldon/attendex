@@ -1,345 +1,115 @@
 package com.github.fjbaldon.attendex.platform.attendee;
 
-import com.github.fjbaldon.attendex.platform.attendee.dto.*;
-import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeCreatedEvent;
-import com.github.fjbaldon.attendex.platform.attendee.events.AttendeeDeletedEvent;
-import com.github.fjbaldon.attendex.platform.attendee.events.AttributeDeletedEvent;
-import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
-import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class AttendeeFacade {
 
-    private final AttendeeRepository attendeeRepository;
-    private final AttributeRepository attributeRepository;
-    private final OrganizationFacade organizationFacade;
-    private final ApplicationEventPublisher eventPublisher;
+    private final AttendeeIngestService ingestService;
+    private final AttendeeQueryService queryService;
+    private final AttendeeAttributeService attributeService;
+    private final AttendeeImportService importService;
+
+    // --- ATTENDEE INGEST ---
 
     @Transactional
     public AttendeeDto createAttendee(Long organizationId, CreateAttendeeDto dto) {
-        validateIdentityFormat(organizationId, dto.identity());
-        try {
-            Attendee attendee = Attendee.create(organizationId, dto.identity(), dto.firstName(), dto.lastName(), dto.attributes());
-            Attendee saved = attendeeRepository.save(attendee);
-            eventPublisher.publishEvent(new AttendeeCreatedEvent(saved.getId(), saved.getOrganizationId()));
-            return toDto(saved);
-        } catch (DataIntegrityViolationException e) {
-            throw new IllegalArgumentException("An attendee with this identity already exists in your organization.");
-        }
-    }
-
-    @Transactional(readOnly = true)
-    public Page<AttendeeDto> findAttendees(Long organizationId, String query, Pageable pageable) {
-        if (query != null && !query.isBlank()) {
-            return attendeeRepository.searchByOrganizationId(organizationId, query.trim(), pageable).map(this::toDto);
-        }
-        return attendeeRepository.findAllByOrganizationId(organizationId, pageable).map(this::toDto);
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<AttendeeDto> findAttendeeById(Long attendeeId, Long organizationId) {
-        return attendeeRepository.findById(attendeeId)
-                .filter(attendee -> attendee.getOrganizationId().equals(organizationId))
-                .map(this::toDto);
-    }
-
-    @Transactional(readOnly = true)
-    public List<AttendeeDto> findAttendeesByIds(List<Long> attendeeIds) {
-        Iterable<Attendee> attendees = attendeeRepository.findAllById(attendeeIds);
-        return StreamSupport.stream(attendees.spliterator(), false).map(this::toDto).collect(Collectors.toList());
+        return ingestService.createAttendee(organizationId, dto);
     }
 
     @Transactional
     public AttendeeDto updateAttendee(Long organizationId, Long attendeeId, UpdateAttendeeDto dto) {
-        Attendee attendee = attendeeRepository.findById(attendeeId)
-                .filter(a -> a.getOrganizationId().equals(organizationId))
-                .orElseThrow(() -> new EntityNotFoundException("Attendee not found"));
-        attendee.update(dto.firstName(), dto.lastName(), dto.attributes());
-        return toDto(attendee);
+        return ingestService.updateAttendee(organizationId, attendeeId, dto);
     }
 
     @Transactional
     public void deleteAttendee(Long organizationId, Long attendeeId) {
-        Attendee attendee = attendeeRepository.findById(attendeeId)
-                .filter(a -> a.getOrganizationId().equals(organizationId))
-                .orElseThrow(() -> new EntityNotFoundException("Attendee not found"));
-        attendeeRepository.delete(attendee);
-        eventPublisher.publishEvent(new AttendeeDeletedEvent(organizationId));
+        ingestService.deleteAttendee(organizationId, attendeeId);
     }
 
     @Transactional
-    public AttributeDto createAttribute(Long organizationId, CreateAttributeDto dto) {
-        try {
-            Attribute attribute = Attribute.create(organizationId, dto.name(), dto.type(), dto.options());
-            Attribute saved = attributeRepository.save(attribute);
-            return toDto(saved);
-        } catch (DataIntegrityViolationException e) {
-            throw new IllegalArgumentException("An attribute with this name already exists.");
-        }
+    public void deleteAttendees(Long organizationId, List<Long> attendeeIds) {
+        ingestService.deleteAttendees(organizationId, attendeeIds);
+    }
+
+    // --- ATTENDEE QUERY ---
+
+    @Transactional(readOnly = true)
+    public Page<AttendeeDto> findAttendees(Long organizationId, String query, Map<String, String> attributeFilters, Pageable pageable) {
+        return queryService.findAttendees(organizationId, query, attributeFilters, pageable);
     }
 
     @Transactional(readOnly = true)
-    public List<AttributeDto> findAttributes(Long organizationId) {
-        return attributeRepository.findAllByOrganizationId(organizationId).stream().map(this::toDto).collect(Collectors.toList());
+    public Optional<AttendeeDto> findAttendeeById(Long attendeeId, Long organizationId) {
+        return queryService.findAttendeeById(attendeeId, organizationId);
     }
 
-    @Transactional
-    public AttributeDto updateAttribute(Long organizationId, Long attributeId, String newName, List<String> newOptions) {
-        Attribute attribute = attributeRepository.findByIdAndOrganizationId(attributeId, organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Attribute not found"));
-
-        if (!attribute.getName().equals(newName)) {
-            if (attributeRepository.existsByOrganizationIdAndName(organizationId, newName)) {
-                throw new IllegalArgumentException("An attribute with the name '" + newName + "' already exists.");
-            }
-            attendeeRepository.renameAttributeKey(organizationId, attribute.getName(), newName);
-            attribute.setName(newName);
-        }
-
-        attribute.updateOptions(newOptions);
-        return toDto(attributeRepository.save(attribute));
-    }
-
-    @Transactional
-    public void deleteAttribute(Long organizationId, Long attributeId) {
-        Attribute attribute = attributeRepository.findByIdAndOrganizationId(attributeId, organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Attribute not found"));
-
-        attributeRepository.delete(attribute);
-
-        attendeeRepository.removeAttributeFromAllAttendees(organizationId, attribute.getName());
-
-        eventPublisher.publishEvent(new AttributeDeletedEvent(organizationId, attribute.getName()));
+    @Transactional(readOnly = true)
+    public List<AttendeeDto> findAttendeesByIds(List<Long> attendeeIds) {
+        return queryService.findAttendeesByIds(attendeeIds);
     }
 
     @Transactional(readOnly = true)
     public List<Long> findAttendeeIdsByFilters(Long organizationId, Map<String, String> filters) {
-        if (filters == null || filters.isEmpty()) {
-            return null;
-        }
-        List<Long> matchingIds = null;
-        for (Map.Entry<String, String> entry : filters.entrySet()) {
-            List<Long> idsForThisFilter = attendeeRepository.findIdsByAttributeValue(organizationId, entry.getKey(), entry.getValue());
-            if (matchingIds == null) {
-                matchingIds = idsForThisFilter;
-            } else {
-                matchingIds.retainAll(idsForThisFilter);
-            }
-            if (matchingIds.isEmpty()) {
-                return matchingIds;
-            }
-        }
-        return matchingIds;
+        return queryService.findAttendeeIdsByFilters(organizationId, filters);
     }
 
+    @Transactional(readOnly = true)
+    public List<Long> findIdsByCriteria(Long organizationId, String query, Map<String, String> attributeFilters) {
+        return queryService.findIdsByCriteria(organizationId, query, attributeFilters);
+    }
+
+    // --- ATTRIBUTES ---
+
+    @Transactional
+    public AttributeDto createAttribute(Long organizationId, CreateAttributeDto dto) {
+        return attributeService.createAttribute(organizationId, dto);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AttributeDto> findAttributes(Long organizationId) {
+        return attributeService.findAttributes(organizationId);
+    }
+
+    @Transactional
+    public AttributeDto updateAttribute(Long organizationId, Long attributeId, String newName, List<String> newOptions) {
+        return attributeService.updateAttribute(organizationId, attributeId, newName, newOptions);
+    }
+
+    @Transactional
+    public void deleteAttribute(Long organizationId, Long attributeId) {
+        attributeService.deleteAttribute(organizationId, attributeId);
+    }
+
+    // --- IMPORT ---
+
     public List<String> extractCsvHeaders(MultipartFile file) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).get();
-            CSVParser parser = csvFormat.parse(reader);
-            return parser.getHeaderNames();
-        }
+        return importService.extractCsvHeaders(file);
     }
 
     @Transactional(readOnly = true)
     public AttendeeImportAnalysisDto analyzeAttendeeImport(Long organizationId, MultipartFile file, ImportConfigurationDto config) throws IOException {
-        OrganizationDto organization = organizationFacade.findOrganizationById(organizationId);
-        String regex = organization.identityFormatRegex();
-        List<Attribute> existingAttributes = attributeRepository.findAllByOrganizationId(organizationId);
-        Set<String> validAttributeNames = existingAttributes.stream().map(Attribute::getName).collect(Collectors.toSet());
-        List<CreateAttendeeDto> toCreate = new ArrayList<>();
-        List<CreateAttendeeDto> toUpdate = new ArrayList<>();
-        List<AttendeeImportAnalysisDto.InvalidRow> invalidRows = new ArrayList<>();
-        Set<String> newAttributesToCreate = new HashSet<>();
-        Set<String> fileIdentities = new HashSet<>();
-
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setIgnoreEmptyLines(true).get();
-            CSVParser parser = csvFormat.parse(reader);
-            Map<String, String> mapping = config.columnMapping();
-
-            for (CSVRecord record : parser) {
-                try {
-                    String identity = getMappedValue(record, mapping, "identity");
-                    String firstName = getMappedValue(record, mapping, "firstName");
-                    String lastName = getMappedValue(record, mapping, "lastName");
-
-                    if (!StringUtils.hasText(identity)) throw new IllegalArgumentException("Row missing Identity.");
-                    if (!StringUtils.hasText(firstName)) throw new IllegalArgumentException("Row missing First Name.");
-                    if (!StringUtils.hasText(lastName)) throw new IllegalArgumentException("Row missing Last Name.");
-
-                    if (regex != null && !regex.isBlank() && !identity.matches(regex)) {
-                        throw new IllegalArgumentException("Identity format invalid.");
-                    }
-
-                    if (fileIdentities.contains(identity)) {
-                        throw new IllegalArgumentException("Duplicate identity in file.");
-                    }
-                    fileIdentities.add(identity);
-
-                    boolean existsInDb = attendeeRepository.existsByOrganizationIdAndIdentity(organizationId, identity);
-
-                    if (existsInDb) {
-                        if (config.mode() == ImportConfigurationDto.ImportMode.FAIL) {
-                            throw new IllegalArgumentException("Identity already exists.");
-                        }
-                        if (config.mode() == ImportConfigurationDto.ImportMode.SKIP) {
-                            continue;
-                        }
-                    }
-
-                    Map<String, Object> attributeValues = new HashMap<>();
-                    for (Map.Entry<String, String> entry : mapping.entrySet()) {
-                        String csvHeader = entry.getKey();
-                        String mappedTarget = entry.getValue();
-                        if (List.of("identity", "firstName", "lastName").contains(mappedTarget)) continue;
-                        String val = record.isMapped(csvHeader) ? record.get(csvHeader) : null;
-                        if (StringUtils.hasText(val)) {
-                            val = val.trim().toUpperCase();
-                            if (validAttributeNames.contains(mappedTarget)) {
-                                attributeValues.put(mappedTarget, val);
-                            } else if (config.createMissingAttributes()) {
-                                newAttributesToCreate.add(mappedTarget);
-                                attributeValues.put(mappedTarget, val);
-                            }
-                        }
-                    }
-
-                    CreateAttendeeDto dto = new CreateAttendeeDto(identity, firstName, lastName, attributeValues);
-                    if (existsInDb) {
-                        toUpdate.add(dto);
-                    } else {
-                        toCreate.add(dto);
-                    }
-                } catch (Exception e) {
-                    invalidRows.add(new AttendeeImportAnalysisDto.InvalidRow(record.getRecordNumber(), record.toMap(), e.getMessage()));
-                }
-            }
-        }
-        return new AttendeeImportAnalysisDto(toCreate, toUpdate, invalidRows, new ArrayList<>(newAttributesToCreate));
+        return importService.analyzeAttendeeImport(organizationId, file, config);
     }
 
     @Transactional
     public void commitAttendeeImport(Long organizationId, List<CreateAttendeeDto> attendees, boolean updateExisting, List<String> newAttributes) {
-        Map<String, Set<String>> batchOptions = new HashMap<>();
-        for (CreateAttendeeDto dto : attendees) {
-            if (dto.attributes() != null) {
-                dto.attributes().forEach((key, val) -> {
-                    if (val instanceof String s && StringUtils.hasText(s)) {
-                        batchOptions.computeIfAbsent(key, k -> new HashSet<>()).add(s);
-                    }
-                });
-            }
-        }
-
-        if (newAttributes != null) {
-            for (String attrName : newAttributes) {
-                if (!attributeRepository.existsByOrganizationIdAndName(organizationId, attrName)) {
-                    List<String> options = new ArrayList<>(batchOptions.getOrDefault(attrName, Collections.emptySet()));
-                    Collections.sort(options);
-                    try {
-                        Attribute attr = Attribute.create(organizationId, attrName, "SELECT", options);
-                        attributeRepository.save(attr);
-                    } catch (DataIntegrityViolationException ignored) {}
-                }
-            }
-        }
-
-        List<Attribute> existingAttributes = attributeRepository.findAllByOrganizationId(organizationId);
-        for (Attribute attr : existingAttributes) {
-            if (batchOptions.containsKey(attr.getName())) {
-                Set<String> newOptions = batchOptions.get(attr.getName());
-                List<String> currentOptions = new ArrayList<>(attr.getOptions());
-                boolean changed = false;
-                for (String opt : newOptions) {
-                    if (!currentOptions.contains(opt)) {
-                        currentOptions.add(opt);
-                        changed = true;
-                    }
-                }
-                if (changed) {
-                    Collections.sort(currentOptions);
-                    attr.updateOptions(currentOptions);
-                    attributeRepository.save(attr);
-                }
-            }
-        }
-
-        List<Attendee> batch = new ArrayList<>();
-        for (CreateAttendeeDto dto : attendees) {
-            Attendee existing = attendeeRepository.findAttendeeByIdentity(organizationId, dto.identity());
-            if (existing != null && updateExisting) {
-                existing.update(dto.firstName(), dto.lastName(), dto.attributes());
-                batch.add(existing);
-            } else if (existing == null) {
-                Attendee newAttendee = Attendee.create(organizationId, dto.identity(), dto.firstName(), dto.lastName(), dto.attributes());
-                batch.add(newAttendee);
-                eventPublisher.publishEvent(new AttendeeCreatedEvent(newAttendee.getId(), organizationId));
-            }
-        }
-        attendeeRepository.saveAll(batch);
+        importService.commitAttendeeImport(organizationId, attendees, updateExisting, newAttributes);
     }
 
     @Transactional(readOnly = true)
     public String generateImportTemplate(Long organizationId) {
-        List<Attribute> attributes = attributeRepository.findAllByOrganizationId(organizationId);
-        StringBuilder csv = new StringBuilder("identity,firstName,lastName");
-        for (Attribute attr : attributes) {
-            csv.append(",").append(attr.getName());
-        }
-        csv.append("\n");
-        csv.append("2025001,John,Doe");
-        for (Attribute attr : attributes) {
-            String sample = (attr.getOptions() != null && !attr.getOptions().isEmpty()) ? attr.getOptions().getFirst() : "SampleValue";
-            csv.append(",").append(sample);
-        }
-        csv.append("\n");
-        return csv.toString();
-    }
-
-    private void validateIdentityFormat(Long organizationId, String identity) {
-        OrganizationDto org = organizationFacade.findOrganizationById(organizationId);
-        String regex = org.identityFormatRegex();
-        if (regex != null && !regex.isBlank() && !identity.matches(regex)) {
-            throw new IllegalArgumentException("Identity '" + identity + "' does not match the required format.");
-        }
-    }
-
-    private String getMappedValue(CSVRecord record, Map<String, String> mapping, String targetField) {
-        return mapping.entrySet().stream()
-                .filter(e -> e.getValue().equals(targetField))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .map(header -> record.isMapped(header) ? record.get(header) : null)
-                .orElse(null);
-    }
-
-    private AttendeeDto toDto(Attendee attendee) {
-        return new AttendeeDto(attendee.getId(), attendee.getIdentity(), attendee.getFirstName(), attendee.getLastName(), attendee.getAttributes(), attendee.getCreatedAt());
-    }
-
-    private AttributeDto toDto(Attribute attribute) {
-        return new AttributeDto(attribute.getId(), attribute.getName(), attribute.getType(), attribute.getOptions());
+        return importService.generateImportTemplate(organizationId);
     }
 }

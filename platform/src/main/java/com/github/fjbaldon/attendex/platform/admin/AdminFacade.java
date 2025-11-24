@@ -1,12 +1,9 @@
 package com.github.fjbaldon.attendex.platform.admin;
 
-import com.github.fjbaldon.attendex.platform.admin.dto.*;
-import com.github.fjbaldon.attendex.platform.admin.events.StewardCreatedEvent;
-import com.github.fjbaldon.attendex.platform.admin.events.StewardDeletedEvent;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
-import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
-import com.github.fjbaldon.attendex.platform.organization.events.OrganizationLifecycleChangedEvent;
-import com.github.fjbaldon.attendex.platform.organization.events.PasswordResetInitiatedEvent;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationDto;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationLifecycleChangedEvent;
+import com.github.fjbaldon.attendex.platform.organization.PasswordResetInitiatedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;

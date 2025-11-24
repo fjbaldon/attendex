@@ -1,8 +1,8 @@
 package com.github.fjbaldon.attendex.platform.identity;
 
-import com.github.fjbaldon.attendex.platform.identity.dto.PasswordChangeRequestDto;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
-import com.github.fjbaldon.attendex.platform.organization.dto.PasswordResetRequestDto;
+import com.github.fjbaldon.attendex.platform.organization.PasswordResetRequestDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

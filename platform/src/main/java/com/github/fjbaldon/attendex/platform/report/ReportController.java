@@ -1,6 +1,6 @@
 package com.github.fjbaldon.attendex.platform.report;
 
-import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;

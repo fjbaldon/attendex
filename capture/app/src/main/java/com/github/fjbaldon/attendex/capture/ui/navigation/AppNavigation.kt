@@ -23,16 +23,21 @@ fun AppNavigation(
 ) {
     val navController = rememberNavController()
     val isLoggedIn by authViewModel.isLoggedInFlow.collectAsState()
+    // NEW: Observe this state
+    val requirePasswordChange by authViewModel.requirePasswordChange.collectAsState()
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    LaunchedEffect(isLoggedIn, currentRoute) {
-        if (isLoggedIn && currentRoute == Screen.Login.route) {
+    LaunchedEffect(isLoggedIn, requirePasswordChange, currentRoute) {
+        // FIX: Only auto-redirect to EventList if password change is NOT required
+        if (isLoggedIn && !requirePasswordChange && currentRoute == Screen.Login.route) {
             navController.navigate(Screen.EventList.route) {
                 popUpTo(Screen.Login.route) { inclusive = true }
             }
         }
 
+        // Security check: Kick out users who are on protected screens but logged out
         val publicRoutes = listOf(Screen.Splash.route, Screen.Login.route)
         if (!isLoggedIn && currentRoute !in publicRoutes) {
             navController.navigate(Screen.Login.route) {
@@ -44,8 +49,12 @@ fun AppNavigation(
     NavHost(navController = navController, startDestination = Screen.Splash.route) {
         composable(Screen.Splash.route) {
             SplashScreen(
-                onAuthChecked = { isAuthenticated ->
-                    val destination = if (isAuthenticated) Screen.EventList.route else Screen.Login.route
+                onAuthChecked = { isAuthenticated, needsChange ->
+                    val destination = if (isAuthenticated) {
+                        if (needsChange) Screen.ChangePassword.route else Screen.EventList.route
+                    } else {
+                        Screen.Login.route
+                    }
                     navController.navigate(destination) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
@@ -56,7 +65,11 @@ fun AppNavigation(
             LoginScreen(
                 onLoginSuccess = { requireChange ->
                     if (requireChange) {
-                        navController.navigate(Screen.ChangePassword.route)
+                        navController.navigate(Screen.ChangePassword.route) {
+                            // FIX: Pop Login off the stack so "Back" doesn't go to Login
+                            // (which might then auto-forward to EventList in a race condition)
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
                     } else {
                         navController.navigate(Screen.EventList.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
@@ -87,7 +100,14 @@ fun AppNavigation(
         }
         composable(Screen.ChangePassword.route) {
             ChangePasswordScreen(
-                onPasswordChanged = {
+                onNavigateToEvents = {
+                    // Success path: Go to app
+                    navController.navigate(Screen.EventList.route) {
+                        popUpTo(0)
+                    }
+                },
+                onNavigateToLogin = {
+                    // Logout path: Go to login
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0)
                     }

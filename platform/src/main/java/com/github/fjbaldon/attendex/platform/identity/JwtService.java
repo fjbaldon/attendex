@@ -1,5 +1,6 @@
 package com.github.fjbaldon.attendex.platform.identity;
 
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -17,7 +18,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
-public class JwtService {
+class JwtService { // CHANGED: Removed 'public'
 
     @Value("${jwt.secret}")
     private String secretKey;

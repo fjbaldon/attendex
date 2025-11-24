@@ -23,8 +23,8 @@ interface ApiService {
     @POST("api/v1/capture/sync")
     suspend fun syncEntries(@Body syncRequest: EntrySyncRequest): BatchSyncResponse
 
-    @GET("api/v1/capture/events/{eventId}/stats")
-    suspend fun getEventStats(@Path("eventId") eventId: Long): EventStatsResponse
+    @GET("api/v1/organization")
+    suspend fun getMyOrganization(): OrganizationResponse
 }
 
 @kotlinx.serialization.Serializable
@@ -42,4 +42,11 @@ data class EventStatsResponse(
     val totalScans: Long,
     val totalRoster: Long,
     val attendanceRate: Double
+)
+
+@kotlinx.serialization.Serializable
+data class OrganizationResponse(
+    val id: Long,
+    val name: String,
+    val identityFormatRegex: String?
 )

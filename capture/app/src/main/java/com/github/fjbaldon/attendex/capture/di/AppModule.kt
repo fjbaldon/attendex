@@ -2,16 +2,11 @@ package com.github.fjbaldon.attendex.capture.di
 
 import android.content.Context
 import androidx.room.Room
+import com.github.fjbaldon.attendex.capture.BuildConfig
 import com.github.fjbaldon.attendex.capture.core.data.local.AppDatabase
-import com.github.fjbaldon.attendex.capture.core.data.local.dao.AttendeeDao
-import com.github.fjbaldon.attendex.capture.core.data.local.dao.EntryDao
-import com.github.fjbaldon.attendex.capture.core.data.local.dao.EventDao
 import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
 import com.github.fjbaldon.attendex.capture.data.auth.AuthInterceptor
-import com.github.fjbaldon.attendex.capture.data.auth.AuthRepository
-import com.github.fjbaldon.attendex.capture.data.auth.SessionManager
 import com.github.fjbaldon.attendex.capture.data.auth.UnauthorizedInterceptor
-import com.github.fjbaldon.attendex.capture.data.event.EventRepository
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -37,7 +32,7 @@ annotation class ApplicationScope
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    private const val BASE_URL = "http://192.168.45.180:8080/"
+    private const val BASE_URL = BuildConfig.API_BASE_URL
 
     @Provides
     @Singleton
@@ -47,9 +42,7 @@ object AppModule {
             AppDatabase::class.java,
             "attendex"
         )
-            // FIXED: Removed fallbackToDestructiveMigration(true)
-            // Now, if schema changes without a migration plan, the app will crash
-            // instead of silently wiping user data. This is safer for production.
+            .addMigrations(AppDatabase.MIGRATION_3_4)
             .build()
     }
 
@@ -99,27 +92,6 @@ object AppModule {
     @Singleton
     fun provideApiService(retrofit: Retrofit): ApiService {
         return retrofit.create(ApiService::class.java)
-    }
-
-    @Provides
-    @Singleton
-    fun provideAuthRepository(
-        apiService: ApiService,
-        sessionManager: SessionManager
-    ): AuthRepository {
-        return AuthRepository(apiService, sessionManager)
-    }
-
-    @Provides
-    @Singleton
-    fun provideEventRepository(
-        apiService: ApiService,
-        appDatabase: AppDatabase,
-        eventDao: EventDao,
-        attendeeDao: AttendeeDao,
-        entryDao: EntryDao
-    ): EventRepository {
-        return EventRepository(apiService, appDatabase, eventDao, attendeeDao, entryDao)
     }
 
     @Provides

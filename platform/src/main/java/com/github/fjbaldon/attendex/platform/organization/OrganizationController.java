@@ -1,9 +1,6 @@
 package com.github.fjbaldon.attendex.platform.organization;
 
-import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
-import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
-import com.github.fjbaldon.attendex.platform.organization.dto.RegistrationRequestDto;
-import com.github.fjbaldon.attendex.platform.organization.dto.UpdateOrganizationDetailsDto;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

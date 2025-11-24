@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "analytics_eventsummary")
+@Table(name = "analytics_event_summary")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 class EventSummary {
@@ -25,13 +25,5 @@ class EventSummary {
         this.eventName = eventName;
         this.rosterCount = 0;
         this.entryCount = 0;
-    }
-
-    void incrementRosterCount() {
-        this.rosterCount++;
-    }
-
-    void incrementEntryCount() {
-        this.entryCount++;
     }
 }

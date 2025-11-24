@@ -1,49 +1,43 @@
 package com.github.fjbaldon.attendex.capture.core.ui.camera
 
-import androidx.annotation.OptIn
-import androidx.camera.core.ExperimentalGetImage
-import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import java.util.concurrent.atomic.AtomicBoolean
 
 class BarcodeScanningAnalyzer(
-    private val onQrFound: (String) -> Unit
-) : ImageAnalysis.Analyzer {
+    private val onQrFound: (String) -> Unit,
+    private val isScanningEnabledRef: AtomicBoolean
+) : BaseImageAnalyzer(isScanningEnabledRef, throttleIntervalMs = 50L) {
 
     private val options = BarcodeScannerOptions.Builder()
         .setBarcodeFormats(
             Barcode.FORMAT_QR_CODE,
-            Barcode.FORMAT_CODE_128, // Common for older badges
+            Barcode.FORMAT_CODE_128,
             Barcode.FORMAT_CODE_39
         )
         .build()
 
     private val scanner = BarcodeScanning.getClient(options)
 
-    @OptIn(ExperimentalGetImage::class)
-    override fun analyze(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image
-        if (mediaImage != null) {
-            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-
-            scanner.process(image)
-                .addOnSuccessListener { barcodes ->
+    override fun processImage(image: InputImage, imageProxy: ImageProxy) {
+        scanner.process(image)
+            .addOnSuccessListener { barcodes ->
+                // Double check enablement in case it changed during async processing
+                if (isScanningEnabledRef.get()) {
                     for (barcode in barcodes) {
                         val rawValue = barcode.rawValue
                         if (!rawValue.isNullOrBlank()) {
                             onQrFound(rawValue)
-                            return@addOnSuccessListener // Stop after first match
+                            break
                         }
                     }
                 }
-                .addOnCompleteListener {
-                    imageProxy.close()
-                }
-        } else {
-            imageProxy.close()
-        }
+            }
+            .addOnCompleteListener {
+                imageProxy.close()
+            }
     }
 }

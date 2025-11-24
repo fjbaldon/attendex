@@ -7,27 +7,40 @@ import {
     AttendeeRequest,
     AttendeeResponse,
     ImportConfiguration,
-    PaginatedResponse
+    PaginatedResponse,
+    UpdateAttendeeRequest
 } from "@/types";
 import {toast} from "sonner";
 import {AxiosError} from "axios";
 import {getErrorMessage} from "@/lib/utils";
 
-export const useAttendees = (page = 0, size = 10, query: string = "") => {
+export const useAttendees = (
+    page = 0,
+    size = 10,
+    query: string = "",
+    attributeFilters: Record<string, string> = {}
+) => {
     const queryClient = useQueryClient();
-    const queryKey = ["attendees", page, size, query];
+
+    const queryKey = ["attendees", page, size, query, attributeFilters];
 
     const {
         data,
         isLoading: isLoadingAttendees,
-        error: attendeesError,
         refetch
     } = useQuery<PaginatedResponse<AttendeeResponse>>({
         queryKey,
         queryFn: async () => {
-            const response = await api.get("/api/v1/attendees", {
-                params: {page, size, sort: "lastName,asc", query: query || undefined},
-            });
+            // Explicitly type the params to avoid ESLint 'any' errors
+            const params: Record<string, string | number | boolean | undefined> = {
+                page,
+                size,
+                sort: "lastName,asc",
+                query: query || undefined,
+                ...attributeFilters // Spread dynamic attribute filters
+            };
+
+            const response = await api.get("/api/v1/attendees", { params });
             return response.data;
         },
         placeholderData: keepPreviousData,
@@ -53,7 +66,7 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
     const updateAttendeeMutation = useMutation<
         AttendeeResponse,
         AxiosError<ApiErrorResponse>,
-        { id: number; data: AttendeeRequest }
+        { id: number; data: UpdateAttendeeRequest }
     >({
         mutationFn: ({id, data}) => api.put(`/api/v1/attendees/${id}`, data),
         onSuccess: async () => {
@@ -84,7 +97,31 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
         },
     });
 
-    // 1. Import Step A: Extract Headers
+    // Batch Delete Mutation using the new backend endpoint
+    const deleteAttendeesMutation = useMutation<
+        void,
+        AxiosError<ApiErrorResponse>,
+        number[]
+    >({
+        mutationFn: async (ids) => {
+            // DELETE requests with a body must use the 'data' config property in Axios
+            await api.delete('/api/v1/attendees/batch', {
+                data: { ids }
+            });
+        },
+        onSuccess: async (_, variables) => {
+            toast.success(`${variables.length} attendees deleted successfully!`);
+            await queryClient.invalidateQueries({queryKey: ["attendees"]});
+        },
+        onError: (error) => {
+            toast.error("Batch Delete Failed", {
+                description: getErrorMessage(error, "Could not delete selected attendees."),
+            });
+        },
+    });
+
+    // --- Import Mutations ---
+
     const extractHeadersMutation = useMutation<string[], AxiosError<ApiErrorResponse>, File>({
         mutationFn: async (file) => {
             const formData = new FormData();
@@ -97,7 +134,6 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
         onError: (error) => toast.error("Failed to read CSV headers", {description: getErrorMessage(error, "Unknown error")}),
     });
 
-    // 2. Import Step B: Analyze with Config
     const analyzeAttendeesMutation = useMutation<
         AttendeeImportAnalysis,
         AxiosError<ApiErrorResponse>,
@@ -106,8 +142,7 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
         mutationFn: async ({file, config}) => {
             const formData = new FormData();
             formData.append("file", file);
-            // Send config object as a Blob with application/json Content-Type
-            // This allows Spring's @RequestPart to bind it correctly along with the file
+            // Send config as a JSON blob part
             formData.append("config", new Blob([JSON.stringify(config)], {type: "application/json"}));
 
             const response = await api.post("/api/v1/attendees/import/analyze", formData, {
@@ -120,7 +155,6 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
         },
     });
 
-    // 3. Import Step C: Commit
     const commitAttendeesMutation = useMutation<
         void,
         AxiosError<ApiErrorResponse>,
@@ -129,18 +163,16 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
         mutationFn: (data) => api.post("/api/v1/attendees/import/commit", data),
         onSuccess: async () => {
             await queryClient.invalidateQueries({queryKey: ["attendees"]});
-            await queryClient.invalidateQueries({queryKey: ["attributes"]}); // Refresh attributes in case new ones were created
+            await queryClient.invalidateQueries({queryKey: ["attributes"]});
         },
         onError: (error) => {
             toast.error("Import Failed", {description: getErrorMessage(error, "An unexpected error occurred while saving the attendees.")});
         },
     });
 
-
     return {
         attendeesData: data,
         isLoadingAttendees,
-        attendeesError,
         refetch,
 
         createAttendee: createAttendeeMutation.mutate,
@@ -151,6 +183,9 @@ export const useAttendees = (page = 0, size = 10, query: string = "") => {
 
         deleteAttendee: deleteAttendeeMutation.mutate,
         isDeletingAttendee: deleteAttendeeMutation.isPending,
+
+        deleteAttendees: deleteAttendeesMutation.mutate,
+        isDeletingAttendees: deleteAttendeesMutation.isPending,
 
         extractHeaders: extractHeadersMutation.mutateAsync,
         isExtractingHeaders: extractHeadersMutation.isPending,

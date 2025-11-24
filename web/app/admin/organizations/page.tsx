@@ -9,14 +9,31 @@ import {StatusDialog} from "./status-dialog";
 import {SubscriptionDialog} from "./subscription-dialog";
 import {Input} from "@/components/ui/input";
 import {SiteHeader} from "@/components/layout/site-header";
+import {useDebounce} from "@uidotdev/usehooks";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import {Button} from "@/components/ui/button";
+import {IconFilterX} from "@tabler/icons-react";
 
 export default function AdminOrganizationsPage() {
     const [pagination, setPagination] = React.useState({pageIndex: 0, pageSize: 10});
-    const [filter, setFilter] = React.useState("");
+
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const [statusFilter, setStatusFilter] = React.useState("ALL");
+    const [subFilter, setSubFilter] = React.useState("ALL");
+
+    const debouncedQuery = useDebounce(searchQuery, 500);
+
+    // Reset pagination on filter change
+    React.useEffect(() => {
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, [debouncedQuery, statusFilter, subFilter]);
 
     const {organizationsData, isLoadingOrganizations} = useAdminOrganizations(
         pagination.pageIndex,
-        pagination.pageSize
+        pagination.pageSize,
+        debouncedQuery,
+        statusFilter,
+        subFilter
     );
 
     const [isStatusDialogOpen, setIsStatusDialogOpen] = React.useState(false);
@@ -24,6 +41,7 @@ export default function AdminOrganizationsPage() {
     const [selectedOrg, setSelectedOrg] = React.useState<Organization | null>(null);
 
     const pageCount = organizationsData?.totalPages ?? 0;
+    const organizations = organizationsData?.content ?? [];
 
     const openStatusDialog = (org: Organization) => {
         setSelectedOrg(org);
@@ -35,21 +53,58 @@ export default function AdminOrganizationsPage() {
         setIsSubDialogOpen(true);
     };
 
-    const filteredData = React.useMemo(() => {
-        const organizations = organizationsData?.content ?? [];
-        return organizations.filter(org =>
-            org.name.toLowerCase().includes(filter.toLowerCase())
-        );
-    }, [organizationsData, filter]);
+    const clearFilters = () => {
+        setSearchQuery("");
+        setStatusFilter("ALL");
+        setSubFilter("ALL");
+    };
+
+    const hasFilters = searchQuery || statusFilter !== "ALL" || subFilter !== "ALL";
 
     const toolbar = (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full">
             <Input
-                placeholder="Filter organizations by name..."
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                className="h-9 max-w-sm"
+                placeholder="Search organizations..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="h-9 w-full sm:w-[250px]"
             />
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-full sm:w-[140px]">
+                    <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="ALL">All Status</SelectItem>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="INACTIVE">Inactive</SelectItem>
+                    <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                </SelectContent>
+            </Select>
+
+            <Select value={subFilter} onValueChange={setSubFilter}>
+                <SelectTrigger className="h-9 w-full sm:w-[140px]">
+                    <SelectValue placeholder="Subscription" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="ALL">All Plans</SelectItem>
+                    <SelectItem value="TRIAL">Trial</SelectItem>
+                    <SelectItem value="ANNUAL">Annual</SelectItem>
+                    <SelectItem value="LIFETIME">Lifetime</SelectItem>
+                </SelectContent>
+            </Select>
+
+            {hasFilters && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="h-9 px-2 lg:px-3 text-muted-foreground"
+                >
+                    <IconFilterX className="mr-2 h-4 w-4" />
+                    Clear
+                </Button>
+            )}
         </div>
     );
 
@@ -70,7 +125,7 @@ export default function AdminOrganizationsPage() {
                     />
                     <DataTable
                         columns={columns}
-                        data={filteredData}
+                        data={organizations}
                         isLoading={isLoadingOrganizations}
                         pageCount={pageCount}
                         pagination={pagination}

@@ -10,6 +10,7 @@ interface DecodedToken {
 export function middleware(request: NextRequest) {
     const publicPaths = ['/login', '/register', '/verify', '/register-success'];
     const token = request.cookies.get('auth-token')?.value;
+    const {pathname} = request.nextUrl;
 
     let isAuthenticated = false;
     let forcePasswordChange = false;
@@ -31,34 +32,44 @@ export function middleware(request: NextRequest) {
         }
     }
 
-    const {pathname} = request.nextUrl;
-    const isSteward = roles.includes('ROLE_STEWARD');
+    if (!isAuthenticated) {
+        if (publicPaths.includes(pathname)) {
+            return NextResponse.next();
+        }
 
-    if (isAuthenticated) {
-        if (forcePasswordChange && pathname !== '/force-password-change') {
+        const redirectUrl = new URL('/login', request.url);
+        if (isTokenExpired && token) {
+            redirectUrl.searchParams.set('sessionExpired', 'true');
+        }
+        return NextResponse.redirect(redirectUrl);
+    }
+
+    if (forcePasswordChange) {
+        if (pathname !== '/force-password-change') {
             return NextResponse.redirect(new URL('/force-password-change', request.url));
         }
+        return NextResponse.next(); // Allow access to change password page
+    }
 
-        if (isSteward) {
-            if (!pathname.startsWith('/admin') && pathname !== '/force-password-change') {
-                return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-            }
-        } else { // Assumes ROLE_ORGANIZER
-            if (pathname.startsWith('/admin')) {
-                return NextResponse.redirect(new URL('/dashboard', request.url));
-            }
-            if (publicPaths.includes(pathname)) {
-                return NextResponse.redirect(new URL('/dashboard', request.url));
-            }
+    if (pathname === '/force-password-change') {
+        const home = roles.includes('ROLE_STEWARD') ? '/admin/dashboard' : '/dashboard';
+        return NextResponse.redirect(new URL(home, request.url));
+    }
+
+    if (publicPaths.includes(pathname)) {
+        const home = roles.includes('ROLE_STEWARD') ? '/admin/dashboard' : '/dashboard';
+        return NextResponse.redirect(new URL(home, request.url));
+    }
+
+    const isSteward = roles.includes('ROLE_STEWARD');
+
+    if (isSteward) {
+        if (!pathname.startsWith('/admin')) {
+            return NextResponse.redirect(new URL('/admin/dashboard', request.url));
         }
     } else {
-        const isProtectedRoute = !publicPaths.includes(pathname) && pathname !== '/force-password-change';
-        if (isProtectedRoute) {
-            const redirectUrl = new URL('/login', request.url);
-            if (isTokenExpired && token) {
-                redirectUrl.searchParams.set('sessionExpired', 'true');
-            }
-            return NextResponse.redirect(redirectUrl);
+        if (pathname.startsWith('/admin')) {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
         }
     }
 

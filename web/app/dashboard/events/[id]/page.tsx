@@ -23,6 +23,7 @@ import {ArrivalsDataTable} from "./arrivals-data-table";
 import {useAttributes} from "@/hooks/use-attributes";
 import {getDeparturesColumns} from "./departures-columns";
 import {DeparturesDataTable} from "./departures-data-table";
+import {useDebounce} from "@uidotdev/usehooks";
 
 type TabType = 'roster' | 'arrival' | 'departure';
 
@@ -36,6 +37,23 @@ export default function EventDetailsPage() {
         pageSize: 10,
     });
 
+    // FIX: Independent search state per tab to preserve user input
+    const [searchState, setSearchState] = React.useState({
+        roster: "",
+        arrival: "",
+        departure: ""
+    });
+
+    const debouncedRoster = useDebounce(searchState.roster, 500);
+    const debouncedArrival = useDebounce(searchState.arrival, 500);
+    const debouncedDeparture = useDebounce(searchState.departure, 500);
+
+    const searchParams = React.useMemo(() => ({
+        rosterQuery: debouncedRoster,
+        arrivalsQuery: debouncedArrival,
+        departuresQuery: debouncedDeparture,
+    }), [debouncedRoster, debouncedArrival, debouncedDeparture]);
+
     const {
         event,
         isLoadingEvent,
@@ -45,14 +63,23 @@ export default function EventDetailsPage() {
         isLoadingArrivals,
         departuresData,
         isLoadingDepartures,
-    } = useEventDetails(eventId, pagination);
+    } = useEventDetails(eventId, pagination, searchParams);
 
     const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useAttributes();
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab as TabType);
         setPagination({pageIndex: 0, pageSize: 10});
+        // Note: We do NOT reset search state here anymore, improving UX.
     }
+
+    const updateSearch = (val: string) => {
+        setSearchState(prev => ({
+            ...prev,
+            [activeTab]: val
+        }));
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    };
 
     const rosterColumns = React.useMemo(() => getRosterColumns(customFieldDefinitions), [customFieldDefinitions]);
     const checkedInColumns = React.useMemo(() => getArrivalsColumns(customFieldDefinitions), [customFieldDefinitions]);
@@ -106,6 +133,8 @@ export default function EventDetailsPage() {
                                     setPagination={setPagination}
                                     isLoading={isLoadingAttendees || isLoadingCustomFields}
                                     eventId={eventId}
+                                    searchQuery={searchState.roster}
+                                    onSearchChange={updateSearch}
                                 />
                             </TabsContent>
 
@@ -117,6 +146,8 @@ export default function EventDetailsPage() {
                                     pagination={pagination}
                                     setPagination={setPagination}
                                     isLoading={isLoadingArrivals || isLoadingCustomFields}
+                                    searchQuery={searchState.arrival}
+                                    onSearchChange={updateSearch}
                                 />
                             </TabsContent>
 
@@ -128,6 +159,8 @@ export default function EventDetailsPage() {
                                     pagination={pagination}
                                     setPagination={setPagination}
                                     isLoading={isLoadingDepartures || isLoadingCustomFields}
+                                    searchQuery={searchState.departure}
+                                    onSearchChange={updateSearch}
                                 />
                             </TabsContent>
                         </Tabs>

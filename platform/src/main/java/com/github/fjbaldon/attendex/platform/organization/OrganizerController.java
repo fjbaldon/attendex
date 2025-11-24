@@ -1,8 +1,6 @@
 package com.github.fjbaldon.attendex.platform.organization;
 
-import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
-import com.github.fjbaldon.attendex.platform.organization.dto.CreateUserRequestDto;
-import com.github.fjbaldon.attendex.platform.organization.dto.OrganizerDto;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -30,10 +28,11 @@ class OrganizerController {
 
     @GetMapping
     public Page<OrganizerDto> getOrganizers(
+            @RequestParam(required = false) String query, // FIX: Added query
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails user) {
 
-        return organizationFacade.findOrganizers(user.getOrganizationId(), pageable);
+        return organizationFacade.findOrganizers(user.getOrganizationId(), query, pageable);
     }
 
     @DeleteMapping("/{organizerId}")

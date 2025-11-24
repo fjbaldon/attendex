@@ -1,7 +1,5 @@
 package com.github.fjbaldon.attendex.platform.identity;
 
-import com.github.fjbaldon.attendex.platform.identity.dto.AuthRequestDto;
-import com.github.fjbaldon.attendex.platform.identity.dto.AuthResponseDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;

@@ -1,178 +1,110 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Verify Your AttendEx Account</title>
     <!--[if !mso]><!-->
-    <link href="https://fonts.googleapis.com/css2?family=Geist+Sans:wght@400;600;700&display=swap" rel="stylesheet"
-          type="text/css">
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" type="text/css">
     <!--<![endif]-->
     <style type="text/css">
-        body, table, td, a {
-            -webkit-text-size-adjust: 100%;
-            -ms-text-size-adjust: 100%;
-        }
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0; mso-table-rspace: 0; }
+        img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+        table { border-collapse: collapse !important; }
+        body { margin: 0 !important; padding: 0 !important; width: 100% !important; font-family: 'Geist Sans', -apple-system, 'Segoe UI', sans-serif; }
 
-        table, td {
-            mso-table-lspace: 0;
-            mso-table-rspace: 0;
-        }
-
-        img {
-            -ms-interpolation-mode: bicubic;
-            border: 0;
-            outline: none;
-            text-decoration: none;
-        }
-
-        table {
-            border-collapse: collapse !important;
-        }
-
-        body {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-        }
-
+        /* Light Theme Variables (Default) */
         :root {
-            --brand-primary: #2F2F2F;
-            --brand-primary-foreground: #FAFAFA;
-            --brand-background: #F7F7F7;
-            --brand-card-bg: #ffffff;
-            --brand-border: #EBEBEB;
-            --brand-text-main: #252525;
-            --brand-text-muted: #8E8E8E;
-            --brand-radius: 10px;
-            --font-sans: 'Geist Sans', -apple-system, 'Segoe UI', sans-serif;
+            --brand-bg: #F7F7F7;
+            --card-bg: #ffffff;
+            --border: #EBEBEB;
+            --text-main: #252525;
+            --text-muted: #5B5B5B;
+            --btn-bg: #2F2F2F;
+            --btn-text: #FAFAFA;
         }
 
+        /* Dark Mode Overrides */
         @media (prefers-color-scheme: dark) {
-            body, .email-container {
-                background-color: #252525 !important;
-            }
-
-            .card {
-                background-color: #343434 !important;
-                border-color: rgba(255, 255, 255, 0.1) !important;
-            }
-
-            .main-title, .paragraph {
-                color: #FAFAFA !important;
-            }
-
-            .footer-text, .link {
-                color: #B5B5B5 !important;
-            }
-
-            .button-primary {
-                background-color: #EBEBEB !important;
-                color: #343434 !important;
-            }
-
-            .logo {
-                color: #FAFAFA !important;
-            }
+            body, .email-bg { background-color: #252525 !important; }
+            .card { background-color: #343434 !important; border-color: #444444 !important; }
+            .text-main { color: #FAFAFA !important; }
+            .text-muted { color: #B5B5B5 !important; }
+            .btn-primary { background-color: #FAFAFA !important; color: #252525 !important; }
+            .footer-text { color: #8E8E8E !important; }
         }
     </style>
 </head>
-<body style="background-color: #F7F7F7; margin: 0 !important; padding: 40px 10px !important;">
+<body class="email-bg" style="background-color: #F7F7F7; margin: 0; padding: 40px 10px;">
 <table border="0" cellpadding="0" cellspacing="0" width="100%">
     <tr>
-        <td align="center" class="email-container" style="background-color: #F7F7F7;">
-            <!--[if (gte mso 9)|(IE)]>
-            <table align="center" border="0" cellspacing="0" cellpadding="0" width="600">
-                <tr>
-                    <td align="center" valign="top" width="600">
-            <![endif]-->
+        <td align="center" class="email-bg" style="background-color: #F7F7F7;">
             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
                 <!-- LOGO -->
                 <tr>
-                    <td align="center" style="padding: 20px 0 30px;">
-                        <table border="0" cellpadding="0" cellspacing="0" role="presentation"
-                               style="vertical-align: middle;">
+                    <td align="center" style="padding: 0 0 30px;">
+                        <table border="0" cellpadding="0" cellspacing="0">
                             <tr>
                                 <td style="vertical-align: middle;">
-                                    <img th:src="${logoUrl}"
-                                         alt="AttendEx Logo"
-                                         width="32"
-                                         height="32"
-                                         style="display: block; width: 32px; height: 32px;" />
+                                    <!-- Ensure logoUrl is passed from EmailService -->
+                                    <img th:src="${logoUrl}" alt="Logo" width="32" height="32" style="display: block; width: 32px; height: 32px; border-radius: 6px;" />
                                 </td>
-
-                                <td style="padding-left: 10px; vertical-align: middle;">
-                                    <h1 class="logo"
-                                        style="margin: 0; font-family: 'Geist Sans', sans-serif; font-size: 22px; font-weight: 600; color: #252525;">
-                                        AttendEx
-                                    </h1>
+                                <td style="padding-left: 12px; vertical-align: middle;">
+                                    <span class="text-main" style="font-size: 20px; font-weight: 700; color: #252525; letter-spacing: -0.5px;">AttendEx</span>
                                 </td>
                             </tr>
                         </table>
                     </td>
                 </tr>
-                <!-- Main Card -->
+
+                <!-- CARD -->
                 <tr>
                     <td>
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="card"
-                               style="background-color: #ffffff; border-radius: 10px; border: 1px solid #EBEBEB;">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="card" style="background-color: #ffffff; border-radius: 12px; border: 1px solid #EBEBEB; overflow: hidden;">
                             <tr>
                                 <td align="left" style="padding: 40px;">
-                                    <!-- Heading -->
-                                    <h2 class="main-title"
-                                        style="font-family: 'Geist Sans', sans-serif; font-size: 24px; font-weight: 600; color: #252525; margin: 0 0 24px;">
-                                        Confirm Your Account
+                                    <h2 class="text-main" style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #252525;">
+                                        Verify Your Account
                                     </h2>
-                                    <!-- Body Text -->
-                                    <p class="paragraph"
-                                       style="font-family: 'Geist Sans', sans-serif; font-size: 16px; line-height: 24px; color: #5B5B5B; margin: 0 0 24px;">
-                                        Welcome! Please click the button below to activate your AttendEx account for the
-                                        organization: <b th:text="${organizationName}"
-                                                         style="font-weight: 600; color: #252525;">Your Organization</b>.
+                                    <p class="text-muted" style="margin: 0 0 24px; font-size: 16px; line-height: 26px; color: #5B5B5B;">
+                                        Welcome! You have been invited to join <strong class="text-main" th:text="${organizationName}" style="color: #252525;">Organization Name</strong>.
+                                        Please verify your email address to activate your account and access the dashboard.
                                     </p>
-                                    <!-- Call to Action Button -->
-                                    <table border="0" cellpadding="0" cellspacing="0" role="presentation"
-                                           style="margin: 0 0 32px;">
+
+                                    <!-- BUTTON -->
+                                    <table border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                         <tr>
-                                            <td align="left" style="border-radius: 10px; background-color: #2F2F2F;"
-                                                class="button-primary">
-                                                <a th:href="${verificationUrl}" target="_blank"
-                                                   style="display: inline-block; font-family: 'Geist Sans', sans-serif; font-size: 16px; font-weight: 500; color: #FAFAFA; text-decoration: none; padding: 14px 28px; border-radius: 10px; border: 1px solid #2F2F2F;">
-                                                    Verify Account
+                                            <td align="center" class="btn-primary" style="border-radius: 8px; background-color: #2F2F2F;">
+                                                <a th:href="${verificationUrl}" target="_blank" style="display: inline-block; padding: 14px 30px; font-size: 16px; font-weight: 500; color: #FAFAFA; text-decoration: none;">
+                                                    Verify Email
                                                 </a>
                                             </td>
                                         </tr>
                                     </table>
-                                    <!-- Fallback Link -->
-                                    <p class="muted-text"
-                                       style="font-family: 'Geist Sans', sans-serif; font-size: 14px; line-height: 20px; color: #8E8E8E; margin: 0 0 8px;">
-                                        If the button doesn't work, copy and paste this link into your browser:
+
+                                    <p class="text-muted" style="margin: 0; font-size: 14px; line-height: 22px; color: #8E8E8E;">
+                                        If the button above doesn't work, copy and paste this link into your browser:<br/>
+                                        <a th:href="${verificationUrl}" class="text-muted" style="color: #8E8E8E; text-decoration: underline;">
+                                            <span th:text="${verificationUrl}">https://...</span>
+                                        </a>
                                     </p>
-                                    <a th:href="${verificationUrl}" th:text="${verificationUrl}" class="link"
-                                       style="font-family: 'Geist Sans', sans-serif; font-size: 12px; line-height: 16px; color: #8E8E8E; text-decoration: none; word-break: break-all;">
-                                        Verification Link
-                                    </a>
                                 </td>
                             </tr>
                         </table>
                     </td>
                 </tr>
-                <!-- Footer -->
+
+                <!-- FOOTER -->
                 <tr>
-                    <td align="center" style="padding: 32px 0;">
-                        <p class="footer-text"
-                           style="font-family: 'Geist Sans', sans-serif; font-size: 12px; line-height: 16px; color: #8E8E8E; margin: 0;"
-                           th:text="'© ' + ${currentYear} + ' AttendEx. All rights reserved.'">
-                            © 2025 AttendEx. All rights reserved.
+                    <td align="center" style="padding: 30px 0;">
+                        <p class="footer-text" style="margin: 0; font-size: 12px; color: #8E8E8E;">
+                            <span th:text="'© ' + ${currentYear} + ' AttendEx Platform.'">© 2025 AttendEx.</span><br/>
+                            All rights reserved.
                         </p>
                     </td>
                 </tr>
             </table>
-            <!--[if (gte mso 9)|(IE)]>
-            </td>
-            </tr>
-            </table>
-            <![endif]-->
         </td>
     </tr>
 </table>

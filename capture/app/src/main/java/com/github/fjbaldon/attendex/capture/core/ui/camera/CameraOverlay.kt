@@ -1,23 +1,28 @@
 package com.github.fjbaldon.attendex.capture.core.ui.camera
 
+import androidx.compose.animation.VectorConverter
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
 import com.github.fjbaldon.attendex.capture.feature.scanner.ScanMode
+import com.github.fjbaldon.attendex.capture.feature.scanner.ScanUiResult
+import kotlinx.coroutines.launch
 
 @Composable
 fun CameraOverlay(
     scanMode: ScanMode,
+    scanResult: ScanUiResult,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "scanner_laser")
@@ -30,59 +35,123 @@ fun CameraOverlay(
         ), label = "line_position"
     )
 
-    // Animate the aspect ratio change for a smooth transition
     val aspectRatio by animateFloatAsState(
         targetValue = if (scanMode == ScanMode.QR) 1.0f else 0.6f,
         label = "box_aspect_ratio"
     )
 
+    // === THEME COLORS ===
+    // Map semantic meanings to Material Theme slots
+    val successColor = MaterialTheme.colorScheme.tertiary // Green
+    val errorColor = MaterialTheme.colorScheme.error       // Red
+    val defaultColor = Color.White
+
+    // === ANIMATION STATE ===
+    val borderWidth = remember { Animatable(6f) }
+    val echoAlpha = remember { Animatable(0f) }
+    val echoScale = remember { Animatable(1f) }
+
+    val borderColor = remember {
+        Animatable(
+            initialValue = defaultColor,
+            typeConverter = Color.VectorConverter(defaultColor.colorSpace)
+        )
+    }
+
+    LaunchedEffect(scanResult) {
+        val isGreenState = scanResult is ScanUiResult.Success || scanResult is ScanUiResult.AlreadyScanned
+        val isRedState = scanResult is ScanUiResult.NotFound || scanResult is ScanUiResult.Error
+
+        if (isGreenState) {
+            // Reset
+            borderColor.snapTo(defaultColor)
+            borderWidth.snapTo(6f)
+            echoAlpha.snapTo(0.8f)
+            echoScale.snapTo(1f)
+
+            // 1. Main Color Fade
+            launch {
+                borderColor.animateTo(
+                    targetValue = successColor,
+                    animationSpec = tween(400)
+                )
+            }
+
+            // 2. Main Border Fluid Pulse
+            launch {
+                borderWidth.animateTo(
+                    targetValue = 60f,
+                    animationSpec = tween(150, easing = FastOutSlowInEasing)
+                )
+                borderWidth.animateTo(
+                    targetValue = 6f,
+                    animationSpec = spring(
+                        dampingRatio = 0.5f,
+                        stiffness = 200f
+                    )
+                )
+            }
+
+            // 3. Echo Ripple
+            launch {
+                launch {
+                    echoScale.animateTo(1.4f, tween(600, easing = LinearOutSlowInEasing))
+                }
+                launch {
+                    echoAlpha.animateTo(0f, tween(600))
+                }
+            }
+
+        } else if (isRedState) {
+            borderColor.animateTo(errorColor, tween(100))
+            borderWidth.animateTo(6f, tween(100))
+        } else {
+            borderColor.animateTo(defaultColor, tween(300))
+            borderWidth.animateTo(6f, tween(300))
+        }
+    }
+
     Canvas(modifier = modifier.fillMaxSize()) {
         val canvasWidth = size.width
         val canvasHeight = size.height
 
-        // Box Logic: QR is wider/square, OCR is rectangular
         val scanAreaSize = 0.7f
         val boxWidth = canvasWidth * scanAreaSize
-        val boxHeight = boxWidth * aspectRatio // Use animated aspect ratio
+        val boxHeight = boxWidth * aspectRatio
 
         val left = (canvasWidth - boxWidth) / 2
         val top = (canvasHeight - boxHeight) / 2
         val right = left + boxWidth
-        // bottom calculated implicitly
 
-        // 1. Draw Darkened Background with "Hole"
-        with(drawContext.canvas.nativeCanvas) {
-            val checkPoint = saveLayer(null, null)
+        // === ECHO RIPPLE ===
+        if (echoAlpha.value > 0f) {
+            val echoWidth = boxWidth * echoScale.value
+            val echoHeight = boxHeight * echoScale.value
+            val echoLeft = (canvasWidth - echoWidth) / 2
+            val echoTop = (canvasHeight - echoHeight) / 2
 
-            // Dim everything
-            drawRect(Color.Black.copy(alpha = 0.6f))
-
-            // Cut out the center (Clear mode)
             drawRoundRect(
-                topLeft = Offset(left, top),
-                size = Size(boxWidth, boxHeight),
-                cornerRadius = CornerRadius(16f, 16f),
-                color = Color.Transparent,
-                blendMode = BlendMode.Clear
+                topLeft = Offset(echoLeft, echoTop),
+                size = Size(echoWidth, echoHeight),
+                cornerRadius = CornerRadius(16f * echoScale.value, 16f * echoScale.value),
+                color = borderColor.value.copy(alpha = echoAlpha.value),
+                style = Stroke(width = 4f)
             )
-
-            restoreToCount(checkPoint)
         }
 
-        // 2. Draw White Border
+        // === MAIN PULSING BORDER ===
         drawRoundRect(
             topLeft = Offset(left, top),
             size = Size(boxWidth, boxHeight),
             cornerRadius = CornerRadius(16f, 16f),
-            color = Color.White,
-            style = Stroke(width = 6f)
+            color = borderColor.value,
+            style = Stroke(width = borderWidth.value)
         )
 
-        // 3. Draw Red Laser Line
+        // Laser Line
         val lineY = top + (boxHeight * animatedLineY)
-
         drawLine(
-            color = Color.Red.copy(alpha = 0.8f),
+            color = borderColor.value.copy(alpha = 0.8f),
             start = Offset(left + 20f, lineY),
             end = Offset(right - 20f, lineY),
             strokeWidth = 4f

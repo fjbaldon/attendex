@@ -1,11 +1,7 @@
 package com.github.fjbaldon.attendex.platform.identity;
 
 import com.github.fjbaldon.attendex.platform.admin.AdminFacade;
-import com.github.fjbaldon.attendex.platform.identity.dto.AuthRequestDto;
-import com.github.fjbaldon.attendex.platform.identity.dto.AuthResponseDto;
-import com.github.fjbaldon.attendex.platform.identity.dto.PasswordChangeRequestDto;
-import com.github.fjbaldon.attendex.platform.identity.events.UserLoggedInEvent;
-import com.github.fjbaldon.attendex.platform.identity.events.UserPasswordChangedEvent;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;

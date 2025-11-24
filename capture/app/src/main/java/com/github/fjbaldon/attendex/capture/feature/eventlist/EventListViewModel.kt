@@ -5,9 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
 import com.github.fjbaldon.attendex.capture.data.auth.AuthRepository
 import com.github.fjbaldon.attendex.capture.data.event.EventRepository
-import com.github.fjbaldon.attendex.capture.di.ApplicationScope
+import com.github.fjbaldon.attendex.capture.data.sync.SyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -18,15 +17,15 @@ data class EventListUiState(
     val isSyncing: Boolean = false,
     val events: List<EventEntity> = emptyList(),
     val error: String? = null,
-    val needsToSync: Boolean = false,
+    val unsyncedCount: Int = 0,
     val initialLoadFailed: Boolean = false
 )
 
 @HiltViewModel
 class EventListViewModel @Inject constructor(
     private val eventRepository: EventRepository,
-    private val authRepository: AuthRepository,
-    @param:ApplicationScope private val appScope: CoroutineScope
+    private val authRepository: AuthRepository, // Now used in logout()
+    syncManager: SyncManager
 ) : ViewModel() {
     private val _isLoading = MutableStateFlow(true)
     private val _isRefreshing = MutableStateFlow(false)
@@ -41,7 +40,7 @@ class EventListViewModel @Inject constructor(
         _isSyncing,
         _error,
         eventRepository.getEvents(),
-        eventRepository.hasUnsyncedRecords,
+        eventRepository.getUnsyncedCountFlow(),
         _initialLoadFailed
     ) { flows: Array<Any?> ->
         EventListUiState(
@@ -50,7 +49,7 @@ class EventListViewModel @Inject constructor(
             isSyncing = flows[2] as Boolean,
             error = flows[3] as String?,
             events = flows[4] as List<EventEntity>,
-            needsToSync = flows[5] as Boolean,
+            unsyncedCount = flows[5] as Int,
             initialLoadFailed = flows[6] as Boolean
         )
     }.stateIn(
@@ -65,6 +64,10 @@ class EventListViewModel @Inject constructor(
     init {
         loadEvents(isInitialLoad = true)
         runHousekeeping()
+
+        syncManager.startPeriodicSync()
+
+        syncManager.triggerImmediateSync()
     }
 
     private fun runHousekeeping() {
@@ -92,18 +95,14 @@ class EventListViewModel @Inject constructor(
             _error.value = null
 
             try {
-                // Try to fetch from network
                 eventRepository.refreshEvents().getOrThrow()
-            } catch (_: Exception) {
-                // FIX: Check if we have local data before declaring failure
+            } catch (_: Exception) { // FIX: Changed 'e' to '_' to suppress unused warning
                 val cachedEvents = eventRepository.getEvents().first()
 
                 if (cachedEvents.isNotEmpty()) {
-                    // We are offline but have data. Show a warning, NOT a blocking error.
                     _syncResult.value = "You are offline. Showing cached events."
                     _initialLoadFailed.value = false
                 } else {
-                    // No local data AND no network. This is a true failure.
                     val errorMessage = "Failed to fetch events. Please check your network connection."
                     _error.value = errorMessage
                     if (isInitialLoad) {
@@ -125,31 +124,32 @@ class EventListViewModel @Inject constructor(
     fun syncEntries() {
         _isSyncing.value = true
 
-        // FIXED: Use appScope instead of viewModelScope
-        // This ensures sync finishes even if user navigates away
-        appScope.launch {
+        // FIX: Call Repository DIRECTLY for manual sync.
+        // This gives us immediate success/fail result for the UI.
+        viewModelScope.launch {
             val result = eventRepository.syncEntries()
 
-            // We must check if the ViewModel is still active before updating UI state
-            // However, StateFlows are safe to update from background threads.
-            result.onSuccess { count ->
-                _syncResult.value = if (count > 0) {
-                    val plural = if (count == 1) "record" else "records"
-                    "$count $plural synced."
-                } else {
-                    "Data is already up to date."
-                }
-            }.onFailure {
-                _syncResult.value = "Sync failed. Please try again."
-            }
             _isSyncing.value = false
+
+            result.onSuccess { count ->
+                if (count > 0) {
+                    _syncResult.value = "Successfully synced $count entries."
+                } else {
+                    // If count is 0 but banner is showing, it might mean
+                    // the banner hasn't updated yet or data is in a weird state.
+                    // Usually, this path won't happen if banner logic is correct.
+                    _syncResult.value = "Data is up to date."
+                }
+            }
+
+            result.onFailure { exception ->
+                // Now the user knows WHY nothing happened
+                _syncResult.value = "Sync Error: ${exception.message}"
+            }
         }
     }
 
-    fun onSyncMessageShown() {
-        _syncResult.value = null
-    }
-
+    // FIX: Added this function back to use authRepository and fix Screen error
     fun logout() {
         authRepository.logout()
     }

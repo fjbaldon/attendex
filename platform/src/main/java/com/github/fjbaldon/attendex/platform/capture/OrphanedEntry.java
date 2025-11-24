@@ -9,6 +9,7 @@ import org.hibernate.type.SqlTypes;
 import org.springframework.util.Assert;
 
 import java.time.Instant;
+import java.util.Map;
 
 @Entity
 @Table(name = "capture_orphaned_entry")
@@ -28,16 +29,16 @@ class OrphanedEntry {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private String rawPayload;
+    private Map<String, Object> rawPayload;
 
     private String failureReason;
 
     private Instant createdAt;
 
-    private OrphanedEntry(Long organizationId, Long originalEventId, String scanUuid, String rawPayload, String failureReason) {
+    private OrphanedEntry(Long organizationId, Long originalEventId, String scanUuid, Map<String, Object> rawPayload, String failureReason) {
         Assert.notNull(organizationId, "Organization ID must not be null");
         Assert.hasText(scanUuid, "Scan UUID must not be blank");
-        Assert.hasText(rawPayload, "Raw payload must not be blank");
+        Assert.notNull(rawPayload, "Raw payload must not be null");
 
         this.organizationId = organizationId;
         this.originalEventId = originalEventId;
@@ -47,7 +48,7 @@ class OrphanedEntry {
         this.createdAt = Instant.now();
     }
 
-    static OrphanedEntry create(Long organizationId, Long originalEventId, String scanUuid, String rawPayload, String failureReason) {
+    static OrphanedEntry create(Long organizationId, Long originalEventId, String scanUuid, Map<String, Object> rawPayload, String failureReason) {
         return new OrphanedEntry(organizationId, originalEventId, scanUuid, rawPayload, failureReason);
     }
 }

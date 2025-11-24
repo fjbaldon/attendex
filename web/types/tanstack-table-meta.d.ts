@@ -7,5 +7,7 @@ declare module '@tanstack/react-table' {
         openResetPasswordDialog?: (data: TData) => void;
         openStatusDialog?: (data: TData) => void;
         openSubscriptionDialog?: (data: TData) => void;
+        openRecoverDialog?: (data: TData) => void;
+        openViewDialog?: (data: TData) => void;
     }
 }

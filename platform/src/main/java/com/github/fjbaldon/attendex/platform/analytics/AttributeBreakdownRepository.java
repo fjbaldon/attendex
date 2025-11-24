@@ -15,7 +15,7 @@ interface AttributeBreakdownRepository extends CrudRepository<AttributeBreakdown
 
     @Modifying
     @Query(nativeQuery = true, value = """
-        DELETE FROM analytics_attributebreakdown ab
+        DELETE FROM analytics_attribute_breakdown ab
         USING event_event e
         WHERE ab.event_id = e.id
         AND e.organization_id = :orgId

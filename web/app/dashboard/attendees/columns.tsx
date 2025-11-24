@@ -2,7 +2,7 @@
 
 import {ColumnDef} from "@tanstack/react-table";
 import {AttendeeResponse, Attribute} from "@/types";
-import {IconPencil, IconTrash} from "@tabler/icons-react";
+import {IconEye, IconPencil, IconTrash} from "@tabler/icons-react";
 import {createAttendeeBaseColumns} from "./attendee-column-helper";
 import {createActionsColumn} from "@/components/shared/data-table-action-column";
 import {selectColumn} from "@/components/shared/data-table-columns";
@@ -11,6 +11,11 @@ export const getColumns = (attributes: Attribute[]): ColumnDef<AttendeeResponse>
     const baseColumns = createAttendeeBaseColumns<AttendeeResponse>(attributes);
 
     const actionsColumn = createActionsColumn<AttendeeResponse>([
+        {
+            icon: IconEye,
+            label: "View History",
+            onClick: (row, table) => table.options.meta?.openViewDialog?.(row.original),
+        },
         {
             icon: IconPencil,
             label: "Edit Attendee",

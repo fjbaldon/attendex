@@ -45,6 +45,7 @@ export const eventSchema = z.object({
         z.number().min(0, "Must be 0 or greater.")
     ),
     sessions: z.array(z.object({
+        id: z.number().optional(),
         activityName: z.string().min(1, "Activity name is required."),
         targetTime: z.date(),
         intent: z.enum(["Arrival", "Departure"]),
@@ -72,7 +73,7 @@ export const attendeeSchema = z.object({
     identity: z.string().min(1, "An identifier is required."),
     firstName: z.string().min(1, "First name is required."),
     lastName: z.string().min(1, "Last name is required."),
-    attributes: z.record(z.string(), z.any()).optional(),
+    attributes: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const userCreateSchema = z.object({

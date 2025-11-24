@@ -1,9 +1,7 @@
 package com.github.fjbaldon.attendex.platform.admin;
 
-import com.github.fjbaldon.attendex.platform.admin.dto.UpdateOrganizationLifecycleDto;
-import com.github.fjbaldon.attendex.platform.admin.dto.UpdateSubscriptionDto;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
-import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,8 +20,13 @@ class AdminOrganizationController {
     private final AdminFacade adminFacade;
 
     @GetMapping
-    public Page<OrganizationDto> getAllOrganizations(Pageable pageable) {
-        return organizationFacade.findAllOrganizations(pageable);
+    public Page<OrganizationDto> getAllOrganizations(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String lifecycle,
+            @RequestParam(required = false) String subscriptionType,
+            Pageable pageable
+    ) {
+        return organizationFacade.findAllOrganizations(query, lifecycle, subscriptionType, pageable);
     }
 
     @PutMapping("/{id}/status")

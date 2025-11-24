@@ -14,16 +14,15 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 @Composable
 fun SplashScreen(
     viewModel: SplashViewModel = hiltViewModel(),
-    onAuthChecked: (isLoggedIn: Boolean) -> Unit
+    onAuthChecked: (isLoggedIn: Boolean, requirePasswordChange: Boolean) -> Unit
 ) {
     val authState by viewModel.authState.collectAsState()
 
     LaunchedEffect(authState) {
-        when (authState) {
-            is AuthState.Authenticated -> onAuthChecked(true)
-            is AuthState.Unauthenticated -> onAuthChecked(false)
-            is AuthState.Loading -> {
-            }
+        when (val state = authState) {
+            is AuthState.Authenticated -> onAuthChecked(true, state.requirePasswordChange)
+            is AuthState.Unauthenticated -> onAuthChecked(false, false)
+            is AuthState.Loading -> { }
         }
     }
 

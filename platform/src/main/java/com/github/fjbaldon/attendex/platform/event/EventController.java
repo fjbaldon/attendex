@@ -1,11 +1,7 @@
 package com.github.fjbaldon.attendex.platform.event;
 
-import com.github.fjbaldon.attendex.platform.attendee.dto.AttendeeDto;
-import com.github.fjbaldon.attendex.platform.capture.dto.EntryDetailsDto;
-import com.github.fjbaldon.attendex.platform.event.dto.CreateEventRequestDto;
-import com.github.fjbaldon.attendex.platform.event.dto.EventDto;
-import com.github.fjbaldon.attendex.platform.event.dto.UpdateEventRequestDto;
-import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
+import com.github.fjbaldon.attendex.platform.attendee.AttendeeDto;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -15,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/events")
@@ -88,24 +86,22 @@ class EventController {
     @GetMapping("/{eventId}/roster")
     public Page<AttendeeDto> getRoster(
             @PathVariable Long eventId,
+            @RequestParam(required = false) String query,
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return eventFacade.findRosterForEvent(eventId, user.getOrganizationId(), pageable);
+        return eventFacade.findRosterForEvent(eventId, user.getOrganizationId(), query, pageable);
     }
 
-    @GetMapping("/{eventId}/arrivals")
-    public Page<EntryDetailsDto> getArrivals(
-            @PathVariable Long eventId,
-            Pageable pageable,
-            @AuthenticationPrincipal CustomUserDetails user) {
-        return eventFacade.findEntriesByIntent(eventId, user.getOrganizationId(), "Arrival", pageable);
-    }
+    // REMOVED: getArrivals and getDepartures endpoints.
+    // They are now handled by CaptureEventQueryController in the Capture module.
 
-    @GetMapping("/{eventId}/departures")
-    public Page<EntryDetailsDto> getDepartures(
+    @PostMapping("/{eventId}/roster/bulk")
+    public ResponseEntity<Map<String, Integer>> bulkAddRoster(
             @PathVariable Long eventId,
-            Pageable pageable,
+            @RequestBody BulkAddCriteriaRequestDto request,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return eventFacade.findEntriesByIntent(eventId, user.getOrganizationId(), "Departure", pageable);
+
+        int addedCount = eventFacade.bulkAddAttendeesByCriteria(eventId, user.getOrganizationId(), request);
+        return ResponseEntity.ok(Map.of("added", addedCount));
     }
 }

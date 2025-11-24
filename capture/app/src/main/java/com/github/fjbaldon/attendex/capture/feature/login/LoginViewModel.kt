@@ -18,7 +18,6 @@ data class LoginUiState(
     val isLoggedIn: Boolean = false,
     val requirePasswordChange: Boolean = false,
     val error: String? = null,
-    // NEW: Dialog Trigger
     val showUserMismatchDialog: Boolean = false,
     val pendingEmail: String? = null,
     val pendingPassword: String? = null
@@ -27,16 +26,23 @@ data class LoginUiState(
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val eventRepository: EventRepository, // Inject this
-    private val sessionManager: SessionManager    // Inject this
+    private val eventRepository: EventRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState = _uiState.asStateFlow()
 
     fun login(email: String, password: String) {
-        if (email.isBlank() || password.isBlank()) {
+        val trimmedEmail = email.trim()
+
+        if (trimmedEmail.isBlank() || password.isBlank()) {
             _uiState.update { it.copy(error = "Email and password cannot be empty.") }
+            return
+        }
+
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+            _uiState.update { it.copy(error = "Please enter a valid email address.") }
             return
         }
 
@@ -44,22 +50,18 @@ class LoginViewModel @Inject constructor(
             val lastEmail = sessionManager.lastUserEmail
             val unsyncedCount = eventRepository.getUnsyncedCount()
 
-            // QUARANTINE CHECK:
-            // If a DIFFERENT user is logging in AND we have unsynced data...
-            if (lastEmail != null && !lastEmail.equals(email, ignoreCase = true) && unsyncedCount > 0) {
-                // Stop! Ask the user what to do.
+            if (lastEmail != null && !lastEmail.equals(trimmedEmail, ignoreCase = true) && unsyncedCount > 0) {
                 _uiState.update {
                     it.copy(
                         showUserMismatchDialog = true,
-                        pendingEmail = email,
+                        pendingEmail = trimmedEmail,
                         pendingPassword = password
                     )
                 }
                 return@launch
             }
 
-            // If safe, proceed
-            performLogin(email, password)
+            performLogin(trimmedEmail, password)
         }
     }
 
@@ -67,10 +69,8 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(showUserMismatchDialog = false, isLoading = true) }
 
-            // Wipe the old user's data
             eventRepository.clearAllLocalData()
 
-            // Proceed with login for the new user
             val email = _uiState.value.pendingEmail ?: return@launch
             val password = _uiState.value.pendingPassword ?: return@launch
             performLogin(email, password)
@@ -92,7 +92,6 @@ class LoginViewModel @Inject constructor(
 
         when (val result = authRepository.login(email, password)) {
             is LoginResult.Success -> {
-                // Save this email as the "owner" of the device data
                 sessionManager.lastUserEmail = email
 
                 if (authRepository.isPasswordChangeRequired()) {

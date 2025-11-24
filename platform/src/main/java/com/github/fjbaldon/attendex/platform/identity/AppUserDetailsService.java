@@ -1,6 +1,8 @@
 package com.github.fjbaldon.attendex.platform.identity;
 
 import com.github.fjbaldon.attendex.platform.admin.AdminFacade;
+import com.github.fjbaldon.attendex.platform.admin.UserAuthDto;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.DisabledException;
@@ -25,7 +27,7 @@ class AppUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        Optional<com.github.fjbaldon.attendex.platform.admin.dto.UserAuthDto> stewardAuth = adminFacade.findStewardAuthByEmail(email);
+        Optional<UserAuthDto> stewardAuth = adminFacade.findStewardAuthByEmail(email);
         if (stewardAuth.isPresent()) {
             var authDto = stewardAuth.get();
             List<GrantedAuthority> authorities = new ArrayList<>();
@@ -45,7 +47,7 @@ class AppUserDetailsService implements UserDetailsService {
             );
         }
 
-        Optional<com.github.fjbaldon.attendex.platform.organization.dto.UserAuthDto> userAuth = organizationFacade.findUserAuthByEmail(email);
+        Optional<com.github.fjbaldon.attendex.platform.organization.UserAuthDto> userAuth = organizationFacade.findUserAuthByEmail(email);
         if (userAuth.isPresent()) {
             var authDto = userAuth.get();
 

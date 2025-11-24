@@ -5,64 +5,30 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.fjbaldon.attendex.capture.core.data.local.model.AttendeeEntity
 import com.github.fjbaldon.attendex.capture.core.services.TtsService
+import com.github.fjbaldon.attendex.capture.data.auth.SessionManager
 import com.github.fjbaldon.attendex.capture.data.event.EventRepository
 import com.github.fjbaldon.attendex.capture.data.event.ScanResult
+import com.github.fjbaldon.attendex.capture.data.sync.SyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
-
-enum class ScanMode {
-    OCR, QR
-}
-
-sealed class ScanUiResult {
-    data object Idle : ScanUiResult()
-    data class Success(val attendeeDetails: String) : ScanUiResult()
-    data class Error(val message: String) : ScanUiResult()
-    data class AlreadyScanned(val identifier: String) : ScanUiResult()
-}
-
-data class ScannedItemUi(
-    val id: Long,
-    val name: String,
-    val identity: String,
-    val isSynced: Boolean,
-    val isFailed: Boolean
-)
-
-data class ScannerUiState(
-    val eventName: String? = null,
-    val isLoading: Boolean = true,
-    val isRosterSyncing: Boolean = false,
-    val lastScanResult: ScanUiResult = ScanUiResult.Idle,
-    val scannedAttendees: List<ScannedItemUi> = emptyList(),
-    val hasFlashUnit: Boolean = false,
-    val isTorchOn: Boolean = false,
-    val isEventActive: Boolean = true,
-    val scanMode: ScanMode = ScanMode.OCR,
-    val hasUnsyncedData: Boolean = false,
-    val searchResults: List<AttendeeEntity> = emptyList(),
-    val searchQuery: String = "",
-    val isManualEntryOpen: Boolean = false,
-    val globalScanCount: Long = 0,
-    val totalRosterCount: Long = 0,
-    val hasFailedSyncs: Boolean = false
-)
 
 @HiltViewModel
 class ScannerViewModel @Inject constructor(
     private val eventRepository: EventRepository,
     private val ttsService: TtsService,
+    private val syncManager: SyncManager,
+    sessionManager: SessionManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val eventId: Long = savedStateHandle.get<Long>("eventId")!!
+    private val _identityRegex = MutableStateFlow<String?>(null)
 
+    // --- State Definitions ---
     private val _lastScanResult = MutableStateFlow<ScanUiResult>(ScanUiResult.Idle)
+    private val _isCameraEnabled = MutableStateFlow(false)
     private val _isLoading = MutableStateFlow(true)
     private val _isRosterSyncing = MutableStateFlow(false)
     private val _torchState = MutableStateFlow(Pair(false, false))
@@ -70,17 +36,39 @@ class ScannerViewModel @Inject constructor(
     private val _isEventActive = MutableStateFlow(true)
     private val _scanMode = MutableStateFlow(ScanMode.OCR)
 
-    private val _searchQuery = MutableStateFlow("")
-    private val _isManualEntryOpen = MutableStateFlow(false)
-
     private val _globalStats = MutableStateFlow(Pair(0L, 0L))
 
-    private val scannedItemsFlow: Flow<List<ScannedItemUi>> =
-        eventRepository.getScannedItemsStream(eventId)
+    private val _manualEntryQuery = MutableStateFlow("")
+    private val _isManualEntryOpen = MutableStateFlow(false)
+    private val _recentScansQuery = MutableStateFlow("")
+    private val _isFilteringUnsynced = MutableStateFlow(false)
+    private val _listLimit = MutableStateFlow(50)
+
+    // --- Flows ---
+    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+    private val baseScannedItemsFlow: Flow<List<ScannedItemUi>> = combine(
+        _recentScansQuery.debounce(50),
+        _listLimit
+    ) { query, limit ->
+        Pair(query, limit)
+    }.flatMapLatest { (query, limit) ->
+        if (query.isBlank()) {
+            eventRepository.getScannedItemsStream(eventId, limit)
+        } else {
+            eventRepository.searchScannedItems(eventId, query)
+        }
+    }
+
+    private val filteredRecentScans: Flow<List<ScannedItemUi>> = combine(
+        baseScannedItemsFlow,
+        _isFilteringUnsynced
+    ) { items, filterUnsynced ->
+        if (filterUnsynced) items.filter { !it.isSynced } else items
+    }
 
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-    private val _searchResults = _searchQuery
-        .debounce(300)
+    private val _rosterSearchResults = _manualEntryQuery
+        .debounce(50)
         .flatMapLatest { query ->
             if (query.isBlank()) flowOf(emptyList())
             else eventRepository.searchAttendees(eventId, query)
@@ -91,18 +79,22 @@ class ScannerViewModel @Inject constructor(
     val uiState: StateFlow<ScannerUiState> = combine(
         _isLoading,
         _lastScanResult,
-        scannedItemsFlow,
+        filteredRecentScans,
         _torchState,
         _eventName,
         _isEventActive,
         _scanMode,
         eventRepository.hasUnsyncedRecords,
-        _searchResults,
-        _searchQuery,
+        _rosterSearchResults,
+        _manualEntryQuery,
         _isManualEntryOpen,
         _isRosterSyncing,
-        _globalStats
-    ) { flows: Array<Any?> ->
+        _globalStats,
+        _isCameraEnabled,
+        _recentScansQuery,
+        _isFilteringUnsynced,
+        _identityRegex
+    ) { flows ->
         val scannedItems = flows[2] as List<ScannedItemUi>
         val hasFailed = scannedItems.any { it.isFailed }
         val stats = flows[12] as Pair<Long, Long>
@@ -123,7 +115,11 @@ class ScannerViewModel @Inject constructor(
             isRosterSyncing = flows[11] as Boolean,
             globalScanCount = stats.first,
             totalRosterCount = stats.second,
-            hasFailedSyncs = hasFailed
+            hasFailedSyncs = hasFailed,
+            isCameraEnabled = flows[13] as Boolean,
+            recentScansQuery = flows[14] as String,
+            isFilteringUnsynced = flows[15] as Boolean,
+            identityRegex = flows[16] as String?
         )
     }.stateIn(
         scope = viewModelScope,
@@ -132,11 +128,16 @@ class ScannerViewModel @Inject constructor(
     )
 
     private val isProcessing = AtomicBoolean(false)
+    private var resetJob: Job? = null
+    private var errorDebounceJob: Job? = null // NEW: To hold back error messages
+    private var lastSpokenText: String? = null
+    private var lastSpokenTime: Long = 0
 
     init {
         loadEventDetails()
+        loadLocalStats()
         refreshRoster()
-        pollStats()
+        _identityRegex.value = sessionManager.identityRegex
     }
 
     private fun loadEventDetails() {
@@ -149,88 +150,113 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
+    private fun loadLocalStats() {
+        viewModelScope.launch {
+            val stats = eventRepository.getLocalEventStats(eventId)
+            _globalStats.value = stats
+        }
+    }
+
     private fun refreshRoster() {
         viewModelScope.launch {
             _isRosterSyncing.value = true
             eventRepository.syncRosterForEvent(eventId)
+            loadLocalStats()
             _isRosterSyncing.value = false
         }
     }
 
-    private fun pollStats() {
-        viewModelScope.launch {
-            while(true) {
-                val result = eventRepository.fetchEventStats(eventId)
-                result.onSuccess {
-                    _globalStats.value = Pair(it.totalScans, it.totalRoster)
-                }
-                delay(30000)
-            }
-        }
-    }
-
-    fun retryFailedScans() {
-        viewModelScope.launch {
-            eventRepository.retryFailedEntries(eventId)
-        }
-    }
-
-    fun toggleScanMode(mode: ScanMode) {
-        _scanMode.value = mode
-    }
-
-    fun onSearchQueryChange(query: String) {
-        _searchQuery.value = query
-    }
-
+    fun enableCamera() { _isCameraEnabled.value = true }
+    fun toggleScanMode(mode: ScanMode) { _scanMode.value = mode }
+    fun onManualEntryQueryChange(query: String) { _manualEntryQuery.value = query }
+    fun onRecentScansQueryChange(query: String) { _recentScansQuery.value = query }
     fun toggleManualEntry(isOpen: Boolean) {
         _isManualEntryOpen.value = isOpen
-        if (!isOpen) _searchQuery.value = ""
+        if (!isOpen) _manualEntryQuery.value = ""
     }
-
+    fun toggleUnsyncedFilter() { _isFilteringUnsynced.update { !it } }
+    fun loadFullHistory() { _listLimit.value = 100000 }
+    fun resetListLimit() { _listLimit.value = 50 }
     fun onManualEntrySelected(attendee: AttendeeEntity) {
         processScannedText(attendee.identity)
         toggleManualEntry(false)
+    }
+    fun retryFailedScans() { viewModelScope.launch { eventRepository.retryFailedEntries(eventId) } }
+    fun onTorchToggle(isOn: Boolean) { _torchState.update { Pair(it.first, isOn) } }
+    fun onFlashUnitAvailabilityChange(isAvailable: Boolean) { _torchState.update { Pair(isAvailable, it.second) } }
+
+    private fun speakWithDebounce(text: String) {
+        val now = System.currentTimeMillis()
+        if (text == lastSpokenText && now - lastSpokenTime < 3000) return
+
+        ttsService.speak(text)
+        lastSpokenText = text
+        lastSpokenTime = now
     }
 
     fun processScannedText(scannedText: String) {
         if (!_isEventActive.value || !isProcessing.compareAndSet(false, true)) return
 
         viewModelScope.launch {
-            when (val result = eventRepository.processScan(eventId, scannedText)) {
-                is ScanResult.Success -> {
-                    ttsService.speak(result.attendee.firstName)
-                    _lastScanResult.value = ScanUiResult.Success(
-                        attendeeDetails = "${result.attendee.firstName} ${result.attendee.lastName}"
-                    )
-                    val current = _globalStats.value
-                    _globalStats.value = Pair(current.first + 1, current.second)
+            try {
+                when (val result = eventRepository.processScan(eventId, scannedText)) {
+                    is ScanResult.Success -> {
+                        // Cancel pending error/reset jobs immediately
+                        errorDebounceJob?.cancel()
+                        resetJob?.cancel()
+
+                        _lastScanResult.value = ScanUiResult.Success(
+                            attendeeDetails = "${result.attendee.firstName} ${result.attendee.lastName}"
+                        )
+                        val current = _globalStats.value
+                        _globalStats.value = Pair(current.first + 1, current.second)
+                        speakWithDebounce(result.attendee.firstName)
+                        syncManager.triggerImmediateSync()
+
+                        // CHANGED: 1500ms -> 800ms (Faster reset for next scan)
+                        scheduleReset(800)
+                    }
+                    is ScanResult.AlreadyScanned -> {
+                        errorDebounceJob?.cancel()
+                        resetJob?.cancel()
+
+                        val details = "${result.attendee.firstName} ${result.attendee.lastName}"
+                        val newState = ScanUiResult.AlreadyScanned(details)
+
+                        // Always update to trigger UI flash even if same state
+                        _lastScanResult.value = newState
+                        speakWithDebounce(result.attendee.firstName)
+
+                        scheduleReset(800)
+                    }
+                    is ScanResult.AttendeeNotFound -> {
+                        // Only show error if we aren't currently showing a Success/AlreadyScanned
+                        if (_lastScanResult.value !is ScanUiResult.Success && _lastScanResult.value !is ScanUiResult.AlreadyScanned) {
+
+                            if (errorDebounceJob?.isActive != true) {
+                                errorDebounceJob = launch {
+                                    // CHANGED: 250ms -> 50ms (Minimal debounce for flicker)
+                                    delay(50)
+                                    _lastScanResult.value = ScanUiResult.NotFound(scannedText)
+
+                                    // CHANGED: 1000ms -> 500ms (Quick recovery from error)
+                                    scheduleReset(500)
+                                }
+                            }
+                        }
+                    }
                 }
-                is ScanResult.AlreadyScanned -> {
-                    ttsService.speak("Already Scanned")
-                    _lastScanResult.value = ScanUiResult.AlreadyScanned(scannedText)
-                }
-                is ScanResult.AttendeeNotFound -> {
-                }
+            } finally {
+                isProcessing.set(false)
             }
-            resetScanResultAfterDelay()
         }
     }
 
-    private fun resetScanResultAfterDelay() {
-        viewModelScope.launch {
-            delay(150)
+    private fun scheduleReset(delayMs: Long) {
+        resetJob = viewModelScope.launch {
+            delay(delayMs)
             _lastScanResult.value = ScanUiResult.Idle
-            isProcessing.set(false)
         }
-    }
-
-    fun onTorchToggle(isOn: Boolean) {
-        _torchState.update { Pair(it.first, isOn) }
-    }
-
-    fun onFlashUnitAvailabilityChange(isAvailable: Boolean) {
-        _torchState.update { Pair(isAvailable, it.second) }
     }
 
     override fun onCleared() {

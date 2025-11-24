@@ -1,57 +1,76 @@
 package com.github.fjbaldon.attendex.capture.core.ui.camera
 
-import android.graphics.Rect
-import androidx.annotation.OptIn
-import androidx.camera.core.ExperimentalGetImage
-import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.util.concurrent.atomic.AtomicBoolean
 
 class TextRecognitionAnalyzer(
-    private val onTextFound: (String) -> Unit
-) : ImageAnalysis.Analyzer {
+    private val onTextFound: (String) -> Unit,
+    private val isScanningEnabledRef: AtomicBoolean,
+    private val customRegexString: String? // NEW PARAMETER
+) : BaseImageAnalyzer(isScanningEnabledRef, throttleIntervalMs = 20L) {
 
-    private val numberRegex = "\\d+".toRegex()
-
-    @OptIn(ExperimentalGetImage::class)
-    override fun analyze(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image ?: run {
-            imageProxy.close()
-            return
+    // 1. Determine the regex to use.
+    // If custom is provided, we use it. Otherwise, default to 5+ digits.
+    private val activeRegex = try {
+        if (!customRegexString.isNullOrBlank()) {
+            customRegexString.toRegex()
+        } else {
+            "\\d{5,}".toRegex()
         }
+    } catch (_: Exception) {
+        // Fallback if the user typed an invalid regex in the dashboard
+        "\\d{5,}".toRegex()
+    }
 
-        // Calculate the "Hot Zone" (The center 70% of the image)
-        val width = imageProxy.width
-        val height = imageProxy.height
+    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-        val scanAreaSize = 0.7f
-        val rectWidth = (width * scanAreaSize).toInt()
-        val rectHeight = (rectWidth * 0.6).toInt()
+    private var lastSeenText: String? = null
+    private var stableFrameCount = 0
+    private val requiredStableFrames = 2
 
-        val left = (width - rectWidth) / 2
-        val top = (height - rectHeight) / 2
-        val right = left + rectWidth
-        val bottom = top + rectHeight
-
-        val activeScanRect = Rect(left, top, right, bottom)
-
-        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-
+    override fun processImage(image: InputImage, imageProxy: ImageProxy) {
         recognizer.process(image)
             .addOnSuccessListener { visionText ->
-                for (block in visionText.textBlocks) {
-                    val boundingBox = block.boundingBox ?: continue
+                if (isScanningEnabledRef.get()) {
+                    var foundMatch = false
 
-                    if (activeScanRect.contains(boundingBox.centerX(), boundingBox.centerY())) {
-                        val blockText = block.text
-                        val match = numberRegex.find(blockText)
-                        if (match != null && match.value.isNotBlank()) {
-                            onTextFound(match.value)
-                            return@addOnSuccessListener
+                    // Find largest match in the image
+                    val bestMatch = visionText.textBlocks
+                        .flatMap { it.lines }
+                        .mapNotNull { activeRegex.find(it.text)?.value }
+                        .maxByOrNull { it.length }
+
+                    if (bestMatch != null) {
+                        foundMatch = true
+
+                        // --- THE SPEED UP LOGIC ---
+                        // If we have a custom regex (e.g. ^\d{9}$), we trust it more.
+                        // We skip the stability check and trigger immediately.
+                        val isCustomRegex = !customRegexString.isNullOrBlank()
+
+                        if (isCustomRegex) {
+                            // FAST TRACK: Instant trigger
+                            onTextFound(bestMatch)
+                        } else {
+                            // SLOW TRACK (Default): Wait for stability to prevent noise
+                            if (bestMatch == lastSeenText) {
+                                stableFrameCount++
+                                if (stableFrameCount >= requiredStableFrames) {
+                                    onTextFound(bestMatch)
+                                }
+                            } else {
+                                lastSeenText = bestMatch
+                                stableFrameCount = 1
+                            }
                         }
+                    }
+
+                    if (!foundMatch) {
+                        stableFrameCount = 0
+                        lastSeenText = null
                     }
                 }
             }

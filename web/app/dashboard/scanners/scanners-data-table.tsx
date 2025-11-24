@@ -19,6 +19,9 @@ interface ScannersDataTableProps {
     pageCount: number;
     pagination: { pageIndex: number; pageSize: number; };
     setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
+    // FIX: Add search props
+    onSearchChange: (value: string) => void;
+    searchValue: string;
 }
 
 export function ScannersDataTable({
@@ -26,7 +29,9 @@ export function ScannersDataTable({
                                       isLoading,
                                       pageCount,
                                       pagination,
-                                      setPagination
+                                      setPagination,
+                                      onSearchChange,
+                                      searchValue
                                   }: ScannersDataTableProps) {
     const { deleteScanner, isDeletingScanner, toggleScannerStatus } = useScanners();
     const { resetPassword, isResettingPassword } = useUserActions();
@@ -35,7 +40,6 @@ export function ScannersDataTable({
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
     const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
     const [selectedScanner, setSelectedScanner] = React.useState<ScannerResponse | null>(null);
-    const [filter, setFilter] = React.useState("");
 
     const columns = React.useMemo(
         () => getColumns(toggleScannerStatus),
@@ -60,8 +64,8 @@ export function ScannersDataTable({
         <div className="flex items-center justify-between">
             <Input
                 placeholder="Filter scanners by email..."
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
+                value={searchValue}
+                onChange={(event) => onSearchChange(event.target.value)}
                 className="h-9 max-w-sm"
             />
             <Button size="sm" className="h-9" onClick={() => setIsFormDialogOpen(true)}>
@@ -71,10 +75,7 @@ export function ScannersDataTable({
         </div>
     );
 
-    const filteredData = React.useMemo(() =>
-        data.filter(scanner =>
-            scanner.email.toLowerCase().includes(filter.toLowerCase())
-        ), [data, filter]);
+    // FIX: Removed filteredData useMemo. Using 'data' directly.
 
     return (
         <>
@@ -99,7 +100,7 @@ export function ScannersDataTable({
             />
             <DataTable
                 columns={columns}
-                data={filteredData}
+                data={data}
                 isLoading={isLoading}
                 pageCount={pageCount}
                 pagination={pagination}

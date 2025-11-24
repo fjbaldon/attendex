@@ -2,6 +2,7 @@
 
 import {ColumnDef} from "@tanstack/react-table";
 import {Attribute} from "@/types";
+import {Button} from "@/components/ui/button";
 
 export const createAttendeeBaseColumns = <TData, >(
     attributes: Attribute[],
@@ -14,16 +15,60 @@ export const createAttendeeBaseColumns = <TData, >(
         {
             accessorKey: `${accessorPrefix}identity`,
             header: "Identifier",
+            cell: ({row, getValue, table}) => {
+                const value = String(getValue());
+                // Check if the View Dialog action is available
+                if (table.options.meta?.openViewDialog) {
+                    return (
+                        <Button
+                            variant="link"
+                            className="p-0 h-auto font-normal text-foreground hover:underline"
+                            onClick={() => table.options.meta?.openViewDialog?.(row.original)}
+                        >
+                            {value}
+                        </Button>
+                    );
+                }
+                return value;
+            }
         },
         {
             accessorKey: `${accessorPrefix}lastName`,
             header: "Last Name",
-            cell: ({getValue}) => <div className="font-medium">{String(getValue())}</div>,
+            cell: ({row, getValue, table}) => {
+                const value = String(getValue());
+                if (table.options.meta?.openViewDialog) {
+                    return (
+                        <Button
+                            variant="link"
+                            className="p-0 h-auto font-medium text-foreground hover:underline"
+                            onClick={() => table.options.meta?.openViewDialog?.(row.original)}
+                        >
+                            {value}
+                        </Button>
+                    );
+                }
+                return <div className="font-medium">{value}</div>;
+            },
         },
         {
             accessorKey: `${accessorPrefix}firstName`,
             header: "First Name",
-            cell: ({getValue}) => <div className="font-medium">{String(getValue())}</div>,
+            cell: ({row, getValue, table}) => {
+                const value = String(getValue());
+                if (table.options.meta?.openViewDialog) {
+                    return (
+                        <Button
+                            variant="link"
+                            className="p-0 h-auto font-medium text-foreground hover:underline"
+                            onClick={() => table.options.meta?.openViewDialog?.(row.original)}
+                        >
+                            {value}
+                        </Button>
+                    );
+                }
+                return <div className="font-medium">{value}</div>;
+            },
         },
     ];
 

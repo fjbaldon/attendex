@@ -1,6 +1,5 @@
 package com.github.fjbaldon.attendex.platform.organization;
 
-import com.github.fjbaldon.attendex.platform.organization.dto.OrganizationDto;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

@@ -1,32 +1,39 @@
 "use client";
 
 import {Table} from "@tanstack/react-table";
-import {
-    IconChevronLeft,
-    IconChevronRight,
-    IconChevronsLeft,
-    IconChevronsRight,
-} from "@tabler/icons-react";
+import {IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight, IconX,} from "@tabler/icons-react";
 import {Button} from "@/components/ui/button";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
 
 interface DataTablePaginationProps<TData> {
     table: Table<TData>;
 }
 
 export function DataTablePagination<TData>({table}: DataTablePaginationProps<TData>) {
+    const selectedCount = table.getFilteredSelectedRowModel().rows.length;
+    const totalCount = table.getFilteredRowModel().rows.length;
+
     return (
         <div className="flex items-center justify-between px-2">
-            <div className="flex-1 text-sm text-muted-foreground">
-                {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                {table.getFilteredRowModel().rows.length} row(s) selected.
+            <div className="flex items-center text-sm text-muted-foreground gap-2">
+                <span>
+                    {selectedCount} of {totalCount} row(s) selected.
+                </span>
+                {/* NEW: Clear Selection Button */}
+                {selectedCount > 0 && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onClick={() => table.resetRowSelection()}
+                        title="Clear selection"
+                    >
+                        <IconX className="h-3 w-3" />
+                        <span className="sr-only">Clear selection</span>
+                    </Button>
+                )}
             </div>
+            {/* ... existing pagination controls ... */}
             <div className="flex items-center space-x-6 lg:space-x-8">
                 <div className="flex items-center space-x-2">
                     <p className="text-sm font-medium">Rows per page</p>

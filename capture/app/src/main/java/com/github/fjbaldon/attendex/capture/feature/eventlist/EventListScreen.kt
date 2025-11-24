@@ -1,22 +1,32 @@
 package com.github.fjbaldon.attendex.capture.feature.eventlist
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.github.fjbaldon.attendex.capture.core.data.local.model.EventEntity
+import com.github.fjbaldon.attendex.capture.core.data.remote.SessionResponse
+import com.github.fjbaldon.attendex.capture.feature.eventlist.components.SyncStatusBanner
+import com.github.fjbaldon.attendex.capture.ui.common.SkeletonEventCard
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +41,7 @@ fun EventListScreen(
 
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    val scope = rememberCoroutineScope()
+    // Pull to Refresh Logic
     var isIndicatorVisible by remember { mutableStateOf(false) }
     var refreshStartTime by remember { mutableLongStateOf(0L) }
     val minDisplayTime = 500L
@@ -43,13 +53,9 @@ fun EventListScreen(
         } else {
             val elapsedTime = System.currentTimeMillis() - refreshStartTime
             if (elapsedTime < minDisplayTime) {
-                scope.launch {
-                    delay(minDisplayTime - elapsedTime)
-                    isIndicatorVisible = false
-                }
-            } else {
-                isIndicatorVisible = false
+                delay(minDisplayTime - elapsedTime)
             }
+            isIndicatorVisible = false
         }
     }
 
@@ -59,31 +65,20 @@ fun EventListScreen(
             title = { Text("Confirm Logout") },
             text = { Text("Are you sure you want to log out? An internet connection will be required to sign back in.") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                        viewModel.logout()
-                        onLogout()
-                    }
-                ) {
-                    Text("Log Out")
-                }
+                TextButton(onClick = {
+                    showLogoutDialog = false
+                    viewModel.logout()
+                    onLogout()
+                }) { Text("Log Out") }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showLogoutDialog = false }
-                ) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
             }
         )
     }
 
     LaunchedEffect(syncMessage) {
-        syncMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.onSyncMessageShown()
-        }
+        syncMessage?.let { snackbarHostState.showSnackbar(it) }
     }
 
     Scaffold(
@@ -97,66 +92,51 @@ fun EventListScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            if (!uiState.initialLoadFailed && !uiState.isLoading) {
-                BadgedBox(
-                    badge = {
-                        if (uiState.needsToSync) {
-                            Badge()
-                        }
-                    }
-                ) {
-                    FloatingActionButton(onClick = { viewModel.syncEntries() }) {
-                        if (uiState.isSyncing) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        } else {
-                            Icon(Icons.Default.Sync, contentDescription = "Sync Data")
-                        }
-                    }
-                }
-            }
         }
     ) { paddingValues ->
-        when {
-            uiState.isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+        Column(modifier = Modifier.padding(paddingValues)) {
+
+            SyncStatusBanner(
+                unsyncedCount = uiState.unsyncedCount,
+                isSyncing = uiState.isSyncing,
+                onSyncClick = { viewModel.syncEntries() }
+            )
+
+            when {
+                uiState.isLoading -> {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        repeat(6) { SkeletonEventCard() }
+                    }
                 }
-            }
 
-            uiState.initialLoadFailed -> {
-                ErrorState(
-                    message = uiState.error ?: "An unknown error occurred.",
-                    onRetry = { viewModel.retryInitialLoad() },
-                    modifier = Modifier.padding(paddingValues)
-                )
-            }
+                uiState.initialLoadFailed -> {
+                    ErrorState(
+                        message = uiState.error ?: "An unknown error occurred.",
+                        onRetry = { viewModel.retryInitialLoad() },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
 
-            else -> {
-                PullToRefreshBox(
-                    isRefreshing = isIndicatorVisible,
-                    onRefresh = { viewModel.refreshEvents() },
-                    modifier = Modifier.padding(paddingValues)
-                ) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = if (uiState.events.isEmpty()) Arrangement.Center else Arrangement.spacedBy(
-                            12.dp
-                        )
+                else -> {
+                    PullToRefreshBox(
+                        isRefreshing = isIndicatorVisible,
+                        onRefresh = { viewModel.refreshEvents() },
+                        modifier = Modifier.weight(1f)
                     ) {
-                        if (uiState.events.isEmpty()) {
-                            item { EmptyState() }
-                        } else {
-                            items(uiState.events, key = { it.id }) { event ->
-                                EventCard(
-                                    eventName = event.name,
-                                    onClick = { onEventSelected(event.id) }
-                                )
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(8.dp),
+                            verticalArrangement = if (uiState.events.isEmpty()) Arrangement.Center else Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (uiState.events.isEmpty()) {
+                                item { EmptyState() }
+                            } else {
+                                items(uiState.events, key = { it.id }) { event ->
+                                    EventCard(
+                                        event = event,
+                                        onClick = { onEventSelected(event.id) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -167,13 +147,152 @@ fun EventListScreen(
 }
 
 @Composable
-private fun EventCard(eventName: String, onClick: () -> Unit) {
-    Card(
+private fun EventCard(
+    event: EventEntity,
+    onClick: () -> Unit
+) {
+    val status = remember(event.startDate, event.endDate) {
+        getEventStatus(event.startDate, event.endDate)
+    }
+    val dateData = remember(event.startDate) { parseEventDate(event.startDate) }
+
+    // FIX: New logic to format session times instead of generic range
+    val sessionDisplay = remember(event.sessions) {
+        formatSessionTimes(event.sessions)
+    }
+
+    val (statusText, statusColor, statusContainer) = when (status) {
+        EventStatus.UPCOMING -> Triple(
+            "Upcoming",
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.primaryContainer
+        )
+        EventStatus.PAST -> Triple(
+            "Past",
+            MaterialTheme.colorScheme.outline,
+            MaterialTheme.colorScheme.surfaceVariant
+        )
+        EventStatus.ACTIVE -> Triple(
+            "Active Now",
+            MaterialTheme.colorScheme.onTertiaryContainer,
+            MaterialTheme.colorScheme.tertiaryContainer
+        )
+        EventStatus.UNKNOWN -> Triple(
+            "Unknown",
+            MaterialTheme.colorScheme.outline,
+            MaterialTheme.colorScheme.surfaceVariant
+        )
+    }
+
+    ElevatedCard(
+        onClick = onClick,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
-        Text(text = eventName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
+        Row(
+            modifier = Modifier
+                .height(IntrinsicSize.Min)
+                .fillMaxWidth()
+        ) {
+            // === LEFT: Calendar Widget ===
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(72.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(8.dp)
+            ) {
+                Text(
+                    text = dateData.month,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = dateData.day,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // === CENTER: Content ===
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(12.dp)
+            ) {
+                // Status Badge
+                Surface(
+                    color = statusContainer,
+                    contentColor = statusColor,
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.padding(bottom = 6.dp)
+                ) {
+                    Text(
+                        text = statusText.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+
+                // Title
+                Text(
+                    text = event.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Metadata Row (REPLACED)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // FIX: Show specific session times
+                    Text(
+                        text = sessionDisplay,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            // === RIGHT: Chevron ===
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(end = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = "Details",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.outlineVariant
+                )
+            }
+        }
     }
 }
 
@@ -219,5 +338,56 @@ private fun ErrorState(message: String, onRetry: () -> Unit, modifier: Modifier 
         Button(onClick = onRetry) {
             Text("Retry")
         }
+    }
+}
+
+// --- HELPER FUNCTIONS ---
+
+private enum class EventStatus {
+    UPCOMING, PAST, ACTIVE, UNKNOWN
+}
+
+data class DateDisplay(val month: String, val day: String)
+
+private fun getEventStatus(start: String, end: String): EventStatus {
+    val now = Instant.now()
+    return try {
+        val s = Instant.parse(start)
+        val e = Instant.parse(end)
+
+        when {
+            now.isBefore(s) -> EventStatus.UPCOMING
+            now.isAfter(e) -> EventStatus.PAST
+            else -> EventStatus.ACTIVE
+        }
+    } catch (_: Exception) {
+        EventStatus.UNKNOWN
+    }
+}
+
+private fun parseEventDate(isoString: String): DateDisplay {
+    return try {
+        val date = Instant.parse(isoString).atZone(ZoneId.systemDefault())
+        val month = DateTimeFormatter.ofPattern("MMM").withLocale(Locale.US).format(date).uppercase()
+        val day = DateTimeFormatter.ofPattern("dd").withLocale(Locale.US).format(date)
+        DateDisplay(month, day)
+    } catch (_: Exception) {
+        DateDisplay("---", "--")
+    }
+}
+
+private fun formatSessionTimes(sessions: List<SessionResponse>): String {
+    if (sessions.isEmpty()) return "No Sessions"
+
+    return try {
+        val fmt = DateTimeFormatter.ofPattern("h:mm a").withLocale(Locale.US)
+        sessions
+            .map { Instant.parse(it.targetTime).atZone(ZoneId.systemDefault()) }
+            .sorted()
+            .map { fmt.format(it) }
+            .distinct()
+            .joinToString(" • ")
+    } catch (_: Exception) {
+        "${sessions.size} Session(s)"
     }
 }

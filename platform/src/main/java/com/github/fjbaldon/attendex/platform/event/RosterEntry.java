@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.util.Assert;
 
 @Entity
-@Table(name = "event_rosterentry")
+@Table(name = "event_roster_entry")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 class RosterEntry {

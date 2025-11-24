@@ -1,9 +1,7 @@
 package com.github.fjbaldon.attendex.platform.admin;
 
-import com.github.fjbaldon.attendex.platform.admin.dto.CreateStewardRequestDto;
-import com.github.fjbaldon.attendex.platform.admin.dto.StewardDto;
-import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
-import com.github.fjbaldon.attendex.platform.organization.dto.PasswordResetRequestDto;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
+import com.github.fjbaldon.attendex.platform.organization.PasswordResetRequestDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

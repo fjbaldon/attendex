@@ -1,9 +1,12 @@
 package com.github.fjbaldon.attendex.capture.data.auth
 
+import android.content.Context
 import android.util.Base64
+import androidx.work.WorkManager
 import com.github.fjbaldon.attendex.capture.core.data.remote.ApiService
 import com.github.fjbaldon.attendex.capture.core.data.remote.AuthRequest
 import com.github.fjbaldon.attendex.capture.core.data.remote.ChangePasswordRequest
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONObject
 import retrofit2.HttpException
@@ -12,7 +15,8 @@ import javax.inject.Inject
 
 class AuthRepository @Inject constructor(
     private val apiService: ApiService,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    @param:ApplicationContext private val context: Context
 ) {
     val isLoggedInFlow: StateFlow<Boolean> = sessionManager.isLoggedInFlow
 
@@ -23,6 +27,14 @@ class AuthRepository @Inject constructor(
             val request = AuthRequest(email, password)
             val response = apiService.login(request)
             sessionManager.authToken = response.accessToken
+
+            try {
+                val org = apiService.getMyOrganization()
+                sessionManager.identityRegex = org.identityFormatRegex
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
             LoginResult.Success
         } catch (e: Exception) {
             when (e) {
@@ -64,5 +76,7 @@ class AuthRepository @Inject constructor(
 
     fun logout() {
         sessionManager.clear()
+        WorkManager.getInstance(context).cancelUniqueWork("AttendEx_Periodic_Sync")
+        WorkManager.getInstance(context).cancelUniqueWork("AttendEx_Immediate_Sync")
     }
 }

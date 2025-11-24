@@ -1,10 +1,10 @@
 package com.github.fjbaldon.attendex.platform.audit;
 
-import com.github.fjbaldon.attendex.platform.admin.events.StewardCreatedEvent;
-import com.github.fjbaldon.attendex.platform.admin.events.StewardDeletedEvent;
-import com.github.fjbaldon.attendex.platform.identity.events.UserLoggedInEvent;
-import com.github.fjbaldon.attendex.platform.identity.events.UserPasswordChangedEvent;
-import com.github.fjbaldon.attendex.platform.organization.events.OrganizationLifecycleChangedEvent;
+import com.github.fjbaldon.attendex.platform.admin.StewardCreatedEvent;
+import com.github.fjbaldon.attendex.platform.admin.StewardDeletedEvent;
+import com.github.fjbaldon.attendex.platform.identity.UserLoggedInEvent;
+import com.github.fjbaldon.attendex.platform.identity.UserPasswordChangedEvent;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationLifecycleChangedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;

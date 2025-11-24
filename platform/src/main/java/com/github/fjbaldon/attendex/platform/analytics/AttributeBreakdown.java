@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "analytics_attributebreakdown")
+@Table(name = "analytics_attribute_breakdown")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 class AttributeBreakdown {

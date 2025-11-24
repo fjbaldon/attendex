@@ -10,7 +10,7 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/compo
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {useEvents} from "@/hooks/use-events";
 import {useAnalytics} from "@/hooks/use-analytics";
-import {Bar, CartesianGrid, Cell, XAxis, YAxis} from "recharts";
+import {Bar, CartesianGrid, XAxis, YAxis} from "recharts";
 import {ChartContainer, ChartTooltip, ChartTooltipContent} from "@/components/ui/chart";
 import {Skeleton} from "@/components/ui/skeleton";
 import {Icon, IconActivity, IconClock, IconUsers} from "@tabler/icons-react";
@@ -43,8 +43,6 @@ export default function AnalyticsPage() {
         }
     };
 
-    const CHART_COLORS = ["#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed"];
-
     return (
         <SidebarProvider style={{"--sidebar-width": "calc(var(--spacing) * 72)", "--header-height": "calc(var(--spacing) * 12)"} as React.CSSProperties}>
             <AppSidebar variant="inset"/>
@@ -67,7 +65,6 @@ export default function AnalyticsPage() {
                                     </Select>
                                 )}
                             </div>
-                            {/* Removed Export Button */}
                         </div>
 
                         <div className="space-y-6">
@@ -103,11 +100,7 @@ export default function AnalyticsPage() {
                                                             <YAxis dataKey="label" type="category" width={140} tickLine={false} axisLine={false} style={{fontSize: '12px', fontWeight: 500}}/>
                                                             <XAxis type="number" hide/>
                                                             <ChartTooltip cursor={{fill: 'transparent'}} content={<ChartTooltipContent/>}/>
-                                                            <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24}>
-                                                                {(stats?.sessionStats || []).map((_, index) => (
-                                                                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                                                                ))}
-                                                            </Bar>
+                                                            <Bar dataKey="count" fill="var(--color-count)" radius={[0, 4, 4, 0]} barSize={24} />
                                                         </BarChart>
                                                     </ChartContainer>
                                                 )}

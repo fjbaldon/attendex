@@ -1,4 +1,4 @@
-import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {keepPreviousData, useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import api from "@/lib/api";
 import {ApiErrorResponse, OrganizerResponse, PaginatedResponse, UserCreateRequest} from "@/types";
 import {toast} from "sonner";
@@ -7,18 +7,24 @@ import {getErrorMessage} from "@/lib/utils";
 
 type OrganizerCreateRequest = Omit<UserCreateRequest, 'roleId'>;
 
-export const useOrganizers = (page = 0, size = 10) => {
+export const useOrganizers = (page = 0, size = 10, query = "") => {
     const queryClient = useQueryClient();
-    const queryKey = ["organizers", page, size];
+    const queryKey = ["organizers", page, size, query];
 
     const {data, isLoading: isLoadingOrganizers} = useQuery<PaginatedResponse<OrganizerResponse>>({
         queryKey,
         queryFn: async () => {
             const response = await api.get("/api/v1/organization/organizers", {
-                params: {page, size, sort: "email,asc"}
+                params: {
+                    page,
+                    size,
+                    sort: "email,asc",
+                    ...(query && { query })
+                }
             });
             return response.data;
         },
+        placeholderData: keepPreviousData,
     });
 
     const createOrganizerMutation = useMutation<

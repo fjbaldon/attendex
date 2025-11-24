@@ -8,14 +8,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 import java.time.Year;
 
+@Service
 @RequiredArgsConstructor
 @Slf4j
-public class EmailService { // Made public
+public class EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
@@ -26,10 +28,11 @@ public class EmailService { // Made public
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    private static final String LOGO_URL = "https://raw.githubusercontent.com/fjbaldon/attendex/main/web/public/logo.png";
+
     public void sendReportEmail(String to, String subject, String body, String attachmentFilename, byte[] attachmentData) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            // true = multipart (needed for attachments)
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setFrom(fromEmail);
@@ -37,7 +40,6 @@ public class EmailService { // Made public
             helper.setSubject(subject);
             helper.setText(body, true);
 
-            // This attaches the byte array as a file to the email
             helper.addAttachment(attachmentFilename, new ByteArrayResource(attachmentData));
 
             mailSender.send(message);
@@ -53,14 +55,12 @@ public class EmailService { // Made public
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             final String verificationUrl = frontendUrl + "/verify?token=" + token;
-            // Use a CDN or public URL for images in emails
-            final String logoUrl = "https://raw.githubusercontent.com/fjbaldon/attendex/main/web/public/logo.png";
 
             Context context = new Context();
             context.setVariable("verificationUrl", verificationUrl);
             context.setVariable("organizationName", organizationName);
             context.setVariable("currentYear", Year.now().getValue());
-            context.setVariable("logoUrl", logoUrl);
+            context.setVariable("logoUrl", LOGO_URL); // Use constant
 
             String htmlContent = templateEngine.process("verification-email", context);
 
@@ -85,6 +85,7 @@ public class EmailService { // Made public
             context.setVariable("tempPassword", tempPassword);
             context.setVariable("loginUrl", frontendUrl + "/login");
             context.setVariable("currentYear", Year.now().getValue());
+            context.setVariable("logoUrl", LOGO_URL); // FIXED: Pass logoUrl to context
 
             String htmlContent = templateEngine.process("password-reset-email", context);
 

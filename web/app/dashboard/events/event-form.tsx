@@ -39,6 +39,7 @@ export function EventForm({event, onSubmit}: EventFormProps) {
                 graceMinutesBefore: event.graceMinutesBefore,
                 graceMinutesAfter: event.graceMinutesAfter,
                 sessions: event.sessions.map(s => ({
+                    id: s.id,
                     activityName: s.activityName,
                     targetTime: new Date(s.targetTime),
                     intent: s.intent
@@ -50,8 +51,8 @@ export function EventForm({event, onSubmit}: EventFormProps) {
             name: "",
             startDate: startOfDay(today),
             endDate: endOfDay(today),
-            graceMinutesBefore: 15,
-            graceMinutesAfter: 15,
+            graceMinutesBefore: 30,
+            graceMinutesAfter: 30,
             sessions: [],
         };
     }, [event]);

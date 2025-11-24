@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "notification_notificationoutbox")
+@Table(name = "notification_notification_outbox")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 class NotificationOutbox {

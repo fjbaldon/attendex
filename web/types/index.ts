@@ -74,6 +74,8 @@ export interface AttendeeRequest {
     attributes?: Record<string, unknown>;
 }
 
+export type UpdateAttendeeRequest = Omit<AttendeeRequest, 'identity'>;
+
 export interface AttendeeResponse {
     id: number;
     identity: string;
@@ -262,8 +264,36 @@ export interface EventStats {
 export interface OrphanedEntry {
     id: number;
     originalEventId: number;
+    originalEventName: string; // Added
     scanUuid: string;
     failureReason: string;
     createdAt: string;
-    rawPayload: string;
+    rawPayload: string | Record<string, unknown>;
+}
+
+export interface SessionHistoryItem {
+    sessionId: number;
+    activityName: string;
+    intent: 'Arrival' | 'Departure';
+    targetTime: string;
+    status: 'PRESENT' | 'ABSENT' | 'PENDING' | 'LATE' | 'EARLY';
+    scanTime: string | null;
+}
+
+export interface AttendeeHistoryItem {
+    eventId: number;
+    eventName: string;
+    eventDate: string;
+    sessionsCompleted: number;
+    totalSessions: number;
+    sessions: SessionHistoryItem[];
+}
+
+export interface AttendeeHistory {
+    profile: AttendeeResponse;
+    totalEvents: number;
+    totalAttended: number;
+    totalAbsent: number;
+    attendanceRate: number;
+    history: AttendeeHistoryItem[];
 }

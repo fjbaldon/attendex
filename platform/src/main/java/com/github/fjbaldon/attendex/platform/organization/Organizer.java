@@ -61,4 +61,8 @@ class Organizer {
         this.password = newEncodedPassword;
         this.forcePasswordChange = false;
     }
+
+    void requirePasswordChange() {
+        this.forcePasswordChange = true;
+    }
 }

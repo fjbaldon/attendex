@@ -1,9 +1,7 @@
 package com.github.fjbaldon.attendex.platform.analytics;
 
-import com.github.fjbaldon.attendex.platform.analytics.dto.AttributeBreakdownDto;
-import com.github.fjbaldon.attendex.platform.analytics.dto.EventStatsDto;
-import com.github.fjbaldon.attendex.platform.analytics.dto.EventSummaryDto;
-import com.github.fjbaldon.attendex.platform.identity.CustomUserDetails;
+import com.github.fjbaldon.attendex.platform.capture.EventStatsDto;
+import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -49,5 +47,12 @@ class AnalyticsController {
             @PathVariable Long eventId,
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(analyticsFacade.getEventStats(user.getOrganizationId(), eventId));
+    }
+
+    @GetMapping("/attendees/{attendeeId}/history")
+    public ResponseEntity<AttendeeHistoryDto> getAttendeeHistory(
+            @PathVariable Long attendeeId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(analyticsFacade.getAttendeeHistory(user.getOrganizationId(), attendeeId));
     }
 }
