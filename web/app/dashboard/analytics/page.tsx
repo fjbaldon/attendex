@@ -13,14 +13,19 @@ import {useAnalytics} from "@/hooks/use-analytics";
 import {Bar, CartesianGrid, XAxis, YAxis} from "recharts";
 import {ChartContainer, ChartTooltip, ChartTooltipContent} from "@/components/ui/chart";
 import {Skeleton} from "@/components/ui/skeleton";
-import {Icon, IconActivity, IconClock, IconUsers} from "@tabler/icons-react";
+import {Icon, IconActivity, IconCheck, IconClock, IconSearch, IconUsers} from "@tabler/icons-react";
 import {format} from "date-fns";
 import {useAttributes} from "@/hooks/use-attributes";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
+import {Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from "@/components/ui/command"; // Ensure you have these components
+import {Button} from "@/components/ui/button";
+import {cn} from "@/lib/utils";
 
 const BarChart = dynamic(() => import("recharts").then(mod => mod.BarChart), {ssr: false});
 
 export default function AnalyticsPage() {
     const [selectedEventId, setSelectedEventId] = useState<string>("");
+    const [openCombobox, setOpenCombobox] = useState(false); // NEW state for popover
     const [selectedAttribute, setSelectedAttribute] = useState<string>("");
 
     const {eventsData, isLoadingEvents} = useEvents(0, 100);
@@ -43,6 +48,8 @@ export default function AnalyticsPage() {
         }
     };
 
+    const selectedEventName = events.find((e) => String(e.id) === selectedEventId)?.name;
+
     return (
         <SidebarProvider style={{"--sidebar-width": "calc(var(--spacing) * 72)", "--header-height": "calc(var(--spacing) * 12)"} as React.CSSProperties}>
             <AppSidebar variant="inset"/>
@@ -55,18 +62,54 @@ export default function AnalyticsPage() {
                         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-background/50 backdrop-blur-sm sticky top-0 z-10 pb-4 border-b">
                             <div className="w-full sm:w-72">
                                 {isLoadingEvents ? <Skeleton className="h-10 w-full"/> : (
-                                    <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                                        <SelectTrigger className="h-10 w-full shadow-sm">
-                                            <SelectValue placeholder="Select Event to Analyze"/>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {events.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                    <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={openCombobox}
+                                                className="w-full justify-between shadow-sm"
+                                            >
+                                                {selectedEventId
+                                                    ? selectedEventName
+                                                    : "Select Event to Analyze..."}
+                                                <IconSearch className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[300px] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Search event..." />
+                                                <CommandList>
+                                                    <CommandEmpty>No event found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {events.map((event) => (
+                                                            <CommandItem
+                                                                key={event.id}
+                                                                value={event.name}
+                                                                onSelect={() => {
+                                                                    setSelectedEventId(String(event.id));
+                                                                    setOpenCombobox(false);
+                                                                }}
+                                                            >
+                                                                <IconCheck
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        selectedEventId === String(event.id) ? "opacity-100" : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                {event.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                 )}
                             </div>
                         </div>
 
+                        {/* ... Rest of the component remains exactly the same ... */}
                         <div className="space-y-6">
                             {!selectedEventId ? (
                                 <div className="h-[60vh] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl bg-muted/5">
@@ -76,7 +119,6 @@ export default function AnalyticsPage() {
                                 </div>
                             ) : (
                                 <>
-                                    {/* 1. KPI Cards */}
                                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                         <KpiCard title="Total Scans" icon={IconUsers} value={stats?.totalScans} subtext={`${(stats?.attendanceRate ?? 0).toFixed(0)}% Attendance`} loading={isLoadingStats} />
                                         <KpiCard title="Absent" icon={IconUsers} value={Math.max(0, (stats?.totalRoster || 0) - (stats?.totalScans || 0))} subtext="Not Scanned" loading={isLoadingStats} color="text-red-600" />
@@ -84,9 +126,7 @@ export default function AnalyticsPage() {
                                         <KpiCard title="Last Scan" icon={IconClock} value={formatTime(stats?.lastScan)} subtext="Latest Entry" loading={isLoadingStats} />
                                     </div>
 
-                                    {/* 2. Charts Row */}
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                        {/* Session Performance (Horizontal Bar) */}
                                         <Card className="lg:col-span-2 shadow-sm">
                                             <CardHeader>
                                                 <CardTitle>Session Engagement</CardTitle>
@@ -107,7 +147,6 @@ export default function AnalyticsPage() {
                                             </CardContent>
                                         </Card>
 
-                                        {/* Scanner Leaderboard */}
                                         <Card className="shadow-sm flex flex-col">
                                             <CardHeader>
                                                 <CardTitle>Top Scanners</CardTitle>
@@ -136,7 +175,6 @@ export default function AnalyticsPage() {
                                         </Card>
                                     </div>
 
-                                    {/* 3. Demographics */}
                                     <Card className="shadow-sm">
                                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                                             <div className="space-y-1">

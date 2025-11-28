@@ -1,5 +1,8 @@
 package com.github.fjbaldon.attendex.capture.feature.eventlist
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,7 +31,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun EventListScreen(
     viewModel: EventListViewModel = hiltViewModel(),
@@ -57,6 +61,39 @@ fun EventListScreen(
             }
             isIndicatorVisible = false
         }
+    }
+
+    val groupedEvents = remember(uiState.events) {
+        val now = Instant.now()
+
+        // FIXED: Replaced LocalDate.ofInstant (API 31+) with atZone().toLocalDate() (API 26+)
+        val today = now.atZone(ZoneId.systemDefault()).toLocalDate()
+
+        // Sort by start date first
+        val sorted = uiState.events.sortedBy { it.startDate }
+
+        sorted.groupBy { event ->
+            try {
+                // These lines were already correct using atZone()
+                val start = Instant.parse(event.startDate).atZone(ZoneId.systemDefault()).toLocalDate()
+                val end = Instant.parse(event.endDate).atZone(ZoneId.systemDefault()).toLocalDate()
+
+                when {
+                    // Active: Starts today/past AND ends today/future
+                    !start.isAfter(today) && !end.isBefore(today) -> "Happening Now"
+                    start.isAfter(today) -> "Upcoming"
+                    else -> "Past Events"
+                }
+            } catch (_: Exception) {
+                "Others"
+            }
+        }
+    }
+
+    // Order the keys so "Happening Now" is always top
+    val sortedGroups = remember(groupedEvents) {
+        val order = listOf("Happening Now", "Upcoming", "Past Events", "Others")
+        groupedEvents.toSortedMap(compareBy { order.indexOf(it) })
     }
 
     if (showLogoutDialog) {
@@ -125,17 +162,37 @@ fun EventListScreen(
                     ) {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(8.dp),
-                            verticalArrangement = if (uiState.events.isEmpty()) Arrangement.Center else Arrangement.spacedBy(4.dp)
+                            contentPadding = PaddingValues(bottom = 16.dp),
+                            verticalArrangement = if (uiState.events.isEmpty()) Arrangement.Center else Arrangement.Top
                         ) {
                             if (uiState.events.isEmpty()) {
                                 item { EmptyState() }
                             } else {
-                                items(uiState.events, key = { it.id }) { event ->
-                                    EventCard(
-                                        event = event,
-                                        onClick = { onEventSelected(event.id) }
-                                    )
+                                sortedGroups.forEach { (header, events) ->
+                                    stickyHeader {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surface,
+                                            tonalElevation = 2.dp,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                text = header,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                            )
+                                        }
+                                    }
+
+                                    items(events, key = { it.id }) { event ->
+                                        Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                                            EventCard(
+                                                event = event,
+                                                onClick = { onEventSelected(event.id) }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -155,8 +212,6 @@ private fun EventCard(
         getEventStatus(event.startDate, event.endDate)
     }
     val dateData = remember(event.startDate) { parseEventDate(event.startDate) }
-
-    // FIX: New logic to format session times instead of generic range
     val sessionDisplay = remember(event.sessions) {
         formatSessionTimes(event.sessions)
     }
@@ -191,9 +246,7 @@ private fun EventCard(
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
@@ -255,7 +308,7 @@ private fun EventCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Metadata Row (REPLACED)
+                // Metadata Row
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
@@ -268,7 +321,6 @@ private fun EventCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
 
-                    // FIX: Show specific session times
                     Text(
                         text = sessionDisplay,
                         style = MaterialTheme.typography.bodySmall,

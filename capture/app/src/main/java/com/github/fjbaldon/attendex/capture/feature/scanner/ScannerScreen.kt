@@ -1,16 +1,16 @@
 package com.github.fjbaldon.attendex.capture.feature.scanner
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
@@ -18,6 +18,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.github.fjbaldon.attendex.capture.core.ui.camera.CameraOverlay
 import com.github.fjbaldon.attendex.capture.core.ui.camera.CameraPreview
 import com.github.fjbaldon.attendex.capture.feature.scanner.components.*
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,17 +31,31 @@ fun ScannerScreen(
 
     val haptic = LocalHapticFeedback.current
 
-    // FIX: Watch for bottom sheet collapse to reset list limit
+    // Flash State
+    var flashTrigger by remember { mutableStateOf(false) }
+
+    // Reset list limit when sheet collapses
     LaunchedEffect(scaffoldState.bottomSheetState.currentValue) {
         if (scaffoldState.bottomSheetState.currentValue == SheetValue.PartiallyExpanded) {
             viewModel.resetListLimit()
         }
     }
 
+    // Handle Feedback (Haptic + Visual Flash)
     LaunchedEffect(uiState.lastScanResult) {
         when (uiState.lastScanResult) {
             is ScanUiResult.Success -> {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                flashTrigger = true
+                delay(150)
+                flashTrigger = false
+            }
+            is ScanUiResult.AlreadyScanned -> {
+                // Also flash for duplicates so user knows it was read
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                flashTrigger = true
+                delay(150)
+                flashTrigger = false
             }
             is ScanUiResult.Error -> {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -48,6 +63,13 @@ fun ScannerScreen(
             else -> {}
         }
     }
+
+    // Flash Animation
+    val flashColor by animateColorAsState(
+        targetValue = if (flashTrigger) Color.Green.copy(alpha = 0.3f) else Color.Transparent,
+        animationSpec = tween(150),
+        label = "flash_animation"
+    )
 
     val isScanningEnabled = uiState.isCameraEnabled &&
             !uiState.isManualEntryOpen &&
@@ -136,7 +158,7 @@ fun ScannerScreen(
                     torchEnabled = uiState.isTorchOn,
                     onTorchToggle = { hasFlash -> viewModel.onFlashUnitAvailabilityChange(hasFlash) },
                     isScanningEnabled = isScanningEnabled,
-                    customRegex = uiState.identityRegex
+                    customRegex = uiState.identityRegex // Pass the regex from state
                 )
 
                 CameraOverlay(
@@ -156,6 +178,13 @@ fun ScannerScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 120.dp)
+                )
+
+                // Flash Overlay (Top Layer)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(flashColor)
                 )
             }
         }

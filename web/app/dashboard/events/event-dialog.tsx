@@ -79,7 +79,8 @@ export function EventDialog({open, onOpenChange, event, onSubmit, isLoading}: Ev
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[525px] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0 max-h-[90vh]">
+            {/* FIXED: Increased width to sm:max-w-2xl to fit side-by-side inputs */}
+            <DialogContent className="sm:max-w-2xl grid grid-rows-[auto_minmax(0,1fr)_auto] p-0 max-h-[90vh]">
                 <DialogHeader className="p-6 pb-4">
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>

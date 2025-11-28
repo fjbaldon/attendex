@@ -27,7 +27,9 @@ import {
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import {Button} from "@/components/ui/button";
-import {IconColumns} from "@tabler/icons-react";
+import {IconChevronDown, IconColumns} from "@tabler/icons-react";
+import {Card} from "@/components/ui/card";
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible";
 
 interface DataTableProps<TData> {
     columns: ColumnDef<TData>[];
@@ -38,7 +40,6 @@ interface DataTableProps<TData> {
     setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
     toolbar: React.ReactNode;
     meta?: TableMeta<TData>;
-    // Optional props for external row selection control
     state?: { rowSelection: RowSelectionState };
     onRowSelectionChange?: OnChangeFn<RowSelectionState>;
 }
@@ -58,8 +59,6 @@ export function DataTable<TData>({
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-
-    // Internal state fallback if not controlled
     const [internalRowSelection, setInternalRowSelection] = React.useState<RowSelectionState>({});
 
     const table = useReactTable({
@@ -95,15 +94,13 @@ export function DataTable<TData>({
     return (
         <div className="flex w-full flex-col justify-start gap-4">
             <div className="flex items-center justify-between gap-2">
-                {/* Toolbar (Search + Add Buttons) */}
                 <div className="flex-1">
                     {toolbar}
                 </div>
 
-                {/* Column Visibility Toggle */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="ml-auto h-9">
+                        <Button variant="outline" className="ml-auto h-9 hidden sm:flex">
                             <IconColumns className="mr-2 h-4 w-4" />
                             View
                         </Button>
@@ -113,10 +110,7 @@ export function DataTable<TData>({
                         <DropdownMenuSeparator />
                         {table
                             .getAllColumns()
-                            .filter(
-                                (column) =>
-                                    typeof column.accessorFn !== "undefined" && column.getCanHide()
-                            )
+                            .filter((column) => typeof column.accessorFn !== "undefined" && column.getCanHide())
                             .map((column) => {
                                 return (
                                     <DropdownMenuCheckboxItem
@@ -135,7 +129,8 @@ export function DataTable<TData>({
                 </DropdownMenu>
             </div>
 
-            <div className="rounded-lg border overflow-hidden">
+            {/* DESKTOP VIEW */}
+            <div className="hidden md:block rounded-lg border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader className="bg-muted">
@@ -179,6 +174,63 @@ export function DataTable<TData>({
                     </Table>
                 </div>
             </div>
+
+            {/* MOBILE CARD VIEW */}
+            <div className="md:hidden space-y-4">
+                {isLoading ? (
+                    <div className="text-center py-10 text-muted-foreground">Loading...</div>
+                ) : table.getRowModel().rows.length > 0 ? (
+                    table.getRowModel().rows.map((row) => {
+                        // FIX: Store select cell in a variable to avoid ! assertion error
+                        const selectCell = row.getVisibleCells().find(c => c.column.id === 'select');
+
+                        return (
+                            <Card key={row.id} className="p-4 flex flex-col gap-3">
+                                {/* Render first 3 columns as header info */}
+                                <div className="flex justify-between items-start">
+                                    <div className="flex flex-col gap-1">
+                                        {row.getVisibleCells().slice(0, 2).map(cell => (
+                                            <div key={cell.id} className="text-sm">
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* Selection Checkbox if present */}
+                                    {selectCell && (
+                                        <div>
+                                            {flexRender(selectCell.column.columnDef.cell, selectCell.getContext())}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <Collapsible>
+                                    <CollapsibleTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="w-full justify-between">
+                                            View Details <IconChevronDown className="h-4 w-4" />
+                                        </Button>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="space-y-2 mt-2 pt-2 border-t text-sm">
+                                        {row.getVisibleCells().slice(2).map(cell => {
+                                            if (cell.column.id === 'select') return null;
+                                            return (
+                                                <div key={cell.id} className="flex justify-between py-1">
+                                                    <span className="font-medium text-muted-foreground">
+                                                        {typeof cell.column.columnDef.header === 'string' ? cell.column.columnDef.header : cell.column.id}
+                                                    </span>
+                                                    <span>{flexRender(cell.column.columnDef.cell, cell.getContext())}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </CollapsibleContent>
+                                </Collapsible>
+                            </Card>
+                        );
+                    })
+                ) : (
+                    <div className="text-center py-10 text-muted-foreground border rounded-lg">No results found.</div>
+                )}
+            </div>
+
             <div className="pt-2">
                 <DataTablePagination table={table}/>
             </div>

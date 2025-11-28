@@ -3,6 +3,7 @@ import {RecentActivity} from "@/types";
 import {Skeleton} from "@/components/ui/skeleton";
 import {formatDistanceToNow} from "date-fns";
 import {Avatar, AvatarFallback} from "@/components/ui/avatar";
+import {IconActivity} from "@tabler/icons-react"; // NEW
 
 interface RecentActivityListProps {
     activities?: RecentActivity[];
@@ -30,8 +31,13 @@ export function RecentActivityList({activities, isLoading}: RecentActivityListPr
                         ))}
                     </div>
                 ) : !activities || activities.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center text-sm text-muted-foreground min-h-[150px]">
-                        No recent activity.
+                    // IMPROVED EMPTY STATE
+                    <div className="flex flex-col items-center justify-center h-full text-center text-sm text-muted-foreground min-h-[200px] gap-2">
+                        <div className="p-3 bg-muted rounded-full mb-2">
+                            <IconActivity className="w-6 h-6 text-muted-foreground/50" />
+                        </div>
+                        <p className="font-medium">No activity yet</p>
+                        <p className="text-xs max-w-[200px]">Scans will appear here in real-time as they happen.</p>
                     </div>
                 ) : (
                     <div className="space-y-6">
