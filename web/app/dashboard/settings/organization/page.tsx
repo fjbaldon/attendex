@@ -6,7 +6,7 @@ import {organizationSettingsSchema} from "@/lib/schemas";
 import {useOrganization} from "@/hooks/use-organization";
 import {OrganizationSettingsForm} from "./organization-settings-form";
 import {Skeleton} from "@/components/ui/skeleton";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 
 export default function OrganizationSettingsPage() {
@@ -23,7 +23,22 @@ export default function OrganizationSettingsPage() {
 
     if (isLoading) {
         return (
-            <div className="max-w-3xl space-y-6">
+            <div className="max-w-3xl space-y-8 pb-10">
+                {/* General Info Skeleton */}
+                <Card>
+                    <CardHeader>
+                        <Skeleton className="h-6 w-48 mb-2"/>
+                        <Skeleton className="h-4 w-64"/>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-32"/> {/* Label */}
+                            <Skeleton className="h-9 w-full"/> {/* Input h-9 matches Shadcn default */}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Identity Validation Skeleton */}
                 <Card>
                     <CardHeader>
                         <Skeleton className="h-6 w-48 mb-2"/>
@@ -31,14 +46,22 @@ export default function OrganizationSettingsPage() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="space-y-2">
-                            <Skeleton className="h-4 w-32"/>
-                            <Skeleton className="h-10 w-full"/>
+                            <Skeleton className="h-4 w-40"/> {/* Label */}
+                            <Skeleton className="h-9 w-full"/> {/* Input */}
+                            <Skeleton className="h-4 w-full max-w-sm opacity-60"/> {/* Description */}
                         </div>
-                        <div className="space-y-2">
-                            <Skeleton className="h-4 w-48"/>
-                            <Skeleton className="h-10 w-full"/>
+
+                        {/* Pattern Tester Area */}
+                        <div className="bg-muted/50 p-4 rounded-lg border space-y-2">
+                            <Skeleton className="h-3 w-24 uppercase"/> {/* Small Label */}
+                            <div className="flex items-center gap-3">
+                                <Skeleton className="h-9 w-full max-w-xs"/>
+                            </div>
                         </div>
                     </CardContent>
+                    <CardFooter className="border-t bg-muted/5 px-6 py-4">
+                        <Skeleton className="h-9 w-32"/> {/* Button */}
+                    </CardFooter>
                 </Card>
             </div>
         );

@@ -141,4 +141,9 @@ public class EventFacade {
     public Page<EventSyncDto.RosterSyncDto> getFormattedRosterForSync(Long eventId, Long organizationId, Pageable pageable) {
         return syncService.getFormattedRosterForSync(eventId, organizationId, pageable);
     }
+
+    @Transactional(readOnly = true)
+    public Set<Long> findAllAttendeeIdsForEvent(Long eventId) {
+        return rosterService.findAllAttendeeIdsForEvent(eventId);
+    }
 }

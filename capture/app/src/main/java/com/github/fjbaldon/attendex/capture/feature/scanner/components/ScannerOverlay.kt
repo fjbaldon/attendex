@@ -46,7 +46,7 @@ fun ScannerOverlay(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 170.dp)
+                        .padding(bottom = 260.dp) // INCREASED from 170.dp to 260.dp to clear buttons
                         .padding(horizontal = 32.dp)
                 ) {
                     Text(

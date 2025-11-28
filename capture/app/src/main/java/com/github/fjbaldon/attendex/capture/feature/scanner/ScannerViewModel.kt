@@ -44,18 +44,30 @@ class ScannerViewModel @Inject constructor(
     private val _isFilteringUnsynced = MutableStateFlow(false)
     private val _listLimit = MutableStateFlow(50)
 
+    // OPTIMIZATION: Track if the history sheet is actually visible to the user
+    private val _isHistoryVisible = MutableStateFlow(false)
+
     // --- Flows ---
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     private val baseScannedItemsFlow: Flow<List<ScannedItemUi>> = combine(
         _recentScansQuery.debounce(50),
-        _listLimit
-    ) { query, limit ->
-        Pair(query, limit)
-    }.flatMapLatest { (query, limit) ->
-        if (query.isBlank()) {
-            eventRepository.getScannedItemsStream(eventId, limit)
+        _listLimit,
+        _isHistoryVisible // <--- Dependency on visibility
+    ) { query, limit, isVisible ->
+        Triple(query, limit, isVisible)
+    }.flatMapLatest { (query, limit, isVisible) ->
+        // LAZY LOADING LOGIC:
+        // If the sheet is closed (not visible), return an empty list immediately.
+        // This prevents the Database from being queried every time a scan happens,
+        // saving massive amounts of CPU/Battery during high-throughput scanning.
+        if (!isVisible) {
+            flowOf(emptyList())
         } else {
-            eventRepository.searchScannedItems(eventId, query)
+            if (query.isBlank()) {
+                eventRepository.getScannedItemsStream(eventId, limit)
+            } else {
+                eventRepository.searchScannedItems(eventId, query)
+            }
         }
     }
 
@@ -129,7 +141,7 @@ class ScannerViewModel @Inject constructor(
 
     private val isProcessing = AtomicBoolean(false)
     private var resetJob: Job? = null
-    private var errorDebounceJob: Job? = null // NEW: To hold back error messages
+    private var errorDebounceJob: Job? = null
     private var lastSpokenText: String? = null
     private var lastSpokenTime: Long = 0
 
@@ -166,6 +178,8 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
+    // --- UI ACTIONS ---
+
     fun enableCamera() { _isCameraEnabled.value = true }
     fun toggleScanMode(mode: ScanMode) { _scanMode.value = mode }
     fun onManualEntryQueryChange(query: String) { _manualEntryQuery.value = query }
@@ -175,15 +189,33 @@ class ScannerViewModel @Inject constructor(
         if (!isOpen) _manualEntryQuery.value = ""
     }
     fun toggleUnsyncedFilter() { _isFilteringUnsynced.update { !it } }
-    fun loadFullHistory() { _listLimit.value = 100000 }
-    fun resetListLimit() { _listLimit.value = 50 }
+
+    fun loadFullHistory() { _listLimit.value = 100000 } // "Show All" logic
+
     fun onManualEntrySelected(attendee: AttendeeEntity) {
         processScannedText(attendee.identity)
         toggleManualEntry(false)
     }
+
     fun retryFailedScans() { viewModelScope.launch { eventRepository.retryFailedEntries(eventId) } }
     fun onTorchToggle(isOn: Boolean) { _torchState.update { Pair(it.first, isOn) } }
     fun onFlashUnitAvailabilityChange(isAvailable: Boolean) { _torchState.update { Pair(isAvailable, it.second) } }
+
+    /**
+     * Called by ScannerScreen when the Bottom Sheet expands or collapses.
+     * Use this to toggle Lazy Loading.
+     */
+    fun onSheetStateChange(isOpen: Boolean) {
+        if (_isHistoryVisible.value != isOpen) {
+            _isHistoryVisible.value = isOpen
+
+            // When closing the sheet, reset filters to save memory/state for next time
+            if (!isOpen) {
+                _listLimit.value = 50
+                _recentScansQuery.value = ""
+            }
+        }
+    }
 
     private fun speakWithDebounce(text: String) {
         val now = System.currentTimeMillis()
@@ -201,7 +233,6 @@ class ScannerViewModel @Inject constructor(
             try {
                 when (val result = eventRepository.processScan(eventId, scannedText)) {
                     is ScanResult.Success -> {
-                        // Cancel pending error/reset jobs immediately
                         errorDebounceJob?.cancel()
                         resetJob?.cancel()
 
@@ -213,7 +244,6 @@ class ScannerViewModel @Inject constructor(
                         speakWithDebounce(result.attendee.firstName)
                         syncManager.triggerImmediateSync()
 
-                        // CHANGED: 1500ms -> 800ms (Faster reset for next scan)
                         scheduleReset(800)
                     }
                     is ScanResult.AlreadyScanned -> {
@@ -230,16 +260,11 @@ class ScannerViewModel @Inject constructor(
                         scheduleReset(800)
                     }
                     is ScanResult.AttendeeNotFound -> {
-                        // Only show error if we aren't currently showing a Success/AlreadyScanned
                         if (_lastScanResult.value !is ScanUiResult.Success && _lastScanResult.value !is ScanUiResult.AlreadyScanned) {
-
                             if (errorDebounceJob?.isActive != true) {
                                 errorDebounceJob = launch {
-                                    // CHANGED: 250ms -> 50ms (Minimal debounce for flicker)
                                     delay(50)
                                     _lastScanResult.value = ScanUiResult.NotFound(scannedText)
-
-                                    // CHANGED: 1000ms -> 500ms (Quick recovery from error)
                                     scheduleReset(500)
                                 }
                             }

@@ -60,8 +60,8 @@ public class CaptureFacade {
     // --- QUERY DELEGATES ---
 
     @Transactional(readOnly = true)
-    public List<EntryDetailsDto> findFilteredEntries(Long organizationId, Long eventId, String intent, List<Long> attendeeIds) {
-        return queryService.findFilteredEntries(organizationId, eventId, intent, attendeeIds);
+    public List<EntryDetailsDto> findFilteredEntries(Long organizationId, Long eventId, Long sessionId, String intent, List<Long> attendeeIds) {
+        return queryService.findFilteredEntries(organizationId, eventId, sessionId, intent, attendeeIds);
     }
 
     @Transactional(readOnly = true)
@@ -112,12 +112,12 @@ public class CaptureFacade {
     }
 
     @Transactional(readOnly = true)
-    public Instant getFirstScanTimestamp(Long eventId) {
-        return queryService.findFirstScanTimestamp(eventId);
+    public long countPresentFromList(Long eventId, Long sessionId, List<Long> attendeeIds) {
+        return queryService.countPresentAttendeesInList(eventId, sessionId, attendeeIds);
     }
 
     @Transactional(readOnly = true)
-    public Instant getLastScanTimestamp(Long eventId) {
-        return queryService.findLastScanTimestamp(eventId);
+    public List<EntryDetailsDto> findEntriesForSession(Long organizationId, Long eventId, List<Long> attendeeIds) {
+        return queryService.findEntriesForSession(organizationId, eventId, attendeeIds);
     }
 }

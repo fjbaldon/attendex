@@ -4,11 +4,12 @@ import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.attendee.AttributeDto;
 import com.github.fjbaldon.attendex.platform.capture.CaptureFacade;
 import com.github.fjbaldon.attendex.platform.capture.EntryDetailsDto;
-import com.github.fjbaldon.attendex.platform.event.EventFacade;
 import com.github.fjbaldon.attendex.platform.event.EventDto;
+import com.github.fjbaldon.attendex.platform.event.EventFacade;
+import com.github.fjbaldon.attendex.platform.event.SessionDto;
 import com.github.fjbaldon.attendex.platform.notification.EmailService;
-import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationDto;
+import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,9 +58,9 @@ public class ReportFacade {
 
     @Async
     @Transactional(readOnly = true)
-    public void generateAndEmailReportPdf(Long organizationId, Long eventId, String type, Map<String, String> attributes, String userEmail) {
+    public void generateAndEmailReportPdf(Long organizationId, Long eventId, Long sessionId, String type, Map<String, String> attributes, String userEmail) {
         try {
-            byte[] pdfBytes = generateReportPdf(organizationId, eventId, type, attributes);
+            byte[] pdfBytes = generateReportPdf(organizationId, eventId, sessionId, type, attributes);
             String subject = "Attendance Report: " + eventId;
             String body = """
                     <p>Hello,</p>
@@ -74,14 +75,20 @@ public class ReportFacade {
     }
 
     @Transactional(readOnly = true)
-    public byte[] generateReportPdf(Long organizationId, Long eventId, String type, Map<String, String> attributes) {
+    public byte[] generateReportPdf(Long organizationId, Long eventId, Long sessionId, String type, Map<String, String> attributes) {
         // 1. Fetch Data
         List<Long> attendeeIds = attendeeFacade.findAttendeeIdsByFilters(organizationId, attributes);
-        List<EntryDetailsDto> entries = captureFacade.findFilteredEntries(organizationId, eventId, type, attendeeIds);
+
+        // FIX: Handle "All" type correctly by converting to null
+        String intentParam = (type == null || type.equalsIgnoreCase("All")) ? null : type;
+
+        // Pass sessionId (can be null) to filter entries
+        List<EntryDetailsDto> entries = captureFacade.findFilteredEntries(organizationId, eventId, sessionId, intentParam, attendeeIds);
+
         EventDto event = eventFacade.findEventById(eventId, organizationId);
         OrganizationDto organization = organizationFacade.findOrganizationById(organizationId);
 
-        // Filter out attributes that are being used as filters to prevent column duplication
+        // Filter out attributes that are being used as filters to prevent column duplication in the PDF
         List<String> attributeHeaders = attendeeFacade.findAttributes(organizationId).stream()
                 .map(AttributeDto::name)
                 .filter(name -> attributes == null || !attributes.containsKey(name))
@@ -94,11 +101,22 @@ public class ReportFacade {
         String customCss = generateSmartCss(totalColumns);
 
         // 3. Dynamic Title
-        String baseTitle = switch (type != null ? type : "All") {
-            case "Arrival" -> "Arrivals Log";
-            case "Departure" -> "Departures Log";
-            default -> "Full Attendance Log";
-        };
+        String baseTitle;
+        if (sessionId != null) {
+            // Find session name from the Event object's session list
+            String sessionName = event.sessions().stream()
+                    .filter(s -> s.id().equals(sessionId))
+                    .map(SessionDto::activityName)
+                    .findFirst()
+                    .orElse("Unknown Session");
+            baseTitle = sessionName + " Log";
+        } else {
+            baseTitle = switch (type != null ? type : "All") {
+                case "Arrival" -> "Arrivals Log";
+                case "Departure" -> "Departures Log";
+                default -> "Full Attendance Log";
+            };
+        }
 
         StringBuilder reportTitle = new StringBuilder(baseTitle);
         if (attributes != null && !attributes.isEmpty()) {

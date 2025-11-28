@@ -4,6 +4,8 @@ import com.github.fjbaldon.attendex.platform.capture.EventStatsDto;
 import com.github.fjbaldon.attendex.platform.common.security.CustomUserDetails;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -54,5 +56,22 @@ class AnalyticsController {
             @PathVariable Long attendeeId,
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(analyticsFacade.getAttendeeHistory(user.getOrganizationId(), attendeeId));
+    }
+
+    @PostMapping("/events/{eventId}/cohort")
+    public ResponseEntity<CohortStatsDto> getCohortStats(
+            @PathVariable Long eventId,
+            @RequestBody CohortStatsRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(analyticsFacade.getCohortStats(user.getOrganizationId(), eventId, request));
+    }
+
+    @PostMapping("/events/{eventId}/cohort/list")
+    public ResponseEntity<Page<CohortAttendeeDto>> getCohortList(
+            @PathVariable Long eventId,
+            @RequestBody CohortStatsRequest request,
+            Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(analyticsFacade.getCohortAttendees(user.getOrganizationId(), eventId, request, pageable));
     }
 }

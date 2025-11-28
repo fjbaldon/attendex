@@ -30,6 +30,7 @@ import {Button} from "@/components/ui/button";
 import {IconChevronDown, IconColumns} from "@tabler/icons-react";
 import {Card} from "@/components/ui/card";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible";
+import {Skeleton} from "@/components/ui/skeleton";
 
 interface DataTableProps<TData> {
     columns: ColumnDef<TData>[];
@@ -148,11 +149,15 @@ export function DataTable<TData>({
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        Loading data...
-                                    </TableCell>
-                                </TableRow>
+                                Array.from({ length: 5 }).map((_, rowIndex) => (
+                                    <TableRow key={`skeleton-row-${rowIndex}`} className="hover:bg-transparent">
+                                        {table.getVisibleLeafColumns().map((_column, colIndex) => (
+                                            <TableCell key={`skeleton-cell-${rowIndex}-${colIndex}`}>
+                                                <Skeleton className="h-4 w-full" />
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
                             ) : table.getRowModel().rows?.length ? (
                                 table.getRowModel().rows.map((row) => (
                                     <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
@@ -178,8 +183,17 @@ export function DataTable<TData>({
             {/* MOBILE CARD VIEW */}
             <div className="md:hidden space-y-4">
                 {isLoading ? (
-                    <div className="text-center py-10 text-muted-foreground">Loading...</div>
-                ) : table.getRowModel().rows.length > 0 ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                        <Card key={i} className="p-4 flex flex-col gap-3">
+                            <div className="flex justify-between items-start">
+                                <div className="flex flex-col gap-2 w-full">
+                                    <Skeleton className="h-4 w-1/3" />
+                                    <Skeleton className="h-4 w-1/2" />
+                                </div>
+                            </div>
+                            <Skeleton className="h-9 w-full mt-2" /> {/* Mock button */}
+                        </Card>
+                    ))                ) : table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         // FIX: Store select cell in a variable to avoid ! assertion error
                         const selectCell = row.getVisibleCells().find(c => c.column.id === 'select');

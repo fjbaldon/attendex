@@ -34,12 +34,19 @@ fun ScannerScreen(
     // Flash State
     var flashTrigger by remember { mutableStateOf(false) }
 
-    // Reset list limit when sheet collapses
+    // --- STATE MONITORING ---
+
+    // 1. Monitor Sheet Visibility for Lazy Loading (DB Optimization)
+    // If the sheet is Hidden, we tell VM to stop querying the DB.
     LaunchedEffect(scaffoldState.bottomSheetState.currentValue) {
-        if (scaffoldState.bottomSheetState.currentValue == SheetValue.PartiallyExpanded) {
-            viewModel.resetListLimit()
-        }
+        val isVisible = scaffoldState.bottomSheetState.currentValue != SheetValue.Hidden
+        viewModel.onSheetStateChange(isVisible)
     }
+
+    // 2. Monitor Sheet Expansion for Camera Pausing (Battery/CPU Optimization)
+    // If sheet covers the screen (Expanded), stop camera analysis.
+    val isSheetExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded ||
+            scaffoldState.bottomSheetState.targetValue == SheetValue.Expanded
 
     // Handle Feedback (Haptic + Visual Flash)
     LaunchedEffect(uiState.lastScanResult) {
@@ -51,7 +58,6 @@ fun ScannerScreen(
                 flashTrigger = false
             }
             is ScanUiResult.AlreadyScanned -> {
-                // Also flash for duplicates so user knows it was read
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 flashTrigger = true
                 delay(150)
@@ -71,9 +77,11 @@ fun ScannerScreen(
         label = "flash_animation"
     )
 
+    // Consolidated Scanning Enablement Logic
     val isScanningEnabled = uiState.isCameraEnabled &&
             !uiState.isManualEntryOpen &&
-            uiState.lastScanResult is ScanUiResult.Idle
+            uiState.lastScanResult is ScanUiResult.Idle &&
+            !isSheetExpanded // <--- PAUSE CAMERA WHEN SHEET IS UP
 
     if (uiState.isManualEntryOpen) {
         ManualEntryDialog(
@@ -158,7 +166,7 @@ fun ScannerScreen(
                     torchEnabled = uiState.isTorchOn,
                     onTorchToggle = { hasFlash -> viewModel.onFlashUnitAvailabilityChange(hasFlash) },
                     isScanningEnabled = isScanningEnabled,
-                    customRegex = uiState.identityRegex // Pass the regex from state
+                    customRegex = uiState.identityRegex
                 )
 
                 CameraOverlay(
@@ -177,7 +185,7 @@ fun ScannerScreen(
                     onModeSelected = { viewModel.toggleScanMode(it) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 120.dp)
+                        .padding(bottom = 140.dp) // INCREASED from 120.dp to 140.dp to fit the hint text
                 )
 
                 // Flash Overlay (Top Layer)

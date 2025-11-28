@@ -2,6 +2,7 @@ package com.github.fjbaldon.attendex.capture.core.ui.camera
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Size
 import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -9,6 +10,8 @@ import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
@@ -85,6 +88,20 @@ fun CameraPreview(
                 it.surfaceProvider = view.surfaceProvider
             }
 
+            // --- OPTIMIZATION START ---
+            // Force 720p resolution (1280x720).
+            // Default behavior often picks highest resolution (4K), causing ML Kit lag.
+            // 720p is the sweet spot for OCR accuracy vs processing speed.
+            val resolutionSelector = ResolutionSelector.Builder()
+                .setResolutionStrategy(
+                    ResolutionStrategy(
+                        Size(1280, 720),
+                        ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                    )
+                )
+                .build()
+            // --- OPTIMIZATION END ---
+
             val analyzer = if (scanMode == ScanMode.QR) {
                 BarcodeScanningAnalyzer(onTextFound, isScanningRef)
             } else {
@@ -92,6 +109,7 @@ fun CameraPreview(
             }
 
             val imageAnalyzer = ImageAnalysis.Builder()
+                .setResolutionSelector(resolutionSelector) // Apply resolution fix
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also {

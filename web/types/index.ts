@@ -297,3 +297,15 @@ export interface AttendeeHistory {
     attendanceRate: number;
     history: AttendeeHistoryItem[];
 }
+
+export interface CohortStatsRequest {
+    sessionId?: number | null;
+    filters: Record<string, string>;
+}
+
+export interface CohortStatsDto {
+    totalCohortSize: number;
+    presentCount: number;
+    absentCount: number;
+    attendanceRate: number;
+}

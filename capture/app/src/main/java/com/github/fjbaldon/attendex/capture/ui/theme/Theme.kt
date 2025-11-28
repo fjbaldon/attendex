@@ -1,63 +1,80 @@
 package com.github.fjbaldon.attendex.capture.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+// === SHAPES (From previous step) ===
+private val BrandShapes = Shapes(
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(10.dp),
+    large = RoundedCornerShape(12.dp),
+    extraLarge = RoundedCornerShape(12.dp)
+)
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Neutral50,
-    onPrimary = Neutral900,
+    // In Dark Mode: Primary buttons are White text on Black background
+    primary = BrandOffWhite,
+    onPrimary = BrandBlack,
 
-    secondary = Neutral200,
-    onSecondary = Neutral900,
+    // Secondary buttons (Muted)
+    secondary = Slate800,
+    onSecondary = BrandOffWhite,
 
-    // === MAPPING SUCCESS TO TERTIARY ===
-    tertiary = SemanticGreen,
-    onTertiary = Neutral50,
+    // Backgrounds
+    background = BrandBlack,
+    onBackground = BrandOffWhite,
 
-    // === MAPPING WARNING TO ERROR CONTAINER ===
-    errorContainer = SemanticOrange,
-    onErrorContainer = Neutral50,
+    // Cards & Sheets
+    surface = BrandBlack,
+    onSurface = BrandOffWhite,
 
+    // Inputs & Borders
+    surfaceVariant = Slate800, // Input background
+    onSurfaceVariant = Color.Gray, // Placeholder text
+    outline = Slate700,        // Input borders
+
+    // Semantic
     error = SemanticRed,
-    onError = Neutral50,
-
-    background = Neutral900,
-    onBackground = Neutral50,
-    surface = Neutral900,
-    onSurface = Neutral50,
-    surfaceVariant = Neutral900,
-    onSurfaceVariant = Neutral200,
-    outline = Neutral200
+    onError = BrandOffWhite,
+    tertiary = SemanticGreen,
+    errorContainer = SemanticOrange
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Neutral900,
-    onPrimary = Neutral50,
+    // In Light Mode: Primary buttons are Black text on White background (Monochrome)
+    primary = BrandBlack,
+    onPrimary = BrandWhite,
 
-    secondary = Neutral50,
-    onSecondary = Neutral900,
+    // Secondary buttons (Muted)
+    secondary = Slate100,
+    onSecondary = BrandBlack,
 
-    // === MAPPING SUCCESS TO TERTIARY ===
-    tertiary = SemanticGreen,
-    onTertiary = Neutral50,
+    // Backgrounds
+    background = BrandWhite,
+    onBackground = BrandBlack,
 
-    // === MAPPING WARNING TO ERROR CONTAINER ===
-    errorContainer = SemanticOrange,
-    onErrorContainer = Neutral50,
+    // Cards & Sheets
+    surface = BrandWhite,
+    onSurface = BrandBlack,
 
+    // Inputs & Borders
+    surfaceVariant = Slate100, // Input background
+    onSurfaceVariant = Color.Gray, // Placeholder text
+    outline = Slate200,        // Input borders
+
+    // Semantic
     error = SemanticRed,
-    onError = Neutral50,
-
-    background = Neutral50,
-    onBackground = Neutral900,
-    surface = Neutral50,
-    onSurface = Neutral900,
-    surfaceVariant = Neutral50,
-    onSurfaceVariant = Neutral900,
-    outline = Neutral200
+    onError = BrandWhite,
+    tertiary = SemanticGreen,
+    errorContainer = SemanticOrange
 )
 
 @Composable
@@ -70,6 +87,7 @@ fun AttendExTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = BrandShapes,
         content = content
     )
 }

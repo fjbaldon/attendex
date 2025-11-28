@@ -30,25 +30,39 @@ export function AdminChartAreaInteractive({data, isLoading, timeRange, setTimeRa
     return (
         <Card className="@container/card">
             <CardHeader>
-                <CardTitle>New Organization Registrations</CardTitle>
-                <CardDescription>A summary of daily sign-ups on the platform.</CardDescription>
+                {isLoading ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-6 w-48" />
+                        <Skeleton className="h-4 w-64" />
+                    </div>
+                ) : (
+                    <>
+                        <CardTitle>New Organization Registrations</CardTitle>
+                        <CardDescription>A summary of daily sign-ups on the platform.</CardDescription>
+                    </>
+                )}
+
                 <CardAction>
-                    <ToggleGroup
-                        type="single"
-                        value={timeRange}
-                        onValueChange={(value) => value && setTimeRange(value)}
-                        variant="outline"
-                        className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
-                    >
-                        <ToggleGroupItem value="90d">Last 90 days</ToggleGroupItem>
-                        <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
-                        <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
-                    </ToggleGroup>
+                    {isLoading ? (
+                        <Skeleton className="h-9 w-[280px] hidden @[767px]/card:block rounded-md" />
+                    ) : (
+                        <ToggleGroup
+                            type="single"
+                            value={timeRange}
+                            onValueChange={(value) => value && setTimeRange(value)}
+                            variant="outline"
+                            className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
+                        >
+                            <ToggleGroupItem value="90d">Last 90 days</ToggleGroupItem>
+                            <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
+                            <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
+                        </ToggleGroup>
+                    )}
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
                 {isLoading ? (
-                    <Skeleton className="h-[250px] w-full"/>
+                    <Skeleton className="h-[250px] w-full rounded-lg" />
                 ) : (
                     <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
                         <AreaChart data={chartData}>

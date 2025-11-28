@@ -34,41 +34,57 @@ export function ChartAreaInteractive({data, isLoading, timeRange, setTimeRange}:
     return (
         <Card className="@container/card">
             <CardHeader>
-                <CardTitle>Activity Overview</CardTitle>
-                <CardDescription>
-                    A summary of daily entry activity across all events.
-                </CardDescription>
+                {isLoading ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-6 w-48" />
+                        <Skeleton className="h-4 w-64" />
+                    </div>
+                ) : (
+                    <>
+                        <CardTitle>Activity Overview</CardTitle>
+                        <CardDescription>
+                            A summary of daily entry activity across all events.
+                        </CardDescription>
+                    </>
+                )}
+
                 <CardAction>
-                    <ToggleGroup
-                        type="single"
-                        value={timeRange}
-                        onValueChange={(value) => value && setTimeRange(value)}
-                        variant="outline"
-                        className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
-                    >
-                        <ToggleGroupItem value="90d">Last 90 days</ToggleGroupItem>
-                        <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
-                        <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
-                    </ToggleGroup>
-                    <Select value={timeRange} onValueChange={setTimeRange}>
-                        <SelectTrigger
-                            className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
-                            size="sm"
-                            aria-label="Select a time range"
-                        >
-                            <SelectValue placeholder="Select a time range"/>
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                            <SelectItem value="90d" className="rounded-lg">Last 90 days</SelectItem>
-                            <SelectItem value="30d" className="rounded-lg">Last 30 days</SelectItem>
-                            <SelectItem value="7d" className="rounded-lg">Last 7 days</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    {isLoading ? (
+                        <Skeleton className="h-9 w-[160px] rounded-md" />
+                    ) : (
+                        <>
+                            <ToggleGroup
+                                type="single"
+                                value={timeRange}
+                                onValueChange={(value) => value && setTimeRange(value)}
+                                variant="outline"
+                                className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
+                            >
+                                <ToggleGroupItem value="90d">Last 90 days</ToggleGroupItem>
+                                <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
+                                <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
+                            </ToggleGroup>
+                            <Select value={timeRange} onValueChange={setTimeRange}>
+                                <SelectTrigger
+                                    className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
+                                    size="sm"
+                                    aria-label="Select a time range"
+                                >
+                                    <SelectValue placeholder="Select a time range"/>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                    <SelectItem value="90d" className="rounded-lg">Last 90 days</SelectItem>
+                                    <SelectItem value="30d" className="rounded-lg">Last 30 days</SelectItem>
+                                    <SelectItem value="7d" className="rounded-lg">Last 7 days</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </>
+                    )}
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
                 {isLoading ? (
-                    <Skeleton className="h-[250px] w-full"/>
+                    <Skeleton className="h-[250px] w-full rounded-lg" />
                 ) : (
                     <ChartContainer
                         config={chartConfig}

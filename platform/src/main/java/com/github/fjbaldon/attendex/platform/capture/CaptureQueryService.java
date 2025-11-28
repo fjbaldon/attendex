@@ -1,7 +1,7 @@
 package com.github.fjbaldon.attendex.platform.capture;
 
-import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.attendee.AttendeeDto;
+import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.event.EventFacade;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import lombok.RequiredArgsConstructor;
@@ -26,11 +26,27 @@ class CaptureQueryService {
     private final OrganizationFacade organizationFacade;
 
     @Transactional(readOnly = true)
-    public List<EntryDetailsDto> findFilteredEntries(Long organizationId, Long eventId, String intent, List<Long> attendeeIds) {
+    public List<EntryDetailsDto> findFilteredEntries(Long organizationId, Long eventId, Long sessionId, String intent, List<Long> attendeeIds) {
         eventFacade.findEventById(eventId, organizationId);
-        List<Entry> entries = entryRepository.findEntriesForReport(eventId, intent, attendeeIds);
+
+        // Guard against empty IN clause BUT NOT null
+        // If attendeeIds is not null but empty (filters resulted in 0 matches), return empty immediately
+        if (attendeeIds != null && attendeeIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Logic: if null, user didn't select any filters -> hasAttendeeFilter = false
+        // if not null (and not empty per above), -> hasAttendeeFilter = true
+        boolean hasAttendeeFilter = (attendeeIds != null);
+
+        // Pass empty list if null to satisfy type checker, but the boolean flag controls the query
+        List<Long> safeIds = hasAttendeeFilter ? attendeeIds : Collections.emptyList();
+
+        List<Entry> entries = entryRepository.findEntriesForReport(eventId, sessionId, intent, safeIds, hasAttendeeFilter);
         return mapEntriesToDtos(entries);
     }
+
+    // ... [Rest of the file remains unchanged] ...
 
     @Transactional(readOnly = true)
     public Page<EntryDetailsDto> findEntriesByEventAndIntent(Long eventId, Long organizationId, String intent, String query, Pageable pageable) {
@@ -44,6 +60,25 @@ class CaptureQueryService {
         Page<Entry> entriesPage = entryRepository.findBySessionIdsAndQuery(sessionIds, query, pageable);
         List<EntryDetailsDto> dtos = mapEntriesToDtos(entriesPage.getContent());
         return new PageImpl<>(dtos, pageable, entriesPage.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
+    public List<EntryDetailsDto> findEntriesForSession(Long organizationId, Long sessionId, List<Long> attendeeIds) {
+        if (attendeeIds == null || attendeeIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return mapEntriesToDtos(entryRepository.findByOrganizationIdAndSessionIdAndAttendeeIdIn(organizationId, sessionId, attendeeIds));
+    }
+
+    @Transactional(readOnly = true)
+    public long countPresentAttendeesInList(Long eventId, Long sessionId, List<Long> attendeeIds) {
+        if (attendeeIds == null || attendeeIds.isEmpty()) return 0;
+
+        if (sessionId != null) {
+            return entryRepository.countPresentForSession(sessionId, attendeeIds);
+        } else {
+            return entryRepository.countPresentEventWide(eventId, attendeeIds);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -115,16 +150,6 @@ class CaptureQueryService {
             String eventName = eventNames.getOrDefault(original.getEventId(), "Unknown");
             return new RecentActivityDto(dto.attendee().firstName() + " " + dto.attendee().lastName(), eventName, dto.scanTimestamp(), dto.punctuality());
         }).collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public Instant findFirstScanTimestamp(Long eventId) {
-        return entryRepository.findFirstScanByEventId(eventId).orElse(null);
-    }
-
-    @Transactional(readOnly = true)
-    public Instant findLastScanTimestamp(Long eventId) {
-        return entryRepository.findLastScanByEventId(eventId).orElse(null);
     }
 
     private List<EntryDetailsDto> mapEntriesToDtos(List<Entry> entries) {

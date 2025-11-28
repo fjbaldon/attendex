@@ -112,4 +112,9 @@ public class AttendeeFacade {
     public String generateImportTemplate(Long organizationId) {
         return importService.generateImportTemplate(organizationId);
     }
+
+    @Transactional(readOnly = true)
+    public List<Long> findAttendeeIdsByAttributes(Long organizationId, Map<String, String> attributes) {
+        return queryService.findIdsByCriteria(organizationId, null, attributes);
+    }
 }

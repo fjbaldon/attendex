@@ -3,6 +3,7 @@ package com.github.fjbaldon.attendex.platform.analytics;
 import com.github.fjbaldon.attendex.platform.attendee.AttendeeDto;
 import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.capture.CaptureFacade;
+import com.github.fjbaldon.attendex.platform.capture.EntryDetailsDto;
 import com.github.fjbaldon.attendex.platform.capture.EntryEventStatusDto;
 import com.github.fjbaldon.attendex.platform.capture.EventStatsDto;
 import com.github.fjbaldon.attendex.platform.event.EventDto;
@@ -10,6 +11,8 @@ import com.github.fjbaldon.attendex.platform.event.EventFacade;
 import com.github.fjbaldon.attendex.platform.organization.OrganizationFacade;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,8 +29,6 @@ public class AnalyticsFacade {
     private final AttributeBreakdownRepository attributeBreakdownRepository;
     private final OrganizationSummaryRepository organizationSummaryRepository;
     private final EventSummaryRepository eventSummaryRepository;
-    private final SessionSummaryRepository sessionSummaryRepository;
-    private final ScannerSummaryRepository scannerSummaryRepository;
 
     private final CaptureFacade captureFacade;
     private final OrganizationFacade organizationFacade;
@@ -79,54 +80,86 @@ public class AnalyticsFacade {
 
     @Transactional(readOnly = true)
     public EventStatsDto getEventStats(Long organizationId, Long eventId) {
-        // 1. Get Event Totals
-        EventSummary eventSummary = eventSummaryRepository.findById(eventId)
-                .orElse(new EventSummary(eventId, organizationId, "Unknown"));
-
-        // 2. Get Session Breakdowns
-        List<SessionSummary> sessions = sessionSummaryRepository.findAllByEventId(eventId);
-        Set<Long> sessionIds = sessions.stream().map(SessionSummary::getSessionId).collect(Collectors.toSet());
-        Map<Long, String> sessionNames = eventFacade.getSessionNamesByIds(sessionIds);
-
-        List<EventStatsDto.StatItem> sessionStats = sessions.stream()
-                .map(s -> new EventStatsDto.StatItem(
-                        sessionNames.getOrDefault(s.getSessionId(), "Unknown"),
-                        s.getEntryCount()
-                ))
-                .collect(Collectors.toList());
-
-        // 3. Get Scanner Breakdowns
-        List<ScannerSummary> scanners = scannerSummaryRepository.findAllByEventId(eventId);
-        Set<Long> scannerIds = scanners.stream().map(ScannerSummary::getScannerId).collect(Collectors.toSet());
-        Map<Long, String> scannerEmails = organizationFacade.getScannerEmailsByIds(scannerIds);
-
-        List<EventStatsDto.StatItem> scannerStats = scanners.stream()
-                .map(s -> new EventStatsDto.StatItem(
-                        scannerEmails.getOrDefault(s.getScannerId(), "Unknown"),
-                        s.getEntryCount()
-                ))
-                .collect(Collectors.toList());
-
-        // 4. Calculate Rate
-        double rate = (eventSummary.getRosterCount() > 0)
-                ? ((double) eventSummary.getEntryCount() / eventSummary.getRosterCount()) * 100.0
-                : 0.0;
-
-        Instant firstScan = captureFacade.getFirstScanTimestamp(eventId);
-        Instant lastScan = captureFacade.getLastScanTimestamp(eventId);
-
-        return new EventStatsDto(
-                eventSummary.getEntryCount(),
-                eventSummary.getRosterCount(),
-                rate,
-                firstScan, // Was null
-                lastScan,  // Was null
-                sessionStats,
-                scannerStats
-        );
+        return captureFacade.getEventStats(organizationId, eventId);
     }
 
-    // ... existing imports and class definition ...
+    @Transactional(readOnly = true)
+    public CohortStatsDto getCohortStats(Long organizationId, Long eventId, CohortStatsRequest request) {
+        // 1. Get filtered attendee IDs based on attributes
+        List<Long> attributeMatchingIds = attendeeFacade.findAttendeeIdsByAttributes(organizationId, request.filters());
+        if (attributeMatchingIds.isEmpty()) return new CohortStatsDto(0, 0, 0, 0.0);
+
+        // 2. Get Roster IDs for the event
+        Set<Long> rosterIds = eventFacade.findAllAttendeeIdsForEvent(eventId);
+
+        // 3. Intersect: Find attendees who match the profile AND are in the roster
+        List<Long> actualCohortIds = attributeMatchingIds.stream()
+                .filter(rosterIds::contains)
+                .collect(Collectors.toList());
+
+        if (actualCohortIds.isEmpty()) return new CohortStatsDto(0, 0, 0, 0.0);
+
+        // 4. Count how many of these are present
+        long present = captureFacade.countPresentFromList(eventId, request.sessionId(), actualCohortIds);
+        long total = actualCohortIds.size();
+        long absent = total - present;
+        double rate = (double) present / total * 100.0;
+
+        return new CohortStatsDto(total, present, absent, rate);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CohortAttendeeDto> getCohortAttendees(Long organizationId, Long eventId, CohortStatsRequest request, Pageable pageable) {
+        // 1. Get the Target Population (Cohort IDs)
+        List<Long> attributeMatchingIds = attendeeFacade.findAttendeeIdsByAttributes(organizationId, request.filters());
+        Set<Long> rosterIds = eventFacade.findAllAttendeeIdsForEvent(eventId);
+
+        List<Long> cohortIds = attributeMatchingIds.stream()
+                .filter(rosterIds::contains)
+                .collect(Collectors.toList());
+
+        if (cohortIds.isEmpty()) return Page.empty(pageable);
+
+        // 2. Pagination in Memory (since ID list is filtered in memory)
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), cohortIds.size());
+
+        if (start > cohortIds.size()) return Page.empty(pageable);
+
+        List<Long> pagedIds = cohortIds.subList(start, end);
+        List<AttendeeDto> attendeeDetails = attendeeFacade.findAttendeesByIds(pagedIds);
+
+        // 3. Check Presence
+        List<EntryDetailsDto> entries;
+        if (request.sessionId() != null) {
+            // Find entries specifically for this session
+            entries = captureFacade.findEntriesForSession(organizationId, request.sessionId(), pagedIds);
+        } else {
+            // Find entries for the whole event (sessionId = null, intent = null)
+            // FIXED: Added 5th argument (null for intent)
+            entries = captureFacade.findFilteredEntries(organizationId, eventId, null, null, pagedIds);
+        }
+
+        Map<Long, EntryDetailsDto> entryMap = entries.stream()
+                .filter(e -> e.attendee() != null && e.attendee().id() != null)
+                .collect(Collectors.toMap(e -> e.attendee().id(), Function.identity(), (e1, e2) -> e1));
+
+        List<CohortAttendeeDto> dtos = attendeeDetails.stream().map(a -> {
+            EntryDetailsDto entry = entryMap.get(a.id());
+            boolean isPresent = entry != null;
+            return new CohortAttendeeDto(
+                    a.id(),
+                    a.identity(),
+                    a.firstName(),
+                    a.lastName(),
+                    isPresent ? "PRESENT" : "ABSENT",
+                    isPresent ? entry.scanTimestamp() : null,
+                    a.attributes()
+            );
+        }).collect(Collectors.toList());
+
+        return new PageImpl<>(dtos, pageable, cohortIds.size());
+    }
 
     @Transactional(readOnly = true)
     public AttendeeHistoryDto getAttendeeHistory(Long organizationId, Long attendeeId) {
@@ -143,7 +176,7 @@ public class AnalyticsFacade {
         List<AttendeeHistoryItemDto> history = new ArrayList<>();
         int totalSessionsGlobal = 0;
         int attendedSessionsGlobal = 0;
-        int realAbsentSessionsGlobal = 0; // FIXED: We count this manually now
+        int realAbsentSessionsGlobal = 0;
         Instant now = Instant.now();
 
         for (EventDto event : events) {
@@ -161,14 +194,7 @@ public class AnalyticsFacade {
                     eventSessionsCompleted++;
                     attendedSessionsGlobal++;
                 } else {
-                    // FIXED LOGIC:
-                    // The "Absent" label should only appear when it is no longer possible to be "Late".
-                    // The scanner accepts entries up to 4 hours (240 minutes) after the target time.
-                    // We also clamp this to the Event End Date to avoid "Pending" showing after the event closes.
-
                     Instant sessionRelevanceEnd = session.targetTime().plus(4, java.time.temporal.ChronoUnit.HOURS);
-
-                    // If the event ends *before* the 4 hour window, use the event end as the hard cutoff
                     if (event.endDate().isBefore(sessionRelevanceEnd)) {
                         sessionRelevanceEnd = event.endDate();
                     }
@@ -177,8 +203,6 @@ public class AnalyticsFacade {
                         status = "ABSENT";
                         realAbsentSessionsGlobal++;
                     } else {
-                        // If we are past the grace period but within the 4-hour window,
-                        // they are "Pending" (implicitly Late if they arrive now).
                         status = "PENDING";
                     }
                 }
@@ -213,7 +237,7 @@ public class AnalyticsFacade {
                 attendee,
                 events.size(),
                 attendedSessionsGlobal,
-                realAbsentSessionsGlobal, // FIXED: Pass the calculated absent count, NOT (total - attended)
+                realAbsentSessionsGlobal,
                 rate,
                 history
         );

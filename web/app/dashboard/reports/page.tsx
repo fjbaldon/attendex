@@ -7,7 +7,7 @@ import {SiteHeader} from "@/components/layout/site-header";
 import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {Skeleton} from "@/components/ui/skeleton";
-import {IconFileText, IconFilter, IconX} from "@tabler/icons-react";
+import {IconFileText, IconFilter, IconInfoCircle, IconX} from "@tabler/icons-react";
 import {Button} from "@/components/ui/button";
 import {useEvents} from "@/hooks/use-events";
 import {toast} from "sonner";
@@ -19,15 +19,45 @@ import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} f
 
 export default function ReportsPage() {
     const [selectedEventId, setSelectedEventId] = useState<string>("");
+    const [selectedSessionId, setSelectedSessionId] = useState<string>("all");
+
     const [reportType, setReportType] = useState<string>("All");
     const [filters, setFilters] = useState<{ attribute: string; value: string }[]>([]);
     const [isDownloading, setIsDownloading] = useState(false);
 
     const {eventsData, isLoadingEvents} = useEvents(0, 100);
-    const events = eventsData?.content ?? [];
+
+    const events = React.useMemo(() => eventsData?.content ?? [], [eventsData]);
 
     const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
     const accessToken = useAuthStore((state) => state.accessToken);
+
+    const sessions = React.useMemo(() => {
+        const selectedEvent = events.find(e => String(e.id) === selectedEventId);
+        return selectedEvent?.sessions || [];
+    }, [events, selectedEventId]);
+
+    // --- UX LOGIC START ---
+
+    React.useEffect(() => {
+        setSelectedSessionId("all");
+        setReportType("All");
+    }, [selectedEventId]);
+
+    React.useEffect(() => {
+        if (selectedSessionId !== "all") {
+            const session = sessions.find(s => String(s.id) === selectedSessionId);
+            if (session) {
+                setReportType(session.intent);
+            }
+        } else {
+            setReportType("All");
+        }
+    }, [selectedSessionId, sessions]);
+
+    const isSessionSelected = selectedSessionId !== "all";
+
+    // --- UX LOGIC END ---
 
     const addFilter = () => {
         setFilters([...filters, { attribute: "", value: "" }]);
@@ -57,6 +87,8 @@ export default function ReportsPage() {
         try {
             const params = new URLSearchParams();
             if (reportType !== 'All') params.append("type", reportType);
+            if (selectedSessionId !== 'all') params.append("sessionId", selectedSessionId);
+
             validFilters.forEach(f => params.append(f.attribute, f.value));
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/reports/events/${selectedEventId}/pdf?${params.toString()}`, {
@@ -73,17 +105,21 @@ export default function ReportsPage() {
             }
 
             if (response.ok) {
-                const eventName = events.find(e => String(e.id) === selectedEventId)?.name || "Event";
-                const sanitizedEventName = eventName.replace(/[^a-z0-9]/gi, '_');
+                let filenamePrefix = events.find(e => String(e.id) === selectedEventId)?.name || "Event";
+                if (selectedSessionId !== 'all') {
+                    const sessionName = sessions.find(s => String(s.id) === selectedSessionId)?.activityName || "Session";
+                    filenamePrefix += `_${sessionName}`;
+                }
+
+                const sanitizedName = filenamePrefix.replace(/[^a-z0-9]/gi, '_');
                 const dateStr = new Date().toISOString().split('T')[0];
-                let typeStr = reportType === 'All' ? 'Full_Log' : `${reportType}s`;
-                if (validFilters.length > 0) typeStr += "_Filtered";
+                const typeStr = reportType === 'All' ? 'Log' : `${reportType}s`;
 
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${sanitizedEventName}_${typeStr}_${dateStr}.pdf`;
+                a.download = `${sanitizedName}_${typeStr}_${dateStr}.pdf`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
@@ -94,15 +130,11 @@ export default function ReportsPage() {
             }
 
             console.error("Report error:", response.status);
-            toast.error("Failed to generate report", {
-                description: "The server encountered an error processing your request."
-            });
+            toast.error("Failed to generate report");
 
         } catch (error) {
             console.error(error);
-            toast.error("Network error occurred", {
-                description: "Please check your connection and try again."
-            });
+            toast.error("Network error occurred");
         } finally {
             setIsDownloading(false);
         }
@@ -132,9 +164,11 @@ export default function ReportsPage() {
                                 <Card>
                                     <CardHeader>
                                         <CardTitle>Configuration</CardTitle>
-                                        <CardDescription>Select the event and data type.</CardDescription>
+                                        <CardDescription>Select the event scope and data type.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
+
+                                        {/* EVENT SELECTOR */}
                                         <div className="space-y-3">
                                             <Label>Target Event</Label>
                                             {isLoadingEvents ? <Skeleton className="h-10 w-full"/> : (
@@ -153,28 +187,67 @@ export default function ReportsPage() {
                                             )}
                                         </div>
 
+                                        {/* SESSION SELECTOR */}
                                         <div className="space-y-3">
-                                            <Label>Record Type</Label>
-                                            <RadioGroup value={reportType} onValueChange={setReportType} className="flex flex-col space-y-1">
+                                            <Label>Specific Session (Optional)</Label>
+                                            <Select
+                                                value={selectedSessionId}
+                                                onValueChange={setSelectedSessionId}
+                                                disabled={!selectedEventId || sessions.length === 0}
+                                            >
+                                                <SelectTrigger className="h-11 w-full">
+                                                    <SelectValue placeholder={!selectedEventId ? "Select an event first" : "All Sessions (Entire Event)"}/>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all" className="font-medium">All Sessions (Entire Event)</SelectItem>
+                                                    {sessions.map(session => (
+                                                        <SelectItem key={session.id} value={String(session.id)}>
+                                                            {session.activityName} <span className="text-muted-foreground ml-1">({session.intent})</span>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {/* RECORD TYPE SELECTOR */}
+                                        <div className="space-y-3">
+                                            <Label className={isSessionSelected ? "text-muted-foreground" : ""}>Record Type</Label>
+
+                                            <RadioGroup
+                                                value={reportType}
+                                                onValueChange={setReportType}
+                                                className="flex flex-col space-y-1"
+                                                disabled={isSessionSelected}
+                                            >
                                                 <div className="flex items-center space-x-2">
                                                     <RadioGroupItem value="All" id="r1" />
-                                                    <Label htmlFor="r1" className="font-normal">All Records (Arrivals & Departures)</Label>
+                                                    <Label htmlFor="r1" className="font-normal cursor-pointer">All Records</Label>
                                                 </div>
                                                 <div className="flex items-center space-x-2">
                                                     <RadioGroupItem value="Arrival" id="r2" />
-                                                    <Label htmlFor="r2" className="font-normal">Arrivals Only</Label>
+                                                    <Label htmlFor="r2" className="font-normal cursor-pointer">Arrivals Only</Label>
                                                 </div>
                                                 <div className="flex items-center space-x-2">
                                                     <RadioGroupItem value="Departure" id="r3" />
-                                                    <Label htmlFor="r3" className="font-normal">Departures Only</Label>
+                                                    <Label htmlFor="r3" className="font-normal cursor-pointer">Departures Only</Label>
                                                 </div>
                                             </RadioGroup>
+
+                                            {/* FIX: Replaced Alert with Flexbox Div */}
+                                            {isSessionSelected && (
+                                                <div className="flex items-start gap-2 rounded-md bg-muted/50 p-2.5 text-xs text-muted-foreground mt-1">
+                                                    <IconInfoCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                                                    <p className="leading-tight">
+                                                        Record type is locked because a specific <span className="font-semibold text-foreground">{reportType}</span> session is selected.
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     </CardContent>
                                 </Card>
                             </div>
 
-                            {/* Right Column: Filters & Action */}
+                            {/* Right Column: Filters */}
                             <div className="flex flex-col gap-6">
                                 <Card>
                                     <CardHeader>
@@ -182,6 +255,7 @@ export default function ReportsPage() {
                                         <CardDescription>Optional: Narrow down records by attribute.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
+
                                         {filters.length === 0 && (
                                             <div className="text-sm text-muted-foreground text-center py-8 border-2 border-dashed rounded-lg bg-muted/10">
                                                 No filters applied.<br/>The report will include all attendees.

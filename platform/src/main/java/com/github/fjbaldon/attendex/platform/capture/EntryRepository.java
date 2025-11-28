@@ -14,6 +14,13 @@ import java.util.Optional;
 
 interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRepository<Entry, Long> {
 
+    @Query("SELECT e FROM Entry e WHERE e.organizationId = :organizationId AND e.sessionId = :sessionId AND e.attendeeId IN :attendeeIds")
+    List<Entry> findByOrganizationIdAndSessionIdAndAttendeeIdIn(
+            @Param("organizationId") Long organizationId,
+            @Param("sessionId") Long sessionId,
+            @Param("attendeeIds") List<Long> attendeeIds
+    );
+
     List<Entry> findTop5ByOrganizationIdOrderByScanTimestampDesc(Long organizationId);
 
     boolean existsByAttendeeIdAndSessionId(Long attendeeId, Long sessionId);
@@ -48,25 +55,28 @@ interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRe
     @Query("SELECT MAX(e.scanTimestamp) FROM Entry e WHERE e.eventId = :eventId")
     Optional<Instant> findLastScanByEventId(@Param("eventId") Long eventId);
 
+    // FIX: Added 'hasAttendeeFilter' to properly handle empty attendee filter cases
+    // Previous logic (e.attendeeId IN :attendeeIds) would fail if list was null or empty
     @Query("SELECT e FROM Entry e LEFT JOIN com.github.fjbaldon.attendex.platform.event.Session s ON e.sessionId = s.id " +
             "WHERE e.eventId = :eventId " +
-            "AND (:intent IS NULL OR s.intent = :intent) " +
-            "AND (:attendeeIds IS NULL OR e.attendeeId IN :attendeeIds) " +
+            "AND (CAST(:sessionId AS Long) IS NULL OR e.sessionId = :sessionId) " +
+            "AND (CAST(:intent AS string) IS NULL OR s.intent = :intent) " +
+            "AND (:hasAttendeeFilter = false OR e.attendeeId IN :attendeeIds) " +
             "ORDER BY e.scanTimestamp DESC")
     List<Entry> findEntriesForReport(
             @Param("eventId") Long eventId,
+            @Param("sessionId") Long sessionId,
             @Param("intent") String intent,
-            @Param("attendeeIds") List<Long> attendeeIds
+            @Param("attendeeIds") List<Long> attendeeIds,
+            @Param("hasAttendeeFilter") boolean hasAttendeeFilter
     );
 
-    @Query(value = """
-        SELECT CAST(scan_timestamp AS DATE) as date, COUNT(id) as count
-        FROM capture_entry
-        WHERE organization_id = :organizationId
-        AND scan_timestamp >= :startDate
-        GROUP BY date
-        ORDER BY date
-    """, nativeQuery = true)
+    @Query(value = "SELECT CAST(scan_timestamp AS DATE) as date, COUNT(id) as count " +
+            "FROM capture_entry " +
+            "WHERE organization_id = :organizationId " +
+            "AND scan_timestamp >= :startDate " +
+            "GROUP BY date " +
+            "ORDER BY date", nativeQuery = true)
     List<DailyEntryCount> findDailyEntriesSince(
             @Param("organizationId") Long organizationId,
             @Param("startDate") Instant startDate
@@ -76,15 +86,13 @@ interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRe
     List<String> findExistingScanUuids(@Param("uuids") List<String> uuids);
 
     @Modifying
-    @Query(nativeQuery = true, value = """
-        UPDATE capture_entry e
-        SET punctuality = CASE
-            WHEN EXTRACT(EPOCH FROM (e.scan_timestamp - :targetTime)) / 60 < -:graceBefore THEN 'EARLY'
-            WHEN EXTRACT(EPOCH FROM (e.scan_timestamp - :targetTime)) / 60 > :graceAfter THEN 'LATE'
-            ELSE 'PUNCTUAL'
-        END
-        WHERE e.session_id = :sessionId
-    """)
+    @Query(nativeQuery = true, value = "UPDATE capture_entry e " +
+            "SET punctuality = CASE " +
+            "    WHEN EXTRACT(EPOCH FROM (e.scan_timestamp - :targetTime)) / 60 < -:graceBefore THEN 'EARLY' " +
+            "    WHEN EXTRACT(EPOCH FROM (e.scan_timestamp - :targetTime)) / 60 > :graceAfter THEN 'LATE' " +
+            "    ELSE 'PUNCTUAL' " +
+            "END " +
+            "WHERE e.session_id = :sessionId")
     void recalculatePunctualityForSession(
             @Param("sessionId") Long sessionId,
             @Param("targetTime") Instant targetTime,
@@ -93,4 +101,12 @@ interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRe
     );
 
     List<Entry> findByAttendeeId(Long attendeeId);
+
+    // Case A: Session is NULL (Event-wide count)
+    @Query("SELECT COUNT(DISTINCT e.attendeeId) FROM Entry e WHERE e.eventId = :eventId AND e.attendeeId IN :attendeeIds")
+    long countPresentEventWide(@Param("eventId") Long eventId, @Param("attendeeIds") List<Long> attendeeIds);
+
+    // Case B: Session is SPECIFIED
+    @Query("SELECT COUNT(DISTINCT e.attendeeId) FROM Entry e WHERE e.sessionId = :sessionId AND e.attendeeId IN :attendeeIds")
+    long countPresentForSession(@Param("sessionId") Long sessionId, @Param("attendeeIds") List<Long> attendeeIds);
 }

@@ -1,7 +1,7 @@
 package com.github.fjbaldon.attendex.platform.event;
 
-import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import com.github.fjbaldon.attendex.platform.attendee.AttendeeDto;
+import com.github.fjbaldon.attendex.platform.attendee.AttendeeFacade;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -73,6 +73,13 @@ class RosterService {
 
         if (!newEntries.isEmpty()) {
             rosterRepository.saveAll(newEntries);
+
+            // FIX: Publish events for every new entry so Analytics/Notifications know about them
+            // In a very high volume scenario (10k+), we might want a BatchEvent, but for <5000
+            // iterating is acceptable and ensures consistency with the existing listener.
+            for (RosterEntry entry : newEntries) {
+                eventPublisher.publishEvent(new RosterEntryAddedEvent(eventId, organizationId, entry.getId().getAttendeeId()));
+            }
         }
 
         return newEntries.size();
@@ -112,6 +119,11 @@ class RosterService {
         return rosterRepository.findEventsByAttendeeId(attendeeId).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Set<Long> findAllAttendeeIdsForEvent(Long eventId) {
+        return rosterRepository.findAllAttendeeIdsByEventId(eventId);
     }
 
     private EventDto toDto(Event event) {

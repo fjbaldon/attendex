@@ -26,6 +26,11 @@ class AuthRepository @Inject constructor(
         return try {
             val request = AuthRequest(email, password)
             val response = apiService.login(request)
+
+            if (!hasScannerRole(response.accessToken)) {
+                return LoginResult.GenericError("Access Denied: This app is for Scanners only. Organizers must use the Web Dashboard.")
+            }
+
             sessionManager.authToken = response.accessToken
 
             try {
@@ -46,9 +51,28 @@ class AuthRepository @Inject constructor(
                         LoginResult.GenericError("Server error: ${e.code()}")
                     }
                 }
-
                 else -> LoginResult.GenericError(e.message)
             }
+        }
+    }
+
+    private fun hasScannerRole(token: String): Boolean {
+        try {
+            val parts = token.split(".")
+            if (parts.size < 2) return false
+            val payload = String(Base64.decode(parts[1], Base64.URL_SAFE))
+            val json = JSONObject(payload)
+
+            val rolesArray = json.optJSONArray("roles") ?: return false
+
+            for (i in 0 until rolesArray.length()) {
+                if (rolesArray.getString(i) == "ROLE_SCANNER") {
+                    return true
+                }
+            }
+            return false
+        } catch (_: Exception) {
+            return false
         }
     }
 

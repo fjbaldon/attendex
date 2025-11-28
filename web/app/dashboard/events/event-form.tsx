@@ -204,10 +204,15 @@ export function EventForm({event, onSubmit}: EventFormProps) {
                         </Button>
                     </div>
 
-                    {form.formState.errors.sessions?.root && (
-                        <p className="text-sm font-medium text-destructive">
-                            {form.formState.errors.sessions.root.message}
-                        </p>
+                    {(form.formState.errors.sessions?.root || form.formState.errors.sessions) && (
+                        <div className="rounded-md bg-destructive/15 p-3">
+                            <p className="text-sm font-medium text-destructive flex items-center gap-2">
+                                <IconTrash className="w-4 h-4" />
+                                {form.formState.errors.sessions?.root?.message ||
+                                    form.formState.errors.sessions?.message ||
+                                    "At least one session is required."}
+                            </p>
+                        </div>
                     )}
 
                     <div className="relative">

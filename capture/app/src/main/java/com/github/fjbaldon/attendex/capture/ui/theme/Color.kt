@@ -2,12 +2,22 @@ package com.github.fjbaldon.attendex.capture.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// === Brand Colors (Neutral / Monochrome) ===
-val Neutral900 = Color(0xFF252525) // Dark Background
-val Neutral50 = Color(0xFFFAFAFA)  // Light Background
-val Neutral200 = Color(0xFFEBEBEB) // Borders/Secondary
+// === ATTENDEX WEB BRANDING (Neutral / Zinc Palette) ===
+// Derived from web/app/globals.css
 
-// === Semantic Colors (The Material Mapping) ===
-val SemanticRed = Color(0xFFDC2626)   // Error
-val SemanticGreen = Color(0xFF16A34A) // Success (Will map to Tertiary)
-val SemanticOrange = Color(0xFFD97706) // Warning (Will map to ErrorContainer)
+// Blacks & Whites
+val BrandWhite = Color(0xFFFFFFFF)      // --background (Light)
+val BrandBlack = Color(0xFF09090B)      // --background (Dark) / --foreground (Light)
+val BrandOffWhite = Color(0xFFFAFAFA)   // --foreground (Dark)
+
+// Greys (Borders, Secondary, Muted)
+val Slate100 = Color(0xFFF4F4F5)        // --secondary (Light) / --muted (Light)
+val Slate200 = Color(0xFFE4E4E7)        // --border (Light) / --input
+val Slate800 = Color(0xFF27272A)        // --secondary (Dark) / --muted (Dark)
+val Slate700 = Color(0xFF3F3F46)        // --border (Dark)
+
+// Semantic Colors (Status)
+val SemanticRed = Color(0xFFDC2626)     // --destructive
+val SemanticGreen = Color(0xFF16A34A)   // Success (Custom)
+val SemanticOrange = Color(0xFFD97706)  // Warning (Custom)
+val SemanticBlue = Color(0xFF2563EB)    // Info (Custom)
