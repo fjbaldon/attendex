@@ -18,7 +18,6 @@ public class EventFacade {
     private final RosterService rosterService;
     private final EventSyncService syncService;
 
-    // NOTE: CaptureFacade dependency removed
     EventFacade(
             EventIngestService ingestService,
             EventQueryService queryService,
@@ -30,8 +29,6 @@ public class EventFacade {
         this.rosterService = rosterService;
         this.syncService = syncService;
     }
-
-    // --- INGEST ---
 
     @Transactional
     public EventDto createEvent(Long organizationId, Long organizerId, CreateEventRequestDto dto) {
@@ -90,14 +87,6 @@ public class EventFacade {
         queryService.ensureEventExists(eventId, organizationId);
     }
 
-    // Exposed for Capture Module usage
-    @Transactional(readOnly = true)
-    public List<Long> findSessionIdsByIntent(Long eventId, String intent) {
-        return queryService.findSessionIdsByIntent(eventId, intent);
-    }
-
-    // REMOVED: findEntriesByIntent (moved to CaptureFacade)
-
     // --- ROSTER ---
 
     @Transactional
@@ -111,8 +100,8 @@ public class EventFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<AttendeeDto> findRosterForEvent(Long eventId, Long organizationId, String query, Pageable pageable) {
-        return rosterService.findRosterForEvent(eventId, organizationId, query, pageable);
+    public Page<AttendeeDto> findRosterForEvent(Long eventId, Long organizationId, String query, Map<String, String> attributeFilters, Pageable pageable) {
+        return rosterService.findRosterForEvent(eventId, organizationId, query, attributeFilters, pageable);
     }
 
     @Transactional(readOnly = true)

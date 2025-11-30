@@ -1,5 +1,8 @@
 package com.github.fjbaldon.attendex.capture.core.ui.camera
 
+import android.graphics.Rect
+import androidx.annotation.OptIn
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -9,87 +12,68 @@ import java.util.concurrent.atomic.AtomicBoolean
 class TextRecognitionAnalyzer(
     private val onTextFound: (String) -> Unit,
     private val isScanningEnabledRef: AtomicBoolean,
-    private val customRegexString: String? // NEW PARAMETER
-) : BaseImageAnalyzer(isScanningEnabledRef, throttleIntervalMs = 20L) { // Reduced throttle for 60fps feel
-
-    // 1. Determine the regex to use.
-    // If custom is provided, we use it. Otherwise, default to 5+ digits.
-    private val activeRegex = try {
-        if (!customRegexString.isNullOrBlank()) {
-            customRegexString.toRegex()
-        } else {
-            "\\d{5,}".toRegex()
-        }
-    } catch (_: Exception) {
-        // Fallback if the user typed an invalid regex in the dashboard
-        "\\d{5,}".toRegex()
-    }
+    customRegexString: String?
+) : BaseImageAnalyzer(isScanningEnabledRef, throttleIntervalMs = 50L) {
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-    private var lastSeenText: String? = null
-    private var stableFrameCount = 0
-    private val requiredStableFrames = 2
+    private val activeRegex = try {
+        if (!customRegexString.isNullOrBlank()) customRegexString.toRegex() else "\\d{5,}".toRegex()
+    } catch (_: Exception) { "\\d{5,}".toRegex() }
 
+    @OptIn(ExperimentalGetImage::class)
     override fun processImage(image: InputImage, imageProxy: ImageProxy) {
+        val imgWidth = imageProxy.width
+        val imgHeight = imageProxy.height
+
+        // 1. ROI: Ignore top and bottom 35%
+        val cropRect = Rect(
+            0,
+            (imgHeight * 0.35).toInt(),
+            imgWidth,
+            (imgHeight * 0.65).toInt()
+        )
+
         recognizer.process(image)
             .addOnSuccessListener { visionText ->
-                if (isScanningEnabledRef.get()) {
-                    var foundMatch = false
+                if (!isScanningEnabledRef.get()) return@addOnSuccessListener
 
-                    // --- THE OPTIMIZATION CORE ---
+                fun tryMatch(rawText: String, box: Rect?): Boolean {
+                    // A. Spatial Check
+                    if (box != null && !Rect.intersects(box, cropRect)) return false
 
-                    // 1. "Shotgun" Approach:
-                    // We extract Lines AND Elements (individual words).
-                    // This handles ID cards where the number is next to labels like "ID: " or "Student No:"
-                    val candidates = sequence {
-                        // Yield full lines
-                        yieldAll(visionText.textBlocks.flatMap { it.lines }.map { it.text })
-                        // Yield individual elements (words) - Critical for complex ID layouts
-                        yieldAll(visionText.textBlocks.flatMap { it.lines }.flatMap { it.elements }.map { it.text })
+                    val trimmed = rawText.trim()
+
+                    // B. Fuzzy Logic
+                    val isNumericMode = activeRegex.pattern.contains("\\d") && !activeRegex.pattern.contains("[a-zA-Z]")
+                    val cleanText = if (isNumericMode) {
+                        trimmed.replace("O", "0")
+                            .replace("o", "0")
+                            .replace("l", "1")
+                            .replace("I", "1")
+                            .replace(" ", "")
+                    } else {
+                        trimmed
                     }
 
-                    // 2. Find the BEST match
-                    // We prefer longer matches to avoid partial scans (e.g. scanning "2024" year instead of ID)
-                    val bestMatch = candidates
-                        .map { it.trim() }
-                        .filter { activeRegex.matches(it) } // Strict match against the whole token
-                        .maxByOrNull { it.length }
+                    // C. Match
+                    if (activeRegex.matches(cleanText)) {
+                        onTextFound(cleanText)
+                        return true
+                    }
+                    return false
+                }
 
-                    if (bestMatch != null) {
-                        foundMatch = true
-
-                        // --- THE SPEED UP LOGIC ---
-                        // If we have a custom regex (e.g. ^\d{9}$), we trust it more.
-                        // We skip the stability check and trigger immediately.
-                        val isCustomRegex = !customRegexString.isNullOrBlank()
-
-                        if (isCustomRegex) {
-                            // FAST TRACK: Instant trigger
-                            // We found exactly what the admin asked for. Don't wait.
-                            onTextFound(bestMatch)
-                        } else {
-                            // SLOW TRACK (Default): Wait for stability to prevent noise
-                            // This prevents scanning "2023" (Year) instead of a short ID if regex is loose (\d+)
-                            if (bestMatch == lastSeenText) {
-                                stableFrameCount++
-                                if (stableFrameCount >= requiredStableFrames) {
-                                    onTextFound(bestMatch)
-                                }
-                            } else {
-                                lastSeenText = bestMatch
-                                stableFrameCount = 1
-                            }
+                // 2. Separate Loops to avoid Type Erasure Error
+                for (block in visionText.textBlocks) {
+                    for (line in block.lines) {
+                        if (tryMatch(line.text, line.boundingBox)) return@addOnSuccessListener
+                        for (element in line.elements) {
+                            if (tryMatch(element.text, element.boundingBox)) return@addOnSuccessListener
                         }
-                    }
-
-                    if (!foundMatch) {
-                        stableFrameCount = 0
-                        lastSeenText = null
                     }
                 }
             }
-            .addOnFailureListener { }
             .addOnCompleteListener {
                 imageProxy.close()
             }

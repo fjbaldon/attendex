@@ -18,60 +18,66 @@ import {
     BreadcrumbSeparator
 } from "@/components/ui/breadcrumb";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
-import {getArrivalsColumns} from "./arrivals-columns";
-import {ArrivalsDataTable} from "./arrivals-data-table";
 import {useAttributes} from "@/hooks/use-attributes";
-import {getDeparturesColumns} from "./departures-columns";
-import {DeparturesDataTable} from "./departures-data-table";
 import {useDebounce} from "@uidotdev/usehooks";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import {Label} from "@/components/ui/label";
+import {getActivityColumns} from "./activity-columns";
+import {ActivityDataTable} from "./activity-data-table";
 
-type TabType = 'roster' | 'arrival' | 'departure';
+type TabType = 'roster' | 'activity';
 
 export default function EventDetailsPage() {
     const params = useParams();
     const eventId = Number(params.id);
-    const [activeTab, setActiveTab] = React.useState<TabType>('arrival');
+    const [activeTab, setActiveTab] = React.useState<TabType>('activity');
 
     const [pagination, setPagination] = React.useState({
         pageIndex: 0,
         pageSize: 10,
     });
 
-    // FIX: Independent search state per tab to preserve user input
     const [searchState, setSearchState] = React.useState({
         roster: "",
-        arrival: "",
-        departure: ""
+        activity: "",
     });
 
+    // Attribute Filters
+    const [activeFilters, setActiveFilters] = React.useState<Record<string, string>>({});
+
+    const [selectedSessionId, setSelectedSessionId] = React.useState<string>("ALL");
+
     const debouncedRoster = useDebounce(searchState.roster, 500);
-    const debouncedArrival = useDebounce(searchState.arrival, 500);
-    const debouncedDeparture = useDebounce(searchState.departure, 500);
+    const debouncedActivity = useDebounce(searchState.activity, 500);
+
+    // FIX: Only pass filters for the CURRENT tab to avoid confusing queries?
+    // Actually, usually filters persist per tab or global?
+    // Let's keep filters distinct if possible, but for simplicity here, we'll use one state object
+    // and reset it when tab changes, or just share it. The logic below shares it.
+    // Ideally, reset filtering when switching tabs.
+    const handleTabChange = (tab: string) => {
+        setActiveTab(tab as TabType);
+        setPagination({pageIndex: 0, pageSize: 10});
+        setActiveFilters({}); // Reset attribute filters
+        setSelectedSessionId("ALL"); // Reset session filter
+    }
 
     const searchParams = React.useMemo(() => ({
         rosterQuery: debouncedRoster,
-        arrivalsQuery: debouncedArrival,
-        departuresQuery: debouncedDeparture,
-    }), [debouncedRoster, debouncedArrival, debouncedDeparture]);
+        activityQuery: debouncedActivity,
+        sessionId: selectedSessionId !== "ALL" ? Number(selectedSessionId) : null
+    }), [debouncedRoster, debouncedActivity, selectedSessionId]);
 
     const {
         event,
         isLoadingEvent,
         attendeesData,
         isLoadingAttendees,
-        arrivalsData,
-        isLoadingArrivals,
-        departuresData,
-        isLoadingDepartures,
-    } = useEventDetails(eventId, pagination, searchParams);
+        activityData,
+        isLoadingActivity,
+    } = useEventDetails(eventId, pagination, searchParams, activeFilters);
 
-    const {definitions: customFieldDefinitions, isLoading: isLoadingCustomFields} = useAttributes();
-
-    const handleTabChange = (tab: string) => {
-        setActiveTab(tab as TabType);
-        setPagination({pageIndex: 0, pageSize: 10});
-        // Note: We do NOT reset search state here anymore, improving UX.
-    }
+    const {definitions: attributes, isLoading: isLoadingAttributes} = useAttributes();
 
     const updateSearch = (val: string) => {
         setSearchState(prev => ({
@@ -81,9 +87,8 @@ export default function EventDetailsPage() {
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
     };
 
-    const rosterColumns = React.useMemo(() => getRosterColumns(customFieldDefinitions), [customFieldDefinitions]);
-    const checkedInColumns = React.useMemo(() => getArrivalsColumns(customFieldDefinitions), [customFieldDefinitions]);
-    const checkedOutColumns = React.useMemo(() => getDeparturesColumns(customFieldDefinitions), [customFieldDefinitions]);
+    const rosterColumns = React.useMemo(() => getRosterColumns(attributes), [attributes]);
+    const activityColumns = React.useMemo(() => getActivityColumns(attributes, event?.sessions), [attributes, event?.sessions]);
 
     return (
         <SidebarProvider
@@ -110,7 +115,7 @@ export default function EventDetailsPage() {
                             </BreadcrumbList>
                         </Breadcrumb>
 
-                        <div className="flex items-center">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                             <div>
                                 {isLoadingEvent ? <Skeleton className="h-8 w-64"/> :
                                     <h1 className="text-lg font-semibold md:text-2xl">{event?.name}</h1>}
@@ -119,10 +124,47 @@ export default function EventDetailsPage() {
 
                         <Tabs value={activeTab} onValueChange={handleTabChange}>
                             <TabsList>
+                                <TabsTrigger value="activity">Activity Log</TabsTrigger>
                                 <TabsTrigger value="roster">Roster</TabsTrigger>
-                                <TabsTrigger value="arrival">Arrival</TabsTrigger>
-                                <TabsTrigger value="departure">Departure</TabsTrigger>
                             </TabsList>
+
+                            <TabsContent value="activity">
+                                <ActivityDataTable
+                                    columns={activityColumns}
+                                    data={activityData?.content ?? []}
+                                    pageCount={activityData?.totalPages ?? 0}
+                                    pagination={pagination}
+                                    setPagination={setPagination}
+                                    isLoading={isLoadingActivity || isLoadingAttributes}
+                                    searchQuery={searchState.activity}
+                                    onSearchChange={updateSearch}
+                                    activeFilters={activeFilters}
+                                    onFiltersChange={setActiveFilters}
+                                    attributes={attributes}
+                                    toolbarChildren={
+                                        // Inject Session Filter into the Toolbar
+                                        <div className="flex items-center gap-2 border-l pl-4 ml-2">
+                                            <Label className="text-xs text-muted-foreground whitespace-nowrap">Session:</Label>
+                                            <Select value={selectedSessionId} onValueChange={(val) => {
+                                                setSelectedSessionId(val);
+                                                setPagination(prev => ({...prev, pageIndex: 0}));
+                                            }}>
+                                                <SelectTrigger className="w-[200px] h-9 text-xs">
+                                                    <SelectValue placeholder="All Sessions"/>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="ALL">All Activity</SelectItem>
+                                                    {event?.sessions?.map(session => (
+                                                        <SelectItem key={session.id} value={String(session.id)}>
+                                                            {session.activityName}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    }
+                                />
+                            </TabsContent>
 
                             <TabsContent value="roster">
                                 <EventAttendeesDataTable
@@ -131,36 +173,14 @@ export default function EventDetailsPage() {
                                     pageCount={attendeesData?.totalPages ?? 0}
                                     pagination={pagination}
                                     setPagination={setPagination}
-                                    isLoading={isLoadingAttendees || isLoadingCustomFields}
+                                    isLoading={isLoadingAttendees || isLoadingAttributes}
                                     eventId={eventId}
                                     searchQuery={searchState.roster}
                                     onSearchChange={updateSearch}
-                                />
-                            </TabsContent>
-
-                            <TabsContent value="arrival">
-                                <ArrivalsDataTable
-                                    columns={checkedInColumns}
-                                    data={arrivalsData?.content ?? []}
-                                    pageCount={arrivalsData?.totalPages ?? 0}
-                                    pagination={pagination}
-                                    setPagination={setPagination}
-                                    isLoading={isLoadingArrivals || isLoadingCustomFields}
-                                    searchQuery={searchState.arrival}
-                                    onSearchChange={updateSearch}
-                                />
-                            </TabsContent>
-
-                            <TabsContent value="departure">
-                                <DeparturesDataTable
-                                    columns={checkedOutColumns}
-                                    data={departuresData?.content ?? []}
-                                    pageCount={departuresData?.totalPages ?? 0}
-                                    pagination={pagination}
-                                    setPagination={setPagination}
-                                    isLoading={isLoadingDepartures || isLoadingCustomFields}
-                                    searchQuery={searchState.departure}
-                                    onSearchChange={updateSearch}
+                                    // Pass new filter props (needs update in component)
+                                    activeFilters={activeFilters}
+                                    onFiltersChange={setActiveFilters}
+                                    attributes={attributes}
                                 />
                             </TabsContent>
                         </Tabs>

@@ -14,15 +14,15 @@ interface PageParams {
 
 interface SearchParams {
     rosterQuery?: string;
-    arrivalsQuery?: string;
-    departuresQuery?: string;
+    activityQuery?: string;
+    sessionId?: number | null;
 }
 
-// FIX: Ensure 3rd argument 'search' is defined
 export const useEventDetails = (
     eventId: number | null,
     pagination: PageParams,
-    search: SearchParams = {}
+    search: SearchParams = {},
+    attributeFilters: Record<string, string> = {}
 ) => {
     const queryClient = useQueryClient();
     const {pageIndex, pageSize} = pagination;
@@ -38,14 +38,15 @@ export const useEventDetails = (
     });
 
     const {data: attendeesData, isLoading: isLoadingAttendees} = useQuery<PaginatedResponse<AttendeeResponse>>({
-        queryKey: ["eventDetails", eventId, "roster", pageIndex, pageSize, search.rosterQuery],
+        queryKey: ["eventDetails", eventId, "roster", pageIndex, pageSize, search.rosterQuery, attributeFilters],
         queryFn: async () => {
             if (!eventId) return null;
             const response = await api.get(`/api/v1/events/${eventId}/roster`, {
                 params: {
                     page: pageIndex,
                     size: pageSize,
-                    query: search.rosterQuery || undefined
+                    query: search.rosterQuery || undefined,
+                    ...attributeFilters
                 }
             });
             return response.data;
@@ -54,39 +55,22 @@ export const useEventDetails = (
         placeholderData: (prev) => prev,
     });
 
+    // NEW: Generic entries query for the Activity Tab
     const {
-        data: arrivalsData,
-        isLoading: isLoadingArrivals
+        data: activityData,
+        isLoading: isLoadingActivity
     } = useQuery<PaginatedResponse<EntryDetailsDto>>({
-        queryKey: ["eventDetails", eventId, "arrivals", pageIndex, pageSize, search.arrivalsQuery],
+        queryKey: ["eventDetails", eventId, "activity", pageIndex, pageSize, search.activityQuery, search.sessionId, attributeFilters],
         queryFn: async () => {
             if (!eventId) return null;
-            const response = await api.get(`/api/v1/events/${eventId}/arrivals`, {
+            const response = await api.get(`/api/v1/events/${eventId}/entries`, {
                 params: {
                     page: pageIndex,
                     size: pageSize,
-                    query: search.arrivalsQuery || undefined
-                }
-            });
-            return response.data;
-        },
-        enabled: !!eventId,
-        refetchInterval: REFETCH_INTERVAL_MS,
-        placeholderData: (prev) => prev,
-    });
-
-    const {
-        data: departuresData,
-        isLoading: isLoadingDepartures
-    } = useQuery<PaginatedResponse<EntryDetailsDto>>({
-        queryKey: ["eventDetails", eventId, "departures", pageIndex, pageSize, search.departuresQuery],
-        queryFn: async () => {
-            if (!eventId) return null;
-            const response = await api.get(`/api/v1/events/${eventId}/departures`, {
-                params: {
-                    page: pageIndex,
-                    size: pageSize,
-                    query: search.departuresQuery || undefined
+                    query: search.activityQuery || undefined,
+                    sessionId: search.sessionId || undefined,
+                    sort: "scanTimestamp,desc", // Default to latest first
+                    ...attributeFilters
                 }
             });
             return response.data;
@@ -155,10 +139,8 @@ export const useEventDetails = (
         isLoadingEvent,
         attendeesData,
         isLoadingAttendees,
-        arrivalsData,
-        isLoadingArrivals,
-        departuresData,
-        isLoadingDepartures,
+        activityData,
+        isLoadingActivity,
         bulkAddByCriteria: bulkAddByCriteriaMutation.mutate,
         isBulkAddingByCriteria: bulkAddByCriteriaMutation.isPending,
         addAttendee: addAttendeeMutation.mutate,

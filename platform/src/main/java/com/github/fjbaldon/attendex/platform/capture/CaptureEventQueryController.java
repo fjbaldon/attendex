@@ -8,6 +8,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/events")
 @RequiredArgsConstructor
@@ -16,23 +19,25 @@ class CaptureEventQueryController {
 
     private final CaptureFacade captureFacade;
 
-    @GetMapping("/{eventId}/arrivals")
-    public Page<EntryDetailsDto> getArrivals(
+    @GetMapping("/{eventId}/entries")
+    public Page<EntryDetailsDto> getEntries(
             @PathVariable Long eventId,
+            @RequestParam(required = false) Long sessionId,
+            @RequestParam(required = false) String intent,
             @RequestParam(required = false) String query,
+            @RequestParam Map<String, String> allParams,
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails user) {
 
-        return captureFacade.findFilteredEntriesPaginated(eventId, user.getOrganizationId(), "Arrival", query, pageable);
-    }
+        Map<String, String> filters = new HashMap<>(allParams);
+        // Clean up known params to leave only attribute filters
+        filters.remove("sessionId");
+        filters.remove("intent");
+        filters.remove("query");
+        filters.remove("page");
+        filters.remove("size");
+        filters.remove("sort");
 
-    @GetMapping("/{eventId}/departures")
-    public Page<EntryDetailsDto> getDepartures(
-            @PathVariable Long eventId,
-            @RequestParam(required = false) String query,
-            Pageable pageable,
-            @AuthenticationPrincipal CustomUserDetails user) {
-
-        return captureFacade.findFilteredEntriesPaginated(eventId, user.getOrganizationId(), "Departure", query, pageable);
+        return captureFacade.findEntries(eventId, user.getOrganizationId(), sessionId, intent, query, filters, pageable);
     }
 }

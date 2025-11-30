@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -21,6 +22,23 @@ import java.util.Map;
 class EventController {
 
     private final EventFacade eventFacade;
+
+    @GetMapping("/{eventId}/roster")
+    public Page<AttendeeDto> getRoster(
+            @PathVariable Long eventId,
+            @RequestParam(required = false) String query,
+            @RequestParam Map<String, String> allParams,
+            Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        Map<String, String> filters = new HashMap<>(allParams);
+        filters.remove("page");
+        filters.remove("size");
+        filters.remove("sort");
+        filters.remove("query");
+
+        return eventFacade.findRosterForEvent(eventId, user.getOrganizationId(), query, filters, pageable);
+    }
 
     @PostMapping
     public ResponseEntity<EventDto> createEvent(
@@ -82,18 +100,6 @@ class EventController {
             @PathVariable Long attendeeId) {
         eventFacade.removeAttendeeFromRoster(eventId, attendeeId);
     }
-
-    @GetMapping("/{eventId}/roster")
-    public Page<AttendeeDto> getRoster(
-            @PathVariable Long eventId,
-            @RequestParam(required = false) String query,
-            Pageable pageable,
-            @AuthenticationPrincipal CustomUserDetails user) {
-        return eventFacade.findRosterForEvent(eventId, user.getOrganizationId(), query, pageable);
-    }
-
-    // REMOVED: getArrivals and getDepartures endpoints.
-    // They are now handled by CaptureEventQueryController in the Capture module.
 
     @PostMapping("/{eventId}/roster/bulk")
     public ResponseEntity<Map<String, Integer>> bulkAddRoster(

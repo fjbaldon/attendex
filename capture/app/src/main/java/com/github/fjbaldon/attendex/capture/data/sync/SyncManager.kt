@@ -14,13 +14,9 @@ class SyncManager @Inject constructor(
 ) {
     private val workManager = WorkManager.getInstance(context)
 
-    /**
-     * Call this when the app starts (e.g. in MainActivity or Application onCreate)
-     * It ensures a background job runs every 15 minutes forever.
-     */
     fun startPeriodicSync() {
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED) // Only run if we have internet
+            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
@@ -29,15 +25,11 @@ class SyncManager @Inject constructor(
 
         workManager.enqueueUniquePeriodicWork(
             "AttendEx_Periodic_Sync",
-            ExistingPeriodicWorkPolicy.KEEP, // Don't replace if already scheduled
+            ExistingPeriodicWorkPolicy.KEEP,
             request
         )
     }
 
-    /**
-     * Call this immediately after a successful scan in ScannerViewModel.
-     * It attempts to upload immediately ("One-time shot").
-     */
     fun triggerImmediateSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -50,7 +42,7 @@ class SyncManager @Inject constructor(
 
         workManager.enqueueUniqueWork(
             "AttendEx_Immediate_Sync",
-            ExistingWorkPolicy.APPEND, // Changed from APPEND_OR_REPLACE to prevent cancelling active uploads
+            ExistingWorkPolicy.REPLACE,
             request
         )
     }

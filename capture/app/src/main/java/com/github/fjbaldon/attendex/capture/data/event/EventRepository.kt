@@ -195,56 +195,72 @@ class EventRepository @Inject constructor(
     }
 
     suspend fun syncEntries(): Result<Int> = withContext(Dispatchers.IO) {
-        if (syncMutex.isLocked) return@withContext Result.success(0)
-
         syncMutex.withLock {
+            var totalSuccess = 0
+
             try {
-                val batch = entryDao.getPendingEntriesBatch(50)
-                if (batch.isEmpty()) return@withLock Result.success(0)
-
-                val request = EntrySyncRequest(
-                    records = batch.map {
-                        EntrySyncRequest.EntryRecord(
-                            it.scanUuid,
-                            it.eventId,
-                            it.attendeeId,
-                            it.scanTimestamp.toString(),
-                            it.snapshotIdentity,
-                            it.snapshotFirstName,
-                            it.snapshotLastName
-                        )
+                // Keep processing batches until the database returns no more pending items
+                while (true) {
+                    // 1. Get Batch (Limit 50 to prevent timeouts)
+                    val batch = entryDao.getPendingEntriesBatch(50)
+                    if (batch.isEmpty()) {
+                        break // Queue is empty, we are done
                     }
-                )
 
-                val response = apiService.syncEntries(request)
+                    // 2. Prepare Network Request
+                    val request = EntrySyncRequest(
+                        records = batch.map {
+                            EntrySyncRequest.EntryRecord(
+                                it.scanUuid,
+                                it.eventId,
+                                it.attendeeId,
+                                it.scanTimestamp.toString(),
+                                it.snapshotIdentity,
+                                it.snapshotFirstName,
+                                it.snapshotLastName
+                            )
+                        }
+                    )
 
-                val allUuids = batch.map { it.scanUuid }
-                val failedUuids = response.failedUuids.toSet()
-                val successUuids = allUuids.filter { !failedUuids.contains(it) }
+                    // 3. Network Call
+                    val response = apiService.syncEntries(request)
 
-                if (successUuids.isNotEmpty()) {
-                    entryDao.markAsSyncedByUuid(successUuids)
+                    // 4. Process Response
+                    val allUuids = batch.map { it.scanUuid }
+                    val failedUuids = response.failedUuids.toSet()
+                    val successUuids = allUuids.filter { !failedUuids.contains(it) }
+
+                    // A. Handle Successes
+                    if (successUuids.isNotEmpty()) {
+                        entryDao.markAsSyncedByUuid(successUuids)
+                        totalSuccess += successUuids.size
+                    }
+
+                    // B. Handle Explicit Failures (Server said "No")
+                    if (failedUuids.isNotEmpty()) {
+                        entryDao.markAsFailedByUuid(failedUuids.toList(), "Server Rejected")
+                    }
                 }
 
-                if (failedUuids.isNotEmpty()) {
-                    entryDao.markAsFailedByUuid(failedUuids.toList(), "Server Rejected")
-                }
+                Result.success(totalSuccess)
 
-                if (batch.size == 50 && failedUuids.isEmpty()) {
-                    syncEntries()
-                }
-
-                Result.success(response.successCount)
             } catch (e: Exception) {
-                val batchUuids = entryDao.getPendingEntriesBatch(50).map { it.scanUuid }
+                // 5. Handle Network/Crash Errors
+                // If the network dies mid-loop, we grab the current pending batch
+                // and mark them as failed (with retry count increment) so the UI shows the error.
+                val pendingBatch = entryDao.getPendingEntriesBatch(50)
+                val batchUuids = pendingBatch.map { it.scanUuid }
+
                 if (batchUuids.isNotEmpty()) {
                     val errorMessage = e.message ?: "Unknown Sync Error"
                     entryDao.markAsFailedByUuid(batchUuids, errorMessage)
                 }
 
                 if (e is HttpException && e.code() in 400..499) {
+                    // 4xx errors are likely permanent (Bug/Data issue), return as failure but custom message
                     Result.failure(Exception("Sync Rejected by Server (Code ${e.code()}). Marked as Failed."))
                 } else {
+                    // 5xx or Network errors: Return failure so WorkManager retries with backoff
                     Result.failure(e)
                 }
             }

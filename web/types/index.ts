@@ -157,6 +157,7 @@ export interface Organization {
 
 export interface EntryDetailsDto {
     entryId: number;
+    sessionId?: number | null; // Added
     scanTimestamp: string;
     punctuality: 'EARLY' | 'PUNCTUAL' | 'LATE';
     attendee: AttendeeResponse;

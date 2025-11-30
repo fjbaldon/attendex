@@ -16,6 +16,9 @@ interface RosterRepository extends PagingAndSortingRepository<RosterEntry, Roste
     @Query("SELECT re.id.attendeeId FROM RosterEntry re WHERE re.id.eventId = :eventId")
     Page<Long> findAttendeeIdsByEventId(@Param("eventId") Long eventId, Pageable pageable);
 
+    @Query("SELECT re.id.attendeeId FROM RosterEntry re WHERE re.id.eventId = :eventId AND re.id.attendeeId IN :attendeeIds")
+    Page<Long> findAttendeeIdsByEventIdAndAttendeeIdIn(@Param("eventId") Long eventId, @Param("attendeeIds") List<Long> attendeeIds, Pageable pageable);
+
     @Query("""
         SELECT re.id.attendeeId
         FROM RosterEntry re
@@ -28,6 +31,20 @@ interface RosterRepository extends PagingAndSortingRepository<RosterEntry, Roste
         )
     """)
     Page<Long> searchAttendeeIdsByEventId(@Param("eventId") Long eventId, @Param("query") String query, Pageable pageable);
+
+    @Query("""
+        SELECT re.id.attendeeId
+        FROM RosterEntry re
+        JOIN com.github.fjbaldon.attendex.platform.attendee.Attendee a ON re.id.attendeeId = a.id
+        WHERE re.id.eventId = :eventId
+        AND re.id.attendeeId IN :attendeeIds
+        AND (
+            LOWER(a.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR
+            LOWER(a.lastName) LIKE LOWER(CONCAT('%', :query, '%')) OR
+            LOWER(a.identity) LIKE LOWER(CONCAT('%', :query, '%'))
+        )
+    """)
+    Page<Long> searchAttendeeIdsByEventIdAndAttendeeIdIn(@Param("eventId") Long eventId, @Param("attendeeIds") List<Long> attendeeIds, @Param("query") String query, Pageable pageable);
 
     @Query("""
                 SELECT new com.github.fjbaldon.attendex.platform.event.RosterSyncProjection(

@@ -85,11 +85,6 @@ class EventQueryService {
         }
     }
 
-    @Transactional(readOnly = true)
-    public List<Long> findSessionIdsByIntent(Long eventId, String intent) {
-        return sessionRepository.findSessionIdsByEventIdAndIntent(eventId, intent);
-    }
-
     private EventDto toDto(Event event) {
         return new EventDto(
                 event.getId(),

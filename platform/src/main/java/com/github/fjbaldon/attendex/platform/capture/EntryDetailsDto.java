@@ -6,6 +6,7 @@ import java.time.Instant;
 
 public record EntryDetailsDto(
         Long entryId,
+        Long sessionId, // NEW
         Instant scanTimestamp,
         String punctuality,
         AttendeeDto attendee

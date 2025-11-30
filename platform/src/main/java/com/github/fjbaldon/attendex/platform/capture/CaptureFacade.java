@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -20,8 +21,6 @@ public class CaptureFacade {
     private final CaptureIngestService ingestService;
     private final CaptureQueryService queryService;
     private final OrphanService orphanService;
-
-    // --- INGESTION DELEGATES ---
 
     @Transactional
     public BatchSyncResponse syncEntries(Long organizationId, String scannerEmail, EntrySyncRequestDto request) {
@@ -60,13 +59,13 @@ public class CaptureFacade {
     // --- QUERY DELEGATES ---
 
     @Transactional(readOnly = true)
-    public List<EntryDetailsDto> findFilteredEntries(Long organizationId, Long eventId, Long sessionId, String intent, List<Long> attendeeIds) {
-        return queryService.findFilteredEntries(organizationId, eventId, sessionId, intent, attendeeIds);
+    public Page<EntryDetailsDto> findEntries(Long eventId, Long organizationId, Long sessionId, String intent, String query, Map<String, String> attributeFilters, Pageable pageable) {
+        return queryService.findEntries(eventId, organizationId, sessionId, intent, query, attributeFilters, pageable);
     }
 
     @Transactional(readOnly = true)
-    public Page<EntryDetailsDto> findFilteredEntriesPaginated(Long eventId, Long organizationId, String intent, String query, Pageable pageable) {
-        return queryService.findEntriesByEventAndIntent(eventId, organizationId, intent, query, pageable);
+    public List<EntryDetailsDto> findFilteredEntries(Long organizationId, Long eventId, Long sessionId, String intent, List<Long> attendeeIds) {
+        return queryService.findFilteredEntries(organizationId, eventId, sessionId, intent, attendeeIds);
     }
 
     @Transactional(readOnly = true)
@@ -94,8 +93,7 @@ public class CaptureFacade {
         return queryService.getEntryStatusesForAttendee(attendeeId);
     }
 
-    // --- ORPHAN DELEGATES ---
-
+    // ... (rest)
     @Transactional(readOnly = true)
     public Page<OrphanedEntryDto> getOrphanedEntries(Long organizationId, Pageable pageable) {
         return orphanService.getOrphanedEntries(organizationId, pageable);

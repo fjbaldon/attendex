@@ -14,6 +14,26 @@ import java.util.Optional;
 
 interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRepository<Entry, Long> {
 
+    @Query("SELECT e FROM Entry e LEFT JOIN com.github.fjbaldon.attendex.platform.event.Session s ON e.sessionId = s.id " +
+            "WHERE e.eventId = :eventId " +
+            "AND (:sessionId IS NULL OR e.sessionId = :sessionId) " +
+            "AND (:intent IS NULL OR s.intent = :intent) " +
+            "AND (:hasAttendeeFilter = false OR e.attendeeId IN :attendeeIds) " +
+            "AND (:query IS NULL OR (" +
+            "   e.snapshotFirstName ILIKE CONCAT('%', CAST(:query AS string), '%') OR " +
+            "   e.snapshotLastName ILIKE CONCAT('%', CAST(:query AS string), '%') OR " +
+            "   e.snapshotIdentity ILIKE CONCAT('%', CAST(:query AS string), '%')" +
+            "))")
+    Page<Entry> findAllEntries(
+            @Param("eventId") Long eventId,
+            @Param("sessionId") Long sessionId,
+            @Param("intent") String intent,
+            @Param("query") String query,
+            @Param("attendeeIds") List<Long> attendeeIds,
+            @Param("hasAttendeeFilter") boolean hasAttendeeFilter,
+            Pageable pageable
+    );
+
     @Query("SELECT e FROM Entry e WHERE e.organizationId = :organizationId AND e.sessionId = :sessionId AND e.attendeeId IN :attendeeIds")
     List<Entry> findByOrganizationIdAndSessionIdAndAttendeeIdIn(
             @Param("organizationId") Long organizationId,
@@ -55,8 +75,6 @@ interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRe
     @Query("SELECT MAX(e.scanTimestamp) FROM Entry e WHERE e.eventId = :eventId")
     Optional<Instant> findLastScanByEventId(@Param("eventId") Long eventId);
 
-    // FIX: Added 'hasAttendeeFilter' to properly handle empty attendee filter cases
-    // Previous logic (e.attendeeId IN :attendeeIds) would fail if list was null or empty
     @Query("SELECT e FROM Entry e LEFT JOIN com.github.fjbaldon.attendex.platform.event.Session s ON e.sessionId = s.id " +
             "WHERE e.eventId = :eventId " +
             "AND (CAST(:sessionId AS Long) IS NULL OR e.sessionId = :sessionId) " +
@@ -102,11 +120,9 @@ interface EntryRepository extends PagingAndSortingRepository<Entry, Long>, JpaRe
 
     List<Entry> findByAttendeeId(Long attendeeId);
 
-    // Case A: Session is NULL (Event-wide count)
     @Query("SELECT COUNT(DISTINCT e.attendeeId) FROM Entry e WHERE e.eventId = :eventId AND e.attendeeId IN :attendeeIds")
     long countPresentEventWide(@Param("eventId") Long eventId, @Param("attendeeIds") List<Long> attendeeIds);
 
-    // Case B: Session is SPECIFIED
     @Query("SELECT COUNT(DISTINCT e.attendeeId) FROM Entry e WHERE e.sessionId = :sessionId AND e.attendeeId IN :attendeeIds")
     long countPresentForSession(@Param("sessionId") Long sessionId, @Param("attendeeIds") List<Long> attendeeIds);
 }

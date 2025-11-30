@@ -60,7 +60,7 @@ fun CameraOverlay(
         ), label = "laser_pos"
     )
 
-    val aspectRatio = if (scanMode == ScanMode.QR) 1.0f else 0.6f
+    val aspectRatio = if (scanMode == ScanMode.QR) 1.0f else 0.4f
 
     Canvas(modifier = modifier.fillMaxSize()) {
         val canvasWidth = size.width

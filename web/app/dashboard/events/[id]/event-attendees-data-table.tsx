@@ -4,12 +4,12 @@ import * as React from "react";
 import {ColumnDef} from "@tanstack/react-table";
 import {IconPlus, IconTrash} from "@tabler/icons-react";
 import {Button} from "@/components/ui/button";
-import {Input} from "@/components/ui/input";
-import {AttendeeResponse} from "@/types";
+import {AttendeeResponse, Attribute} from "@/types";
 import {useEventDetails} from "@/hooks/use-event-details";
 import {ConfirmDialog} from "@/components/shared/confirm-dialog";
 import {AddAttendeeDialog} from "./add-attendee-dialog";
 import {DataTable} from "@/components/shared/data-table";
+import {FilterToolbar} from "@/components/shared/filter-toolbar";
 
 interface EventAttendeesDataTableProps {
     columns: ColumnDef<AttendeeResponse>[];
@@ -18,10 +18,13 @@ interface EventAttendeesDataTableProps {
     eventId: number;
     pageCount: number;
     pagination: { pageIndex: number; pageSize: number; };
-    setPagination: (pagination: { pageIndex: number; pageSize: number; }) => void;
-    // FIX: Add search props
+    // FIX: Updated type to allow functional updates (prev => ...)
+    setPagination: React.Dispatch<React.SetStateAction<{ pageIndex: number; pageSize: number; }>>;
     searchQuery: string;
     onSearchChange: (value: string) => void;
+    activeFilters: Record<string, string>;
+    onFiltersChange: (filters: Record<string, string>) => void;
+    attributes: Attribute[];
 }
 
 export function EventAttendeesDataTable({
@@ -33,7 +36,10 @@ export function EventAttendeesDataTable({
                                             pagination,
                                             setPagination,
                                             searchQuery,
-                                            onSearchChange
+                                            onSearchChange,
+                                            activeFilters,
+                                            onFiltersChange,
+                                            attributes
                                         }: EventAttendeesDataTableProps) {
     const {removeAttendee, isRemovingAttendee, removeAttendees, isRemovingAttendees} = useEventDetails(eventId, pagination);
 
@@ -68,35 +74,40 @@ export function EventAttendeesDataTable({
     const selectedCount = Object.keys(rowSelection).length;
 
     const toolbar = (
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-1">
-                <Input
-                    placeholder="Filter attendees by name..."
-                    value={searchQuery}
-                    onChange={(event) => onSearchChange(event.target.value)}
-                    className="h-9 max-w-sm"
-                />
-                {/* Bulk Delete Button */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between w-full">
+            <FilterToolbar
+                searchQuery={searchQuery}
+                onSearchChange={onSearchChange}
+                searchPlaceholder="Search roster..."
+                activeFilters={activeFilters}
+                onFiltersChange={(filters) => {
+                    onFiltersChange(filters);
+                    // This functional update caused the TS error before the type fix
+                    setPagination((prev) => ({...prev, pageIndex: 0}));
+                }}
+                attributes={attributes}
+            >
+                {/* Bulk Delete Button injected into toolbar */}
                 {selectedCount > 0 && (
                     <Button
                         size="sm"
                         variant="destructive"
-                        className="h-9 animate-in fade-in zoom-in-95"
+                        className="h-9 animate-in fade-in zoom-in-95 ml-2"
                         onClick={() => setIsBulkConfirmOpen(true)}
                     >
                         <IconTrash className="mr-2 h-4 w-4"/>
                         Remove {selectedCount}
                     </Button>
                 )}
-            </div>
-            <Button size="sm" className="h-9" onClick={() => setIsAddDialogOpen(true)}>
+            </FilterToolbar>
+
+            <Button size="sm" className="h-9 shrink-0" onClick={() => setIsAddDialogOpen(true)}>
                 <IconPlus className="mr-2 h-4 w-4"/>
                 <span>Add Attendee</span>
             </Button>
         </div>
     );
 
-    // FIX: Use data directly (Server filtered)
     return (
         <>
             <AddAttendeeDialog

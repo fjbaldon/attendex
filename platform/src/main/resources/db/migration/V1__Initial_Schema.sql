@@ -1,7 +1,11 @@
 -- ============================================================================
 -- AttendEx Consolidated Schema (V1)
--- Includes: Core Domain, Modulith Infrastructure, and Analytics Read Models
+-- Includes: Core Domain, Modulith Infrastructure, Analytics Read Models,
+-- and Performance Optimization Indexes (GIN/Trigram)
 -- ============================================================================
+
+-- 0. Enable extensions for fuzzy search performance
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ==========================================
 -- 1. Administration Context
@@ -255,7 +259,7 @@ CREATE TABLE event_publication
 CREATE INDEX idx_event_publication_completion_date ON event_publication (completion_date);
 
 -- ==========================================
--- 10. Performance Indexes
+-- 10. Performance Indexes (B-Tree)
 -- ==========================================
 
 CREATE UNIQUE INDEX idx_capture_entry_scan_uuid ON capture_entry (scan_uuid);
@@ -269,3 +273,15 @@ CREATE INDEX idx_capture_entry_session_id ON capture_entry (session_id);
 CREATE INDEX idx_capture_entry_attendee_id ON capture_entry (attendee_id);
 CREATE INDEX idx_capture_entry_scanner_id ON capture_entry (scanner_id);
 CREATE INDEX idx_capture_entry_scan_timestamp_brin ON capture_entry USING BRIN (scan_timestamp);
+
+-- ==========================================
+-- 11. Performance Indexes (GIN / Trigram)
+-- ==========================================
+-- These enable ultra-fast substring matching (e.g. "LIKE '%query%'") for search
+
+CREATE INDEX idx_attendee_identity_trgm ON attendee_attendee USING gin (identity gin_trgm_ops);
+CREATE INDEX idx_attendee_firstname_trgm ON attendee_attendee USING gin (first_name gin_trgm_ops);
+CREATE INDEX idx_attendee_lastname_trgm ON attendee_attendee USING gin (last_name gin_trgm_ops);
+
+CREATE INDEX idx_entry_snapshot_identity_trgm ON capture_entry USING gin (snapshot_identity gin_trgm_ops);
+CREATE INDEX idx_entry_snapshot_lastname_trgm ON capture_entry USING gin (snapshot_last_name gin_trgm_ops);

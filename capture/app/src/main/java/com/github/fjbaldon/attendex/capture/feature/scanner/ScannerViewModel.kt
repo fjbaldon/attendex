@@ -14,6 +14,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import kotlin.math.max
 
 @HiltViewModel
 class ScannerViewModel @Inject constructor(
@@ -43,23 +44,27 @@ class ScannerViewModel @Inject constructor(
     private val _recentScansQuery = MutableStateFlow("")
     private val _isFilteringUnsynced = MutableStateFlow(false)
     private val _listLimit = MutableStateFlow(50)
-
-    // OPTIMIZATION: Track if the history sheet is actually visible to the user
     private val _isHistoryVisible = MutableStateFlow(false)
+
+    // --- Optimized Cooldown Logic ---
+    private val scanCoolDowns = mutableMapOf<String, Long>()
+    // Reduced to 2 seconds. Enough to stop jitter, fast enough for retry.
+    private val cooldownMs = 2000L
+    private val minDisplayMs = 1500L
+
+    private val isProcessing = AtomicBoolean(false)
+    private var resetJob: Job? = null
+    private var errorDebounceJob: Job? = null
 
     // --- Flows ---
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     private val baseScannedItemsFlow: Flow<List<ScannedItemUi>> = combine(
         _recentScansQuery.debounce(50),
         _listLimit,
-        _isHistoryVisible // <--- Dependency on visibility
+        _isHistoryVisible
     ) { query, limit, isVisible ->
         Triple(query, limit, isVisible)
     }.flatMapLatest { (query, limit, isVisible) ->
-        // LAZY LOADING LOGIC:
-        // If the sheet is closed (not visible), return an empty list immediately.
-        // This prevents the Database from being queried every time a scan happens,
-        // saving massive amounts of CPU/Battery during high-throughput scanning.
         if (!isVisible) {
             flowOf(emptyList())
         } else {
@@ -107,14 +112,10 @@ class ScannerViewModel @Inject constructor(
         _isFilteringUnsynced,
         _identityRegex
     ) { flows ->
-        val scannedItems = flows[2] as List<ScannedItemUi>
-        val hasFailed = scannedItems.any { it.isFailed }
-        val stats = flows[12] as Pair<Long, Long>
-
         ScannerUiState(
             isLoading = flows[0] as Boolean,
             lastScanResult = flows[1] as ScanUiResult,
-            scannedAttendees = scannedItems,
+            scannedAttendees = flows[2] as List<ScannedItemUi>,
             hasFlashUnit = (flows[3] as Pair<Boolean, Boolean>).first,
             isTorchOn = (flows[3] as Pair<Boolean, Boolean>).second,
             eventName = flows[4] as String?,
@@ -125,9 +126,9 @@ class ScannerViewModel @Inject constructor(
             searchQuery = flows[9] as String,
             isManualEntryOpen = flows[10] as Boolean,
             isRosterSyncing = flows[11] as Boolean,
-            globalScanCount = stats.first,
-            totalRosterCount = stats.second,
-            hasFailedSyncs = hasFailed,
+            globalScanCount = (flows[12] as Pair<Long, Long>).first,
+            totalRosterCount = (flows[12] as Pair<Long, Long>).second,
+            hasFailedSyncs = (flows[2] as List<ScannedItemUi>).any { it.isFailed },
             isCameraEnabled = flows[13] as Boolean,
             recentScansQuery = flows[14] as String,
             isFilteringUnsynced = flows[15] as Boolean,
@@ -138,12 +139,6 @@ class ScannerViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = ScannerUiState()
     )
-
-    private val isProcessing = AtomicBoolean(false)
-    private var resetJob: Job? = null
-    private var errorDebounceJob: Job? = null
-    private var lastSpokenText: String? = null
-    private var lastSpokenTime: Long = 0
 
     init {
         loadEventDetails()
@@ -178,8 +173,7 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
-    // --- UI ACTIONS ---
-
+    // Actions
     fun enableCamera() { _isCameraEnabled.value = true }
     fun toggleScanMode(mode: ScanMode) { _scanMode.value = mode }
     fun onManualEntryQueryChange(query: String) { _manualEntryQuery.value = query }
@@ -189,8 +183,7 @@ class ScannerViewModel @Inject constructor(
         if (!isOpen) _manualEntryQuery.value = ""
     }
     fun toggleUnsyncedFilter() { _isFilteringUnsynced.update { !it } }
-
-    fun loadFullHistory() { _listLimit.value = 100000 } // "Show All" logic
+    fun loadFullHistory() { _listLimit.value = 100000 }
 
     fun onManualEntrySelected(attendee: AttendeeEntity) {
         processScannedText(attendee.identity)
@@ -201,15 +194,9 @@ class ScannerViewModel @Inject constructor(
     fun onTorchToggle(isOn: Boolean) { _torchState.update { Pair(it.first, isOn) } }
     fun onFlashUnitAvailabilityChange(isAvailable: Boolean) { _torchState.update { Pair(isAvailable, it.second) } }
 
-    /**
-     * Called by ScannerScreen when the Bottom Sheet expands or collapses.
-     * Use this to toggle Lazy Loading.
-     */
     fun onSheetStateChange(isOpen: Boolean) {
         if (_isHistoryVisible.value != isOpen) {
             _isHistoryVisible.value = isOpen
-
-            // When closing the sheet, reset filters to save memory/state for next time
             if (!isOpen) {
                 _listLimit.value = 50
                 _recentScansQuery.value = ""
@@ -217,62 +204,85 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
-    private fun speakWithDebounce(text: String) {
-        val now = System.currentTimeMillis()
-        if (text == lastSpokenText && now - lastSpokenTime < 3000) return
-
-        ttsService.speak(text)
-        lastSpokenText = text
-        lastSpokenTime = now
-    }
-
+    // --- CORE LOGIC ---
     fun processScannedText(scannedText: String) {
+        val now = System.currentTimeMillis()
+
+        // 1. Cool Down Check (Still prevents Frame-by-Frame spam of the SAME card)
+        if (scanCoolDowns.containsKey(scannedText)) {
+            val lastScan = scanCoolDowns[scannedText]!!
+            if (now - lastScan < cooldownMs) return
+        }
+
         if (!_isEventActive.value || !isProcessing.compareAndSet(false, true)) return
 
         viewModelScope.launch {
             try {
+                if (scanCoolDowns.size > 100) {
+                    // Remove entries older than the cooldown period
+                    scanCoolDowns.entries.removeIf { now - it.value > cooldownMs }
+                }
+
+                scanCoolDowns[scannedText] = now
+
+                // 2. Interrupt any previous UI tasks
+                resetJob?.cancel()
+                errorDebounceJob?.cancel()
+
                 when (val result = eventRepository.processScan(eventId, scannedText)) {
                     is ScanResult.Success -> {
-                        errorDebounceJob?.cancel()
-                        resetJob?.cancel()
+                        // 3. SPEED HACK: Valid Scan!
+                        // If we successfully scanned a new person, clear the cooldowns for everyone else.
+                        // This allows rapid A -> B -> A switching without waiting 2 seconds.
+                        scanCoolDowns.clear()
+                        scanCoolDowns[scannedText] = now // Re-add current one so we don't spam IT
 
                         _lastScanResult.value = ScanUiResult.Success(
                             attendeeDetails = "${result.attendee.firstName} ${result.attendee.lastName}"
                         )
                         val current = _globalStats.value
                         _globalStats.value = Pair(current.first + 1, current.second)
-                        speakWithDebounce(result.attendee.firstName)
+
                         syncManager.triggerImmediateSync()
 
-                        scheduleReset(800)
+                        // Speak + Visual Sync (With Safety Buffer)
+                        speakAndClearUi(result.attendee.firstName)
                     }
                     is ScanResult.AlreadyScanned -> {
-                        errorDebounceJob?.cancel()
-                        resetJob?.cancel()
-
                         val details = "${result.attendee.firstName} ${result.attendee.lastName}"
-                        val newState = ScanUiResult.AlreadyScanned(details)
+                        _lastScanResult.value = ScanUiResult.AlreadyScanned(details)
 
-                        // Always update to trigger UI flash even if same state
-                        _lastScanResult.value = newState
-                        speakWithDebounce(result.attendee.firstName)
-
-                        scheduleReset(800)
+                        // Silent Visual Confirmation (Visual only, no TTS)
+                        scheduleReset(500)
                     }
                     is ScanResult.AttendeeNotFound -> {
-                        if (_lastScanResult.value !is ScanUiResult.Success && _lastScanResult.value !is ScanUiResult.AlreadyScanned) {
-                            if (errorDebounceJob?.isActive != true) {
-                                errorDebounceJob = launch {
-                                    delay(50)
-                                    _lastScanResult.value = ScanUiResult.NotFound(scannedText)
-                                    scheduleReset(500)
-                                }
-                            }
+                        if (_lastScanResult.value !is ScanUiResult.Success) {
+                            _lastScanResult.value = ScanUiResult.NotFound(scannedText)
+                            scheduleReset(500)
                         }
                     }
                 }
             } finally {
                 isProcessing.set(false)
+            }
+        }
+    }
+
+    private fun speakAndClearUi(text: String) {
+        val startTime = System.currentTimeMillis()
+
+        // TTS Audio
+        ttsService.speak(text) {
+            // When TTS finishes...
+            val elapsedTime = System.currentTimeMillis() - startTime
+            val remainingTime = max(0L, minDisplayMs - elapsedTime)
+
+            resetJob = viewModelScope.launch {
+                // Ensure green box stays for at least 1.5s total (unless interrupted)
+                if (remainingTime > 0) {
+                    delay(remainingTime)
+                }
+                _lastScanResult.value = ScanUiResult.Idle
             }
         }
     }

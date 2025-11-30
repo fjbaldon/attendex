@@ -14,6 +14,7 @@ import org.springframework.util.Assert;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,6 +26,51 @@ class RosterService {
     private final EventRepository eventRepository;
     private final AttendeeFacade attendeeFacade;
     private final ApplicationEventPublisher eventPublisher;
+
+    @Transactional(readOnly = true)
+    public Page<AttendeeDto> findRosterForEvent(Long eventId, Long organizationId, String query, Map<String, String> attributeFilters, Pageable pageable) {
+        eventRepository.findByIdAndOrganizationId(eventId, organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
+
+        Page<Long> attendeeIds;
+        List<Long> filteredIds = null;
+
+        // 1. Filter by Attributes first (if any)
+        if (attributeFilters != null && !attributeFilters.isEmpty()) {
+            filteredIds = attendeeFacade.findAttendeeIdsByFilters(organizationId, attributeFilters);
+            // If filters resulted in no matches, return empty immediately
+            if (filteredIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+        }
+
+        // 2. Query Roster (combining ID list and Search Query)
+        boolean hasQuery = query != null && !query.isBlank();
+
+        if (filteredIds != null) {
+            if (hasQuery) {
+                attendeeIds = rosterRepository.searchAttendeeIdsByEventIdAndAttendeeIdIn(eventId, filteredIds, query.trim(), pageable);
+            } else {
+                attendeeIds = rosterRepository.findAttendeeIdsByEventIdAndAttendeeIdIn(eventId, filteredIds, pageable);
+            }
+        } else {
+            if (hasQuery) {
+                attendeeIds = rosterRepository.searchAttendeeIdsByEventId(eventId, query.trim(), pageable);
+            } else {
+                attendeeIds = rosterRepository.findAttendeeIdsByEventId(eventId, pageable);
+            }
+        }
+
+        return attendeeIds.map(attendeeId -> attendeeFacade.findAttendeeById(attendeeId, organizationId)
+                .orElseGet(() -> new AttendeeDto(
+                        attendeeId,
+                        "DELETED",
+                        "Deleted",
+                        "Attendee",
+                        Collections.emptyMap(),
+                        null
+                )));
+    }
 
     @Transactional
     public void addAttendeeToRoster(Long eventId, Long attendeeId, Long organizationId) {
@@ -73,40 +119,12 @@ class RosterService {
 
         if (!newEntries.isEmpty()) {
             rosterRepository.saveAll(newEntries);
-
-            // FIX: Publish events for every new entry so Analytics/Notifications know about them
-            // In a very high volume scenario (10k+), we might want a BatchEvent, but for <5000
-            // iterating is acceptable and ensures consistency with the existing listener.
             for (RosterEntry entry : newEntries) {
                 eventPublisher.publishEvent(new RosterEntryAddedEvent(eventId, organizationId, entry.getId().getAttendeeId()));
             }
         }
 
         return newEntries.size();
-    }
-
-    @Transactional(readOnly = true)
-    public Page<AttendeeDto> findRosterForEvent(Long eventId, Long organizationId, String query, Pageable pageable) {
-        eventRepository.findByIdAndOrganizationId(eventId, organizationId)
-                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
-
-        Page<Long> attendeeIds;
-
-        if (query != null && !query.isBlank()) {
-            attendeeIds = rosterRepository.searchAttendeeIdsByEventId(eventId, query.trim(), pageable);
-        } else {
-            attendeeIds = rosterRepository.findAttendeeIdsByEventId(eventId, pageable);
-        }
-
-        return attendeeIds.map(attendeeId -> attendeeFacade.findAttendeeById(attendeeId, organizationId)
-                .orElseGet(() -> new AttendeeDto(
-                        attendeeId,
-                        "DELETED",
-                        "Deleted",
-                        "Attendee",
-                        Collections.emptyMap(),
-                        null
-                )));
     }
 
     @Transactional(readOnly = true)

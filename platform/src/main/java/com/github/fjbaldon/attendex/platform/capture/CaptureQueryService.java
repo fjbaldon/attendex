@@ -26,40 +26,39 @@ class CaptureQueryService {
     private final OrganizationFacade organizationFacade;
 
     @Transactional(readOnly = true)
+    public Page<EntryDetailsDto> findEntries(Long eventId, Long organizationId, Long sessionId, String intent, String query, Map<String, String> attributeFilters, Pageable pageable) {
+        eventFacade.ensureEventExists(eventId, organizationId);
+
+        List<Long> attendeeIds = Collections.emptyList();
+        boolean hasAttendeeFilter = false;
+
+        if (attributeFilters != null && !attributeFilters.isEmpty()) {
+            attendeeIds = attendeeFacade.findAttendeeIdsByFilters(organizationId, attributeFilters);
+            hasAttendeeFilter = true;
+            if (attendeeIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+        }
+
+        Page<Entry> entriesPage = entryRepository.findAllEntries(eventId, sessionId, intent, query, attendeeIds, hasAttendeeFilter, pageable);
+
+        List<EntryDetailsDto> dtos = mapEntriesToDtos(entriesPage.getContent());
+        return new PageImpl<>(dtos, pageable, entriesPage.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
     public List<EntryDetailsDto> findFilteredEntries(Long organizationId, Long eventId, Long sessionId, String intent, List<Long> attendeeIds) {
         eventFacade.findEventById(eventId, organizationId);
 
-        // Guard against empty IN clause BUT NOT null
-        // If attendeeIds is not null but empty (filters resulted in 0 matches), return empty immediately
         if (attendeeIds != null && attendeeIds.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // Logic: if null, user didn't select any filters -> hasAttendeeFilter = false
-        // if not null (and not empty per above), -> hasAttendeeFilter = true
         boolean hasAttendeeFilter = (attendeeIds != null);
-
-        // Pass empty list if null to satisfy type checker, but the boolean flag controls the query
         List<Long> safeIds = hasAttendeeFilter ? attendeeIds : Collections.emptyList();
 
         List<Entry> entries = entryRepository.findEntriesForReport(eventId, sessionId, intent, safeIds, hasAttendeeFilter);
         return mapEntriesToDtos(entries);
-    }
-
-    // ... [Rest of the file remains unchanged] ...
-
-    @Transactional(readOnly = true)
-    public Page<EntryDetailsDto> findEntriesByEventAndIntent(Long eventId, Long organizationId, String intent, String query, Pageable pageable) {
-        eventFacade.ensureEventExists(eventId, organizationId);
-        List<Long> sessionIds = eventFacade.findSessionIdsByIntent(eventId, intent);
-
-        if (sessionIds.isEmpty()) {
-            return Page.empty(pageable);
-        }
-
-        Page<Entry> entriesPage = entryRepository.findBySessionIdsAndQuery(sessionIds, query, pageable);
-        List<EntryDetailsDto> dtos = mapEntriesToDtos(entriesPage.getContent());
-        return new PageImpl<>(dtos, pageable, entriesPage.getTotalElements());
     }
 
     @Transactional(readOnly = true)
@@ -201,8 +200,13 @@ class CaptureQueryService {
                             entry.getAttendeeId(), identity, firstName, lastName, attributes, null
                     );
 
+                    // inside mapEntriesToDtos
                     return new EntryDetailsDto(
-                            entry.getId(), entry.getScanTimestamp(), entry.getPunctuality(), displayAttendee
+                            entry.getId(),
+                            entry.getSessionId(), // Map sessionId
+                            entry.getScanTimestamp(),
+                            entry.getPunctuality(),
+                            displayAttendee
                     );
                 })
                 .collect(Collectors.toList());

@@ -14,14 +14,14 @@ import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.github.fjbaldon.attendex.capture.feature.scanner.ScanMode
@@ -42,10 +42,7 @@ fun CameraPreview(
 
     var hasCamPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
 
@@ -74,11 +71,9 @@ fun CameraPreview(
         camera?.cameraControl?.enableTorch(torchEnabled)
     }
 
-    // FIXED: Use DisposableEffect to manage the ExecutorService lifecycle
     DisposableEffect(cameraProvider, previewView, scanMode) {
         val provider = cameraProvider
         val view = previewView
-        // Create executor within the effect scope
         val cameraExecutor = Executors.newSingleThreadExecutor()
 
         if (provider != null && view != null) {
@@ -88,10 +83,7 @@ fun CameraPreview(
                 it.surfaceProvider = view.surfaceProvider
             }
 
-            // --- OPTIMIZATION START ---
-            // Force 720p resolution (1280x720).
-            // Default behavior often picks highest resolution (4K), causing ML Kit lag.
-            // 720p is the sweet spot for OCR accuracy vs processing speed.
+            // 1. OPTIMIZATION: Force 720p (Sweet spot for ML Kit)
             val resolutionSelector = ResolutionSelector.Builder()
                 .setResolutionStrategy(
                     ResolutionStrategy(
@@ -100,7 +92,6 @@ fun CameraPreview(
                     )
                 )
                 .build()
-            // --- OPTIMIZATION END ---
 
             val analyzer = if (scanMode == ScanMode.QR) {
                 BarcodeScanningAnalyzer(onTextFound, isScanningRef)
@@ -109,7 +100,7 @@ fun CameraPreview(
             }
 
             val imageAnalyzer = ImageAnalysis.Builder()
-                .setResolutionSelector(resolutionSelector) // Apply resolution fix
+                .setResolutionSelector(resolutionSelector)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also {
@@ -124,8 +115,7 @@ fun CameraPreview(
                 )
                 onTorchToggle(camera?.cameraInfo?.hasFlashUnit() ?: false)
                 camera?.cameraControl?.enableTorch(torchEnabled)
-            } catch (_: Exception) {
-            }
+            } catch (_: Exception) { }
         }
 
         onDispose {
@@ -149,8 +139,7 @@ fun CameraPreview(
                     providerFuture.addListener({
                         try {
                             cameraProvider = providerFuture.get()
-                        } catch (_: Exception) {
-                        }
+                        } catch (_: Exception) { }
                     }, ContextCompat.getMainExecutor(ctx))
 
                     view
@@ -158,21 +147,10 @@ fun CameraPreview(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            PermissionRequiredScreen(onRequestPermission = {
-                launcher.launch(Manifest.permission.CAMERA)
-            })
-        }
-    }
-}
-
-@Composable
-fun PermissionRequiredScreen(onRequestPermission: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Camera Permission Required")
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = onRequestPermission) {
-                Text("Grant Permission")
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Button(onClick = { launcher.launch(Manifest.permission.CAMERA) }) {
+                    Text("Grant Camera Permission")
+                }
             }
         }
     }
