@@ -25,8 +25,10 @@
           buildInputs = [
             javaVersion
             gradleConfigured
+            pkgs.repomix
+            pkgs.git
             pkgs.kotlin
-            pkgs.nodejs_22
+            pkgs.nodejs_24
             pkgs.postgresql_16
             pkgs.podman-compose
           ];

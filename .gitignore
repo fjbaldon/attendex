@@ -87,3 +87,6 @@ local.properties
 Thumbs.db
 *~
 *.swp
+
+repomix-output.xml
+
